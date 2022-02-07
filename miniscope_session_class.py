@@ -68,12 +68,6 @@ class miniscope_session:
                 A_std = np.repeat(np.nanstd(A,axis=axis_id),np.shape(A)[axis_id],axis=axis_id)
                 A_norm = np.divide((A-A_mean),A_std)
         return A_norm
-
-    @staticmethod
-    def minmax_norm(A):
-        """Normalizes a vector by doing min-max normalization"""
-        A_norm = (A-min(A))/(max(A)-min(A))
-        return A_norm
     
     @staticmethod
     def inpaint_nans(A):
@@ -157,6 +151,79 @@ class miniscope_session:
         return p_corrcoef
 
     @staticmethod
+    def get_events(coord_cell, df_dFF, timeT, thrs_amp):
+        """"Function to get the calcium event using Jorge's derivative method
+        Inputs:
+        coord_cell: list with ROI coordinates
+        df_dFF: dataframe with calcium trace values
+        timeT: time thershold (within how many frames does the vent happen)
+        thrs_amp: amplitude threshold for the events - percentile of the trace"""
+        roi_trace = np.array(df_dFF.iloc[:, 2:])
+        events_mat = np.zeros(np.shape(roi_trace))
+        for r in range(np.shape(roi_trace)[1]):
+            # amp = np.nanpercentile(roi_trace[:, r], thrs_amp)
+            [JoinedPosSet_all, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(roi_trace[:, r], thrs_amp, timeT,
+                                                                                   CollapSeq=True, acausal=False,
+                                                                                   verbose=0, graph=None)
+            events_mat[ST.event_detection_calcium_trace(roi_trace[:, r], JoinedPosSet_all, timeT), r] = 1
+        roi_list = []
+        for r in range(len(coord_cell)):
+            roi_list.append('ROI' + str(r + 1))
+        df_events_mat = pd.DataFrame(events_mat, columns=roi_list)
+        df_events = pd.concat([df_dFF.iloc[:, :2], df_events_mat], axis=1)
+        return df_events
+
+    @staticmethod
+    def minmax_norm_traces(df_fiji):
+        """Function to do a min-max normalization of the calcim trace of the dataframe
+        Input:
+            df_fiji: dataframe with session info and calcium traces"""
+        min_fiji = np.tile(np.array(df_fiji.iloc[:, 2:].min(axis=0)), (np.shape(df_fiji)[0], 1))
+        arr_fiji_minmax = (np.array(df_fiji.iloc[:, 2:]) - min_fiji) / (
+                    np.array(df_fiji.iloc[:, 2:].max(axis=0)) - np.array(df_fiji.iloc[:, 2:].min(axis=0)))
+        roi_list = list(df_fiji.columns[2:])
+        trial_ext = list(df_fiji['trial'])
+        frame_time_ext = list(df_fiji['time'])
+        data_fiji1 = {'trial': trial_ext, 'time': frame_time_ext}
+        df_fiji1 = pd.DataFrame(data_fiji1)
+        df_fiji2 = pd.DataFrame(arr_fiji_minmax, columns=roi_list)
+        df_fiji_minmax = pd.concat([df_fiji1, df_fiji2], axis=1)
+        return df_fiji_minmax
+
+    @staticmethod
+    def get_roi_stats(coord_cell):
+        """From the ROIs coordinates get the width, height and aspect ratio
+        Input:
+        coord_cell (list of ROI coordinates)"""
+        width_roi = []
+        height_roi = []
+        aspect_ratio = []
+        for r in range(len(coord_cell)):
+            params, ell = miniscope_session.fitEllipse(coord_cell[r], 1)
+            width_roi.append(params[2])
+            height_roi.append(params[3])
+            aspect_ratio.append(params[3] / params[2])
+        return width_roi, height_roi, aspect_ratio
+
+    @staticmethod
+    def get_roi_centroids(coord_cell):
+        """From the ROIs coordinates get the centroid
+        Input:
+        coord_cell (list of ROI coordinates)"""
+        centroid_cell = []
+        for r in range(len(coord_cell)):
+            centroid_cell.append(np.array([np.nanmean(coord_cell[r][:,0]), np.nanmean(coord_cell[r][:,1])]))
+        return centroid_cell
+
+    @staticmethod
+    def get_roi_list(coord_cell):
+        """ Get number of ROI names for the session"""
+        roi_list =  []
+        for r in range(len(coord_cell)):
+            roi_list.append('ROI'+str(r+1))
+        return roi_list
+
+    @staticmethod
     def euler_from_quaternion(x, y, z, w):
             """Convert a quaternion into euler angles (roll, pitch, yaw)
             roll is rotation around x in radians (counterclockwise)
@@ -188,6 +255,125 @@ class miniscope_session:
             yaw = z_angles
             roll = x_angles
             return roll, pitch, yaw # in radians
+
+    @staticmethod
+    def correct_gimbal_lock(head_angles):
+        """Funtion to deal with ambiguous conversion from quartenion to euler angles
+        that occurs from time to time. Different quartenions can give the same euler angle.
+        Correct the circularity of those values.
+        Inputs:
+            head_angles (dataframe)"""
+        fig, ax = plt.subplots(1, 3, figsize=(10, 10), tight_layout=True)
+        ax = ax.ravel()
+        ax[0].plot(head_angles['pitch'], color='black')
+        ax[0].set_title('Pitch')
+        ax[1].plot(head_angles['roll'], color='black')
+        ax[1].set_title('Roll')
+        ax[2].plot(head_angles['yaw'], color='black')
+        ax[2].set_title('Yaw')
+        plt.suptitle('Before corrections')
+        pitch_amp = np.max(head_angles['pitch']) - np.mean(head_angles['pitch'])
+        roll_amp = np.max(head_angles['roll']) - np.mean(head_angles['roll'])
+        yaw_amp = np.max(head_angles['yaw']) - np.mean(head_angles['yaw'])
+        if pitch_amp > 2:
+            plt.figure(figsize=(15, 7), tight_layout=True)
+            plt.plot(head_angles['pitch'], color='black')
+            plt.title('First high threshold then low')
+            coord = plt.ginput(n=2, timeout=0, show_clicks=True)
+            pitch_th = np.array([coord[1][1], coord[0][1]])
+            idx_nan_down_p = np.where(head_angles['pitch'] < pitch_th[0])[0]
+            idx_nan_up_p = np.where(head_angles['pitch'] > pitch_th[1])[0]
+            head_angles.iloc[idx_nan_up_p, 1] = head_angles.iloc[idx_nan_up_p, 1] - 2 * np.pi
+            head_angles.iloc[idx_nan_down_p, 1] = head_angles.iloc[idx_nan_down_p, 1] + 2 * np.pi
+        else:
+            pitch_th = np.array([np.min(head_angles['pitch']) - 1, np.max(head_angles['pitch']) + 1])
+        if roll_amp > 2:
+            plt.figure(figsize=(15, 7), tight_layout=True)
+            plt.plot(head_angles['roll'], color='black')
+            plt.title('First high threshold then low')
+            coord = plt.ginput(n=2, timeout=0, show_clicks=True)
+            roll_th = np.array([coord[1][1], coord[0][1]])
+            idx_nan_down_r = np.where(head_angles['roll'] < roll_th[0])[0]
+            idx_nan_up_r = np.where(head_angles['roll'] > roll_th[1])[0]
+            head_angles.iloc[idx_nan_up_r, 0] = head_angles.iloc[idx_nan_up_r, 0] - np.pi
+            head_angles.iloc[idx_nan_down_r, 0] = head_angles.iloc[idx_nan_down_r, 0] + np.pi
+        else:
+            roll_th = np.array([np.min(head_angles['roll']) - 1, np.max(head_angles['roll']) + 1])
+        if yaw_amp > 2:
+            plt.figure(figsize=(15, 7), tight_layout=True)
+            plt.plot(head_angles['yaw'], color='black')
+            plt.title('First high threshold then low')
+            coord = plt.ginput(n=2, timeout=0, show_clicks=True)
+            yaw_th = np.array([coord[1][1], coord[0][1]])
+            idx_nan_down_y = np.where(head_angles['yaw'] < yaw_th[0])[0]
+            idx_nan_up_y = np.where(head_angles['yaw'] > yaw_th[1])[0]
+            head_angles.iloc[idx_nan_up_y, 2] = head_angles.iloc[idx_nan_up_y, 2] - 2 * np.pi
+            head_angles.iloc[idx_nan_down_y, 2] = head_angles.iloc[idx_nan_down_y, 2] + 2 * np.pi
+        else:
+            yaw_th = np.array([np.min(head_angles['yaw']) - 1, np.max(head_angles['yaw']) + 1])
+        fig, ax = plt.subplots(1, 3, figsize=(10, 10), tight_layout=True)
+        ax = ax.ravel()
+        ax[0].plot(head_angles['pitch'], color='black')
+        ax[0].set_title('Pitch')
+        ax[1].plot(head_angles['roll'], color='black')
+        ax[1].set_title('Roll')
+        ax[2].plot(head_angles['yaw'], color='black')
+        ax[2].set_title('Yaw')
+        plt.suptitle('After corrections')
+        return head_angles
+
+    @staticmethod
+    def pca_centroids(principalComponents_3CP, trial_clean, trials, plot_data):
+        """Function to compute the centroids of the PCA space for each trial
+        Inputs:
+            principalComponents_3CP: array of PCA output
+            trial_clean: array of trial id for PCA output
+            trials: arrays with trials in session
+            plot_data: boolean"""
+        greys = mp.cm.get_cmap('Greys', 12)
+        reds = mp.cm.get_cmap('Reds', 23)
+        blues = mp.cm.get_cmap('Blues', 23)
+        colors_session = [greys(5), greys(7), greys(12), reds(5), reds(7), reds(9), reds(11), reds(13), reds(15),
+                          reds(17), reds(19), reds(21), reds(23), blues(5), blues(7), blues(9), blues(11), blues(13),
+                          blues(15), blues(17), blues(19), blues(21), blues(23)]
+        centroid_trials = []  # CHANGE NO MAXMIN NORM, CENTROID POINTS SHOULD
+        for t in trials:
+            idx_trial = np.where(trial_clean == t)
+            x_norm = (principalComponents_3CP[idx_trial, 0] - np.min(principalComponents_3CP[idx_trial, 0])) / (
+                        np.max(principalComponents_3CP[idx_trial, 0]) - np.min(principalComponents_3CP[idx_trial, 0]))
+            y_norm = (principalComponents_3CP[idx_trial, 1] - np.min(principalComponents_3CP[idx_trial, 1])) / (
+                        np.max(principalComponents_3CP[idx_trial, 1]) - np.min(principalComponents_3CP[idx_trial, 1]))
+            centroid_trials.append(np.array([np.nanmean(x_norm), np.nanmean(y_norm)]))
+        if plot_data:
+            fig, ax = plt.subplots(figsize=(10, 10), tight_layout=True)
+            for t in range(len(trials)):
+                plt.scatter(centroid_trials[t][0], centroid_trials[t][1], s=100, color=colors_session[t])
+            plt.xticks(fontsize=16)
+            plt.yticks(fontsize=16)
+            ax.spines['right'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            plt.legend(trials, frameon=False)
+        return centroid_trials
+
+    @staticmethod
+    def distance_neurons(centroid_cell,plot_data):
+        """Computes the distance between ROIs from the centroids given by suite2p
+        Inputs:
+            plot_data (boolean)"""
+        roi_nr = np.arange(len(centroid_cell))
+        distance_neurons = np.zeros((len(centroid_cell),len(centroid_cell)))
+        for r1 in range(len(centroid_cell)):
+            for r2 in range(len(centroid_cell)):
+                distance_neurons[r1,r2] = np.linalg.norm(np.array(centroid_cell[r1])-np.array(centroid_cell[r2]))
+        if plot_data:
+            mask = np.triu(np.ones_like(distance_neurons, dtype=np.bool))
+            fig,ax = plt.subplots()
+            with sns.axes_style("white"):
+                sns.heatmap(distance_neurons, mask=mask, cmap="YlGnBu",linewidth=0.5)
+                ax.set_title('distance between ROIs')
+                ax.set_yticklabels(roi_nr)
+                ax.set_xticklabels(roi_nr)
+        return distance_neurons
 
     def get_animal_id(self):
         animal_name = self.path.split(self.delim)[3]
@@ -250,7 +436,7 @@ class miniscope_session:
         corrXY = ops[()]['corrXY'] #phase correlation between ref image and each frame
         return x_offset, y_offset, corrXY
     
-    def corr_FOV_movement(self,th,df_dFF,corrXY):
+    def corr_FOV_movement(self, th, df_dFF, corrXY):
         """Function to make nan times where FOV moved out of focus
         Input: corrXY (array)"""
         fig = plt.figure(figsize=(5,5),tight_layout=True)
@@ -301,7 +487,7 @@ class miniscope_session:
             coord_cell_switch[:,0] = coord_cell[c][:,1]/self.pixel_to_um
             coord_cell_switch[:,1] = coord_cell[c][:,0]/self.pixel_to_um
             coord_cell_t.append(coord_cell_switch)
-        #trace as dataframe
+        # trace as dataframe
         roi_list =  []
         for r in range(len(coord_cell)):
             roi_list.append('ROI'+str(r+1))
@@ -311,13 +497,14 @@ class miniscope_session:
         df_ext = pd.concat([df_ext1, df_ext2], axis=1)
         return coord_cell_t, df_ext
 
-    def get_imagej_output(self,frame_time,trials):
+    def get_imagej_output(self,frame_time,trials,norm):
         """Function to get the pixel coordinates (list of arrays) and calcium trace
          (dataframe) for each ROI giving a threshold on the spatial weights
         (ImageJ output)
         Inputs:
             frame_time: list with miniscope timestamps
-            trial: (arr) - trial list"""
+            trial: (arr) - trial list
+            norm: boolean to do min-max normalization"""
         path_fiji = 'Registered video' + self.delim
         filename_rois = 'RoiSet.zip'
         rois = read_roi.read_roi_zip(self.path + path_fiji + filename_rois)
@@ -348,15 +535,17 @@ class miniscope_session:
                 for f in range(np.shape(tiff_stack)[0]):
                    roi_trace_tiffmean[f,c] = np.nansum(tiff_stack[f, np.int64(
                        coord_fiji[c][:, 1] * self.pixel_to_um), np.int64(
-                       coord_fiji[c][:, 0] * self.pixel_to_um)])
+                       coord_fiji[c][:, 0] * self.pixel_to_um)])/len(coord_fiji[c][:, 1])
             roi_trace_all.append(roi_trace_tiffmean)
         roi_trace_concat = np.vstack(roi_trace_all)
-        # Normalize traces
-        roi_trace_minmax = np.zeros(np.shape(roi_trace_concat))
-        for col in range(np.shape(roi_trace_tiffmean)[1]):
-            roi_trace_minmax[:, col] = (roi_trace_concat[:, col] - np.min(roi_trace_concat[:, col])) / (
-                        np.max(roi_trace_concat[:, col]) - np.min(roi_trace_concat[:, col]))
-        #trace as dataframe
+        if norm:
+            # Normalize traces
+            roi_trace_minmax = np.zeros(np.shape(roi_trace_concat))
+            for col in range(np.shape(roi_trace_tiffmean)[1]):
+                roi_trace_minmax[:, col] = (roi_trace_concat[:, col] - np.min(roi_trace_concat[:, col])) / (
+                            np.max(roi_trace_concat[:, col]) - np.min(roi_trace_concat[:, col]))
+            roi_trace_concat = roi_trace_minmax
+        # trace as dataframe
         roi_list =  []
         for r in range(len(coord_fiji)):
             roi_list.append('ROI'+str(r+1))
@@ -367,39 +556,9 @@ class miniscope_session:
             frame_time_ext.extend(frame_time[t - 1])
         data_fiji1 = {'trial': trial_ext, 'time': frame_time_ext}
         df_fiji1 = pd.DataFrame(data_fiji1)
-        df_fiji2 = pd.DataFrame(roi_trace_minmax, columns=roi_list)
+        df_fiji2 = pd.DataFrame(roi_trace_concat, columns=roi_list)
         df_fiji = pd.concat([df_fiji1, df_fiji2], axis=1)
         return coord_fiji, df_fiji
-
-    def get_roi_stats(self,coord_cell):
-        """From the ROIs coordinates get the width, height and aspect ratio
-        Input:
-        coord_cell (list of ROI coordinates)"""
-        width_roi = []
-        height_roi = []
-        aspect_ratio = []
-        for r in range(len(coord_cell)):
-            params, ell = miniscope_session.fitEllipse(coord_cell[r], 1)
-            width_roi.append(params[2])
-            height_roi.append(params[3])
-            aspect_ratio.append(params[3] / params[2])
-        return width_roi, height_roi, aspect_ratio
-
-    def get_roi_centroids(self,coord_cell):
-        """From the ROIs coordinates get the centroid
-        Input:
-        coord_cell (list of ROI coordinates)"""
-        centroid_cell = []
-        for r in range(len(coord_cell)):
-            centroid_cell.append(np.array([np.nanmean(coord_cell[r][:,0]), np.nanmean(coord_cell[r][:,1])]))
-        return centroid_cell
-
-    def get_roi_list(self, coord_cell):
-        """ Get number of ROI names for the session"""
-        roi_list =  []
-        for r in range(len(coord_cell)):
-            roi_list.append('ROI'+str(r+1))
-        return roi_list
 
     def roi_curation(self, ref_image, df_dFF, coord_cell, trial_curation):
         """Check each ROI spatial and temporally (for a certain trial) and choose the ones to keep.
@@ -578,71 +737,6 @@ class miniscope_session:
         head_orientation = pd.DataFrame(dict_ori)  # create dataframe with dFF, roi id and trial id
         return head_orientation
 
-    def correct_gimbal_lock(self, head_angles):
-        """Funtion to deal with ambiguous conversion from quartenion to euler angles
-        that occurs from time to time. Different quartenions can give the same euler angle.
-        Correct the circularity of those values.
-        Inputs:
-            head_angles (dataframe)"""
-        fig, ax = plt.subplots(1, 3, figsize=(10, 10), tight_layout=True)
-        ax = ax.ravel()
-        ax[0].plot(head_angles['pitch'], color='black')
-        ax[0].set_title('Pitch')
-        ax[1].plot(head_angles['roll'], color='black')
-        ax[1].set_title('Roll')
-        ax[2].plot(head_angles['yaw'], color='black')
-        ax[2].set_title('Yaw')
-        plt.suptitle('Before corrections')
-        pitch_amp = np.max(head_angles['pitch']) - np.mean(head_angles['pitch'])
-        roll_amp = np.max(head_angles['roll']) - np.mean(head_angles['roll'])
-        yaw_amp = np.max(head_angles['yaw']) - np.mean(head_angles['yaw'])
-        if pitch_amp > 2:
-            plt.figure(figsize=(15, 7), tight_layout=True)
-            plt.plot(head_angles['pitch'], color='black')
-            plt.title('First high threshold then low')
-            coord = plt.ginput(n=2, timeout=0, show_clicks=True)
-            pitch_th = np.array([coord[1][1], coord[0][1]])
-            idx_nan_down_p = np.where(head_angles['pitch'] < pitch_th[0])[0]
-            idx_nan_up_p = np.where(head_angles['pitch'] > pitch_th[1])[0]
-            head_angles.iloc[idx_nan_up_p, 1] = head_angles.iloc[idx_nan_up_p, 1] - 2 * np.pi
-            head_angles.iloc[idx_nan_down_p, 1] = head_angles.iloc[idx_nan_down_p, 1] + 2 * np.pi
-        else:
-            pitch_th = np.array([np.min(head_angles['pitch']) - 1, np.max(head_angles['pitch']) + 1])
-        if roll_amp > 2:
-            plt.figure(figsize=(15, 7), tight_layout=True)
-            plt.plot(head_angles['roll'], color='black')
-            plt.title('First high threshold then low')
-            coord = plt.ginput(n=2, timeout=0, show_clicks=True)
-            roll_th = np.array([coord[1][1], coord[0][1]])
-            idx_nan_down_r = np.where(head_angles['roll'] < roll_th[0])[0]
-            idx_nan_up_r = np.where(head_angles['roll'] > roll_th[1])[0]
-            head_angles.iloc[idx_nan_up_r, 0] = head_angles.iloc[idx_nan_up_r, 0] - np.pi
-            head_angles.iloc[idx_nan_down_r, 0] = head_angles.iloc[idx_nan_down_r, 0] + np.pi
-        else:
-            roll_th = np.array([np.min(head_angles['roll']) - 1, np.max(head_angles['roll']) + 1])
-        if yaw_amp > 2:
-            plt.figure(figsize=(15, 7), tight_layout=True)
-            plt.plot(head_angles['yaw'], color='black')
-            plt.title('First high threshold then low')
-            coord = plt.ginput(n=2, timeout=0, show_clicks=True)
-            yaw_th = np.array([coord[1][1], coord[0][1]])
-            idx_nan_down_y = np.where(head_angles['yaw'] < yaw_th[0])[0]
-            idx_nan_up_y = np.where(head_angles['yaw'] > yaw_th[1])[0]
-            head_angles.iloc[idx_nan_up_y, 2] = head_angles.iloc[idx_nan_up_y, 2] - 2 * np.pi
-            head_angles.iloc[idx_nan_down_y, 2] = head_angles.iloc[idx_nan_down_y, 2] + 2 * np.pi
-        else:
-            yaw_th = np.array([np.min(head_angles['yaw']) - 1, np.max(head_angles['yaw']) + 1])
-        fig, ax = plt.subplots(1, 3, figsize=(10, 10), tight_layout=True)
-        ax = ax.ravel()
-        ax[0].plot(head_angles['pitch'], color='black')
-        ax[0].set_title('Pitch')
-        ax[1].plot(head_angles['roll'], color='black')
-        ax[1].set_title('Roll')
-        ax[2].plot(head_angles['yaw'], color='black')
-        ax[2].set_title('Yaw')
-        plt.suptitle('After corrections')
-        return head_angles
-
     def pca_head_angles(self, head_angles, trials, plot_data):
         """Function to compute the PCA manifold of head angle data for a single animal.
         Outputs PCA space and trial id for each point in the manifold
@@ -657,7 +751,6 @@ class miniscope_session:
         trial_clean = np.delete(headangles_trial, np.where(np.isnan(headangles_array))[0], axis=0)
         pca = PCA(n_components=3)
         principalComponents_3CP = pca.fit_transform(headangles_array_clean)
-
         if plot_data:
             # Number of components and variance
             fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
@@ -698,38 +791,6 @@ class miniscope_session:
                 else:
                     plt.savefig(self.path + 'images\\acc\\' + 'pca_2d', dpi=400)
         return principalComponents_3CP, trial_clean
-
-    def pca_centroids(self, principalComponents_3CP, trial_clean, trials, plot_data):
-        """Function to compute the centroids of the PCA space for each trial
-        Inputs:
-            principalComponents_3CP: array of PCA output
-            trial_clean: array of trial id for PCA output
-            trials: arrays with trials in session
-            plot_data: boolean"""
-        greys = mp.cm.get_cmap('Greys', 12)
-        reds = mp.cm.get_cmap('Reds', 23)
-        blues = mp.cm.get_cmap('Blues', 23)
-        colors_session = [greys(5), greys(7), greys(12), reds(5), reds(7), reds(9), reds(11), reds(13), reds(15),
-                          reds(17), reds(19), reds(21), reds(23), blues(5), blues(7), blues(9), blues(11), blues(13),
-                          blues(15), blues(17), blues(19), blues(21), blues(23)]
-        centroid_trials = []  # CHANGE NO MAXMIN NORM, CENTROID POINTS SHOULD
-        for t in trials:
-            idx_trial = np.where(trial_clean == t)
-            x_norm = (principalComponents_3CP[idx_trial, 0] - np.min(principalComponents_3CP[idx_trial, 0])) / (
-                        np.max(principalComponents_3CP[idx_trial, 0]) - np.min(principalComponents_3CP[idx_trial, 0]))
-            y_norm = (principalComponents_3CP[idx_trial, 1] - np.min(principalComponents_3CP[idx_trial, 1])) / (
-                        np.max(principalComponents_3CP[idx_trial, 1]) - np.min(principalComponents_3CP[idx_trial, 1]))
-            centroid_trials.append(np.array([np.nanmean(x_norm), np.nanmean(y_norm)]))
-        if plot_data:
-            fig, ax = plt.subplots(figsize=(10, 10), tight_layout=True)
-            for t in range(len(trials)):
-                plt.scatter(centroid_trials[t][0], centroid_trials[t][1], s=100, color=colors_session[t])
-            plt.xticks(fontsize=16)
-            plt.yticks(fontsize=16)
-            ax.spines['right'].set_visible(False)
-            ax.spines['top'].set_visible(False)
-            plt.legend(trials, frameon=False)
-        return centroid_trials
 
     def plot_rois_ref_image(self, ref_image, coord_cell, print_plots):
         """Plot ROIs on top of reference image.
@@ -805,25 +866,6 @@ class miniscope_session:
                 plt.savefig(self.path + 'images/' + 'dFF_stacked_traces', dpi=self.my_dpi)
             else:
                 plt.savefig(self.path + 'images\\' + 'dFF_stacked_traces', dpi=self.my_dpi)
-
-    def distance_neurons(self,centroid_cell,plot_data):
-        """Computes the distance between ROIs from the centroids given by suite2p
-        Inputs:
-            plot_data (boolean)"""
-        roi_nr = np.arange(len(centroid_cell))
-        distance_neurons = np.zeros((len(centroid_cell),len(centroid_cell)))
-        for r1 in range(len(centroid_cell)):
-            for r2 in range(len(centroid_cell)):
-                distance_neurons[r1,r2] = np.linalg.norm(np.array(centroid_cell[r1])-np.array(centroid_cell[r2]))
-        if plot_data:
-            mask = np.triu(np.ones_like(distance_neurons, dtype=np.bool))
-            fig,ax = plt.subplots()
-            with sns.axes_style("white"):
-                sns.heatmap(distance_neurons, mask=mask, cmap="YlGnBu",linewidth=0.5)
-                ax.set_title('distance between ROIs')
-                ax.set_yticklabels(roi_nr)
-                ax.set_xticklabels(roi_nr)
-        return distance_neurons
 
     def compute_roi_clustering(self, df_dFF, centroid_cell, distance_neurons, trial, th_cluster, colormap_cluster, plot_data):
         """Function to get colors of ROIs according to its cluster id
@@ -958,12 +1000,14 @@ class miniscope_session:
                 plt.savefig(self.path + 'images\\cluster\\' + 'roi_clustering_trace', dpi=self.my_dpi)
         return
 
-    def compute_bg_roi_fiji(self, coord_cell, df_dFF, coeff_sub):
+    def compute_bg_roi_fiji(self, coord_cell, trials, frame_time, df_dFF, coeff_sub):
         """Function to compute a donut background around a determined FIJI ROI and compute its background subtracted signal.
         Input:
             coord_cell: list with ROIs coordinates
+            trials: array with all the trials in the session
+            frame_time: list with all the trial timestamps from the mscope
             df_dFF: dataframe with calcium traces
-            coeff_sub: (float 0-1) coefficient for backgrond subtraction"""
+            coeff_sub: (float 0-1) coefficient for background subtraction"""
         height_fiji = []
         xlength_fiji = []
         ylength_fiji = []
@@ -1005,19 +1049,17 @@ class miniscope_session:
                 tiff_stack = tiff.imread(self.path + 'Registered video\\T' + str(t) + '_reg.tif')  ##read tiffs
                 donut_trace_tiffmean = np.zeros((np.shape(tiff_stack)[0]))
                 for f in range(np.shape(tiff_stack)[0]):
-                    donut_trace_tiffmean[f] = np.nansum(tiff_stack[f, ROIdonut_coord[:, 1], ROIdonut_coord[:, 0]]) / \
-                                              np.shape(ROIdonut_coord)[0]
-                donut_trace_minmax = (donut_trace_tiffmean - np.min(donut_trace_tiffmean)) / (
-                        np.max(donut_trace_tiffmean) - np.min(donut_trace_tiffmean))
-                donut_trace_trials.append(donut_trace_minmax)
+                    donut_trace_tiffmean[f] = np.nansum(tiff_stack[f, ROIdonut_coord[:, 1], ROIdonut_coord[:, 0]])/np.shape(ROIdonut_coord)[0]
+                donut_trace_trials.append(donut_trace_tiffmean)
             donut_trace_concat = np.hstack(donut_trace_trials)
             donut_trace_all_list.append(donut_trace_concat)
-        roi_trace_bgsub_arr = np.array(df_dFF.iloc[:, 2:]) - (coeff_sub * donut_trace_all_list)
+        donut_trace_arr = np.transpose(np.vstack(donut_trace_all_list))
+        roi_trace_bgsub_arr = np.array(df_dFF.iloc[:, 2:]) - (coeff_sub * donut_trace_arr)
         idx_neg = np.where(roi_trace_bgsub_arr < 0)
         roi_trace_bgsub_arr[idx_neg[0], idx_neg[1]] = 0
-        #trace as dataframe
-        roi_list =  []
-        for r in range(len(coord_fiji)):
+        # trace as dataframe
+        roi_list = []
+        for r in range(len(coord_cell)):
             roi_list.append('ROI'+str(r+1))
         trial_ext = []
         frame_time_ext = []
@@ -1028,29 +1070,63 @@ class miniscope_session:
         df_fiji1 = pd.DataFrame(data_fiji1)
         df_fiji2 = pd.DataFrame(roi_trace_bgsub_arr, columns=roi_list)
         df_fiji = pd.concat([df_fiji1, df_fiji2], axis=1)
-        return df_dFF_bgsub
+        return df_fiji
 
-    def get_events(self,coord_cell,df_dFF,timeT,thrs_amp):
-        """"Function to get the calcium event using Jorge's derivative method
+    def save_processed_files(self, df_fiji, df_trace_bgsub, df_extract, trials, coord_fiji, coord_ext, th, idx_to_nan):
+        """Saves calcium traces, ROI coordinates, trial number and motion frames.
+        Saves them under path/processed files
         Inputs:
-        coord_cell: list with ROI coordinates
-        df_dFF: dataframe with calcium trace values
-        timeT: time thershold (within how many frames does the vent happen)
-        thrs_amp: amplitude threshold for the events - percentile of the trace"""
-        roi_trace = np.array(df_dFF.iloc[:, 2:])
-        events_mat = np.zeros(np.shape(roi_trace))
-        for r in range(np.shape(roi_trace)[1]):
-            amp = np.nanpercentile(roi_trace[:, r], thrs_amp)
-            [JoinedPosSet_all, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(roi_trace[:, r], amp, timeT,
-                                                                                   CollapSeq=True, acausal=False,
-                                                                                   verbose=0, graph=None)
-            events_mat[ST.event_detection_calcium_trace(roi_trace[:, r], JoinedPosSet_all, timeT), r] = 1
-        roi_list = []
-        for r in range(len(coord_cell)):
-            roi_list.append('ROI' + str(r + 1))
-        df_events_mat = pd.DataFrame(events_mat, columns=roi_list)
-        df_events = pd.concat([df_dFF.iloc[:, :2], df_events_mat], axis=1)
-        return df_events
+            df_dFF: dataframe with calcium trace from ImageJ
+            df_trace_bgsub: dataframe with calcium trace from ImageJ
+            df_extract: dataframe with calcium trace from EXTRACT
+            trials: array with list of recorded trials
+            coord_fiji: ROI coordinates from ImageJ
+            coord_ext: ROI coordinates from EXTRACT
+            idx_to_nan: indices of frames to dismiss while processing (too much motion)
+            th: threshold to discard frames for poor correlation with ref image"""
+        if not os.path.exists(self.path + 'processed files'):
+            os.mkdir(self.path + 'processed files')
+        if self.delim == '/':
+            df_fiji.to_csv(self.path + '/processed files/' + 'df_fiji.csv', sep=',', index = False)
+            df_trace_bgsub.to_csv(self.path + '/processed files/' + 'df_fiji_bgsub.csv', sep=',', index = False)
+            df_extract.to_csv(self.path + '/processed files/' + 'df_extract.csv', sep=',', index = False)
+            np.save(self.path + '/processed files/' + 'coord_fiji.npy', coord_fiji, allow_pickle = True)
+            np.save(self.path + '/processed files/' + 'coord_ext.npy', coord_ext, allow_pickle = True)
+            np.save(self.path + '/processed files/' + 'trials.npy', trials)
+            np.save(self.path + '/processed files/' + 'reg_th.npy', th)
+            np.save(self.path + '/processed files/' + 'frames_to_exclude.npy', idx_to_nan)
+        else:
+            df_fiji.to_csv(self.path + '\\processed files\\' + 'df_fiji.csv', sep=',', index = False)
+            df_trace_bgsub.to_csv(self.path + '\\processed files\\' + 'df_fiji_bgsub.csv', sep=',', index = False)
+            df_extract.to_csv(self.path + '\\processed files\\' + 'df_extract.csv', sep=',', index = False)
+            np.save(self.path + '\\processed files\\' + 'coord_fiji.npy', coord_fiji, allow_pickle = True)
+            np.save(self.path + '\\processed files\\' + 'coord_ext.npy', coord_ext, allow_pickle = True)
+            np.save(self.path + '\\processed files\\' + 'trials.npy', trials)
+            np.save(self.path + '\\processed files\\' + 'reg_th.npy', th)
+            np.save(self.path + '\\processed files\\' + 'frames_to_exclude.npy', idx_to_nan)
+        return
+
+    def load_processed_files(self):
+        """Loads processed files that were saved under path/processed files"""
+        if self.delim == '/':
+            df_fiji = pd.read_csv(self.path+'/processed files/'+'df_fiji.csv')
+            df_fiji_bgsub = pd.read_csv(self.path + '/processed files/' + 'df_fiji_bgsub.csv')
+            df_extract = pd.read_csv(self.path + '/processed files/' + 'df_extract.csv')
+            coord_fiji = np.load(self.path+'/processed files/'+'coord_fiji.npy', allow_pickle = True)
+            coord_ext = np.load(self.path + '/processed files/' + 'coord_ext.npy', allow_pickle = True)
+            trials = np.load(self.path+'/processed files/'+'trials.npy')
+            reg_th = np.load(self.path+'/processed files/'+'reg_th.npy')
+            reg_bad_frames = np.load(self.path+'/processed files/'+'frames_to_exclude.npy')
+        else:
+            df_fiji = pd.read_csv(self.path+'\\processed files\\'+'df_fiji.csv')
+            df_fiji_bgsub = pd.read_csv(self.path+'\\processed files\\'+'df_fiji_bgsub.csv')
+            df_extract = pd.read_csv(self.path+'\\processed files\\'+'df_extract.csv')
+            coord_fiji = np.load(self.path+'\\processed files\\'+'coord_fiji.npy', allow_pickle = True)
+            coord_ext = np.load(self.path + '\\processed files\\' + 'coord_ext.npy', allow_pickle = True)
+            trials = np.load(self.path+'\\processed files\\'+'trials.npy')
+            reg_th = np.load(self.path+'\\processed files\\'+'reg_th.npy')
+            reg_bad_frames = np.load(self.path+'\\processed files\\'+'frames_to_exclude.npy')
+        return df_fiji, df_fiji_bgsub, df_extract, trials, coord_fiji, coord_ext, reg_th, reg_bad_frames
 
     def get_nearest_rois_manual_roi(self,rois_df,centroid_cell,rfiji):
         """Get the nearest ROIs (from EXTRACT or others) to a certain manual
@@ -1634,55 +1710,6 @@ class miniscope_session:
                 plt.savefig(self.path+'images/'+ 'dFF_spikes_roi_'+str(roi), dpi=self.my_dpi)
             else:
                 plt.savefig(self.path+'images\\'+ 'dFF_spikes_roi_'+str(roi), dpi=self.my_dpi)
-                
-    def save_processed_dFF(self,dFF,dFF_trial,trials,keep_rois,th,idx_to_nan):
-        #TODO NEW VARS TO SAVE
-        """Saves dFF by trial after manual curation, plus list of recorded trials.
-        Saves them under .../Suite2p analysis/processed files
-        Inputs: 
-            dFF: array with dFF values for the whole session
-            dFF_trial: dataframe with dFF values by trial and ROI
-            trials: array with list of recorded trials
-            keep_rois: list of rois to keep
-            th: threshold to discard frames for poor correlation with ref image"""
-        if not os.path.exists(self.path+'processed files'):
-            os.mkdir(self.path+'processed files')
-        if self.delim == '/':
-            np.save(self.path+'/processed files/'+'dFF_session',dFF)
-            dFF_trial.to_pickle(self.path+'/processed files/'+'dFF')
-            np.save(self.path+'/processed files/'+'trials',trials)
-            np.save(self.path+'/processed files/'+'rois',keep_rois)
-            np.save(self.path+'/processed files/'+'reg_th',th)
-            np.save(self.path+'/processed files/'+'frames_to_exclude',idx_to_nan)
-        else:
-            np.save(self.path+'\\processed files\\'+'dFF_session',dFF)
-            dFF_trial.to_pickle(self.path+'\\processed files\\'+'dFF')
-            np.save(self.path+'\\processed files\\'+'trials',trials)
-            np.save(self.path+'\\processed files\\'+'rois',keep_rois)
-            np.save(self.path+'\\processed files\\'+'reg_th',th)
-            np.save(self.path+'\\processed files\\'+'frames_to_exclude',idx_to_nan)            
-        return
-
-    def load_processed_dFF(self):
-        #TODO NEW VARS TO LOAD
-        """Loads processed dFF by trial, plus list of recorded trials that were saved under
-        .../Suite2p/processed files"""
-        if self.delim == '/':
-            dFF_trial = pd.read_pickle(self.path+'/processed files/'+'dFF')
-            trials = np.load(self.path+'/processed files/'+'trials.npy')
-            dFF = np.load(self.path+'/processed files/'+'dFF_session.npy')
-            keep_rois = np.load(self.path+'/processed files/'+'rois.npy')
-            reg_th = np.load(self.path+'/processed files/'+'reg_th.npy')
-            reg_bad_frames = np.load(self.path+'/processed files/'+'frames_to_exclude.npy')
-
-        else:
-            dFF_trial = pd.read_pickle(self.path+'\\processed files\\'+'dFF')
-            trials = np.load(self.path+'\\processed files\\'+'trials.npy')
-            dFF = np.load(self.path+'\\processed files\\'+'dFF_session.npy')
-            keep_rois = np.load(self.path+'\\processed files\\'+'rois.npy')  
-            reg_th = np.load(self.path+'\\processed files\\'+'reg_th.npy')
-            reg_bad_frames = np.load(self.path+'\\processed files\\'+'frames_to_exclude.npy')
-        return dFF, dFF_trial, trials, keep_rois, reg_th, reg_bad_frames
     
     def cs_stride_event(self,spikes,st_strides_mat,sw_pts_mat,trial,paw,roi,align): #DO THIS WITH SPIKE TIME
         #TODO NEW SPIKES FORMAT

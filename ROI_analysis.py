@@ -3,6 +3,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mp
+import pandas as pd
 
 # path inputs
 path = 'E:\\TM RAW FILES\\split ipsi fast\\MC8855\\2021_04_05\\'
@@ -11,7 +12,7 @@ session_type = 'split'
 delim = path[-1]
 version_mscope = 'v4'
 load_data = 1
-plot_data = 1
+plot_data = 0
 paw_colors = ['red', 'magenta', 'blue', 'cyan']
 fsize = 24
 
@@ -53,8 +54,11 @@ trial_start_blip_nr = loco.trial_start_blips()
 frame_time = mscope.get_miniscope_frame_time(trials, frames_dFF, version_mscope)  # get frame time for each trial
 ref_image = mscope.get_ref_image()
 session_type = path.split(delim)[-4].split(' ')[0]  # tied or split
-if session_type == 'tied':
-    trials_ses = np.array([3, 4])
+if session_type == 'tied' and animal == 'MC8855':
+    trials_ses = np.array([3, 6])
+    trials_ses_name = ['baseline speed', 'fast speed']
+if session_type == 'tied' and animal != 'MC8855':
+    trials_ses = np.array([6, 12, 18])
     trials_ses_name = ['baseline speed', 'fast speed']
 if session_type == 'split':
     trials_ses = np.array([3, 4, 13, 14])
@@ -65,6 +69,8 @@ if len(trials) == 23:
     trials_washout = np.array([14, 15, 16, 17, 18, 19, 20, 21, 22, 23])
 elif len(trials) == 26:
     trials_baseline = np.array([1, 2, 3, 4, 5, 6])
+    trials_split = np.array([7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+    trials_washout = np.array([17, 18, 19, 20, 21, 22, 23, 24, 25, 26])
 elif len(trials) < 23:
     trials_baseline = trials
 
@@ -95,12 +101,33 @@ if load_data == 0:
     coeff_sub = 1
     df_trace_bgsub = mscope.compute_bg_roi_fiji(coord_fiji, trials, frame_time, df_fiji, coeff_sub)
 
+    # Find calcium events - label as synchronous or asynchronous
+    df_fiji_norm = mscope.norm_traces(df_fiji,'zscore')
+    df_fiji_bgsub_norm = mscope.norm_traces(df_fiji_bgsub,'zscore')
+    timeT = 7
+    df_events_all = mscope.get_events(df_fiji_norm, timeT, 'df_events_all')
+    df_events_unsync = mscope.get_events(df_fiji_bgsub_norm, timeT, 'df_events_unsync')
+
 if load_data:
     # Load data
     [df_fiji, df_fiji_bgsub, df_extract, trials, coord_fiji, coord_ext, reg_th,
      reg_bad_frames] = mscope.load_processed_files()
-    df_fiji_norm = mscope.minmax_norm_traces(df_fiji)
-    df_fiji_bgsub_norm = mscope.minmax_norm_traces(df_fiji_bgsub)
+    df_fiji_norm = mscope.norm_traces(df_fiji,'minmax')
+    df_fiji_bgsub_norm = mscope.norm_traces(df_fiji_bgsub,'minmax')
+    df_events_all = pd.read_csv(mscope.path+'\\processed files\\'+'df_events_all.csv')
+    df_events_unsync = pd.read_csv(mscope.path+'\\processed files\\'+'df_events_unsync.csv')
+
+# Load behavioral data
+filelist = loco.get_track_files(animal, session)
+st_strides_trials = []
+sw_strides_trials = []
+count_trial = 0
+for f in filelist:
+    [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f, 0.9, int(frames_loco[count_trial]))
+    [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
+    st_strides_trials.append(st_strides_mat)
+    sw_strides_trials.append(sw_pts_mat)
+    count_trial += 1
 
 # Standard plots - example traces and ROI masks
 trial_plot = 2
@@ -116,54 +143,48 @@ colormap_cluster = 'hsv'
 mscope.plot_roi_clustering_spatial(ref_image, colors_cluster, idx_roi_cluster, coord_fiji, plot_data)
 mscope.plot_roi_clustering_temporal(df_fiji_norm, frame_time, centroid_fiji, distance_neurons, trial_plot, colors_cluster, idx_roi_cluster, plot_data)
 
-# Find calcium events - label as synchronous or asynchronous
-timeT = 7
-thrs_amp = 10
-df_events_all = mscope.get_events(coord_fiji, df_fiji, timeT, thrs_amp)
-thrs_amp_bgsub = 4
-df_events_unsync = mscope.get_events(coord_fiji, df_fiji_bgsub, timeT, thrs_amp_bgsub)
-
-df_fiji_trial_norm = df_fiji_norm.loc[df_fiji_norm['trial'] == trial_plot]  # get dFF for the desired trial
-df_fiji_bgsub_trial_norm = df_fiji_bgsub_norm.loc[df_fiji_bgsub_norm['trial'] == trial_plot]  # get dFF for the desired trial
-fig, ax = plt.subplots(1, 2, figsize=(20, 20), tight_layout=True)
-ax = ax.ravel()
-for r in range(df_fiji_trial_norm.shape[1] - 2):
-    ax[0].plot(frame_time[trial_plot - 1], df_fiji_trial_norm['ROI' + str(r + 1)] + (r/2), color='black')
-    events_plot = np.where(df_events_all.loc[df_fiji_norm['trial'] == trial_plot, 'ROI' + str(r + 1)])[0]
-    for e in events_plot:
-        ax[0].scatter(frame_time[trial_plot - 1][e], df_fiji_trial_norm.iloc[e, r+2] + (r/2), s=20, color='gray')
-    events_unsync_plot = np.where(df_events_unsync.loc[df_fiji_bgsub_norm['trial'] == trial_plot, 'ROI' + str(r + 1)])[0]
-    for e in events_unsync_plot:
-        ax[0].scatter(frame_time[trial_plot - 1][e], df_fiji_bgsub_trial_norm.iloc[e, r+2] + (r/2), s=20, color='orange')
-ax[0].set_xlabel('Time (s)', fontsize=mscope.fsize - 4)
-ax[0].set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=mscope.fsize - 4)
-plt.xticks(fontsize=mscope.fsize - 4)
-plt.yticks(fontsize=mscope.fsize - 4)
-plt.setp(ax[0].get_yticklabels(), visible=False)
-ax[0].tick_params(axis='y', which='y', length=0)
-ax[0].spines['right'].set_visible(False)
-ax[0].spines['top'].set_visible(False)
-ax[0].spines['left'].set_visible(False)
-plt.tick_params(axis='y', labelsize=0, length=0)
-for r in range(df_fiji_bgsub_trial_norm.shape[1] - 2):
-    ax[1].plot(frame_time[trial_plot - 1], df_fiji_bgsub_trial_norm['ROI' + str(r + 1)] + (r/2), color='black')
-    events_unsync_plot = np.where(df_events_unsync.loc[df_fiji_bgsub_norm['trial'] == trial_plot, 'ROI' + str(r + 1)])[0]
-    for e in events_unsync_plot:
-        ax[1].scatter(frame_time[trial_plot - 1][e], df_fiji_bgsub_trial_norm.iloc[e, r+2] + (r/2), s=20, color='gray')
-ax[1].set_xlabel('Time (s)', fontsize=mscope.fsize - 4)
-ax[1].set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=mscope.fsize - 4)
-plt.xticks(fontsize=mscope.fsize - 4)
-plt.yticks(fontsize=mscope.fsize - 4)
-plt.setp(ax[1].get_yticklabels(), visible=False)
-ax[1].tick_params(axis='y', which='y', length=0)
-ax[1].spines['right'].set_visible(False)
-ax[1].spines['top'].set_visible(False)
-ax[1].spines['left'].set_visible(False)
-plt.tick_params(axis='y', labelsize=0, length=0)
+# Plot trace with events - examples and session
+roi_plot = 25
+mscope.plot_events_roi_examples(trial_plot, roi_plot, frame_time, df_fiji_norm, df_fiji_bgsub_norm, df_events_all, df_events_unsync, plot_data)
+# mscope.plot_events_roi_trial(trial_plot, frame_time, df_fiji_norm, df_fiji_bgsub_norm, df_events_all, df_events_unsync, plot_data)
 
 # Calcium events stats
+# ISI
+isi_all_events = mscope.compute_isi(df_events_all, 'isi_all_events')
+isi_unsync_events = mscope.compute_isi(df_events_unsync, 'isi_unsync_events')
+mscope.plot_isi_single_trial(trial_plot, roi_plot, isi_all_events, plot_data)
+mscope.plot_isi_session(roi_plot, isi_all_events, animal, session_type, trials, trials_ses, plot_data)
+# CV of ISI
+[isi_cv_all, isi_cv2_all] = mscope.compute_isi_cv(isi_all_events)
+[isi_cv_unsync, isi_cv2_unsync] = mscope.compute_isi_cv(isi_unsync_events)
+mscope.plot_cv_session(roi_plot, isi_cv_all, trials, plot_data)
+# Ratio between ISI values
+range_isiratio = [[0,0.5],[0.8,1.5]]
+isi_ratio_all = mscope.compute_isi_ratio(isi_all_events, range_isiratio)
+isi_ratio_unsync = mscope.compute_isi_ratio(isi_unsync_events, range_isiratio)
+mscope.plot_isi_ratio_session(roi_plot, isi_ratio_all, range_isiratio, trials, plot_data)
+
+# Event waveform
+mscope.compute_event_waveform(df_fiji_norm, df_events_all, roi_plot, animal, session_type, trials_ses, trials, plot_data)
+
+# Event count
+mscope.get_event_count_wholetrial(df_events_all, trials, roi_plot, plot_data)
+mscope.get_event_count_locomotion(df_events_all, trials, bcam_time, st_strides_trials, roi_plot, plot_data)
+
+# Proportion of events in strides
+paw = 'FR'
+align = 'stride'
+df_events_stride_all = mscope.events_stride(df_events_all, st_strides_trials, sw_strides_trials, paw, roi_plot, align)
+mscope.event_proportion_plot(df_events_stride_all, paw, roi_plot, plot_data)
 
 # Align events with stance/swing periods
+align = 'stance'
+time_window = 0.2
+bin_size = 20
+paw = 'FR'
+event_stance_FR = mscope.events_align_st_sw(df_events_all, st_strides_trials, sw_strides_trials, time_window, bin_size, paw, roi_plot, align, session_type, trials_ses, plot_data)
 
-# # Save data
+# Save data
 # mscope.save_processed_files(df_fiji, df_trace_bgsub, df_extract, trials, coord_fiji, coord_ext, th, idx_to_nan)
+# df_events_all.to_csv(mscope.path + '\\processed files\\' + 'df_events_all.csv', sep=',', index=False)
+# df_events_unsync.to_csv(mscope.path + '\\processed files\\' + 'df_events_unsync.csv', sep=',', index=False)

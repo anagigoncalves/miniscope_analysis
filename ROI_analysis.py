@@ -8,6 +8,8 @@ import pandas as pd
 # path inputs
 path = 'E:\\TM RAW FILES\\split ipsi fast\\MC8855\\2021_04_05\\'
 path_loco = 'E:\\TM TRACKING FILES\\split ipsi fast\\split ipsi fast S1 050421\\'
+# path = 'E:\\TM RAW FILES\\tied baseline\\MC8855\\2021_04_04\\'
+# path_loco = 'E:\\TM TRACKING FILES\\tied baseline\\tied baseline S1 040421\\'
 session_type = 'split'
 delim = path[-1]
 version_mscope = 'v4'
@@ -77,20 +79,25 @@ elif len(trials) < 23:
 if load_data == 0:
     # Load ROIs and traces - EXTRACT - NEEDS TO BE FOR THE WHOLE SESSION
     trial = 2
-    thrs_spatial_weights = 0.3
-    [coord_ext, df_extract] = mscope.read_extract_output(thrs_spatial_weights, frame_time, trial)
+    thrs_spatial_weights = 0
+    [coord_ext, df_extract_allframes] = mscope.read_extract_output(thrs_spatial_weights, frame_time, trial)
 
-    # Load ROIs and traces - IMAGEJ
-    norm = 0
-    [coord_fiji, df_fiji] = mscope.get_imagej_output(frame_time, trials, norm)
+    # # Load ROIs and traces - IMAGEJ
+    # norm = 0
+    # [coord_fiji, df_fiji_allframes] = mscope.get_imagej_output(frame_time, trials, norm)
 
     # Good periods after motion correction
     [x_offset, y_offset, corrXY] = mscope.get_reg_data() # registration bad moments - correct
     th = 0.006 # change with the notes from EXCEL
-    [idx_to_nan,df_dFF] = mscope.corr_FOV_movement(th, df_fiji, corrXY)
+    # [idx_to_nan,df_fiji] = mscope.corr_FOV_movement(th, df_fiji_allframes, corrXY)
+    [idx_to_nan,df_extract] = mscope.corr_FOV_movement(th, df_extract_allframes, corrXY)
+    [coord_ext, df_extract] = mscope.rois_larger_motion(df_extract, coord_ext, idx_to_nan, x_offset, y_offset, width_roi_ext, height_roi_ext, 1)
+    mscope.correlation_signal_motion(df_extract, x_offset, y_offset, trial, idx_to_nan, 1)
 
     # ROI curation
-    # trial_curation = 3
+    trial_curation = 2
+    # ROI spatial stats
+    [width_roi_ext, height_roi_ext, aspect_ratio_ext] = mscope.get_roi_stats(coord_ext)
     # [keep_rois, df_dFF_clean] = mscope.roi_curation(ref_image, df_fiji, coord_fiji, trial_curation)
     # # keep_rois = [ 0, 61, 58, 37, 48, 29, 39, 71, 24, 27, 53,  9, 38, 59, 40, 23, 46,
     # #        63,  4, 28, 14, 25,  6, 22,  3, 65, 49, 13, 18, 56, 51,  1, 17, 30,
@@ -102,18 +109,18 @@ if load_data == 0:
     df_trace_bgsub = mscope.compute_bg_roi_fiji(coord_fiji, trials, frame_time, df_fiji, coeff_sub)
 
     # Find calcium events - label as synchronous or asynchronous
-    df_fiji_norm = mscope.norm_traces(df_fiji,'zscore')
-    df_fiji_bgsub_norm = mscope.norm_traces(df_fiji_bgsub,'zscore')
+    df_dFF_fiji = mscope.compute_dFF(df_fiji)
+    df_dFF_fiji_bgsub = mscope.compute_dFF(df_fiji_bgsub)
+    df_dFF_fiji_norm = mscope.norm_traces(df_dFF_fiji, 'zscore')
+    df_dFF_fiji_bgsub_norm = mscope.norm_traces(df_dFF_fiji_bgsub, 'zscore')
     timeT = 7
-    df_events_all = mscope.get_events(df_fiji_norm, timeT, 'df_events_all')
-    df_events_unsync = mscope.get_events(df_fiji_bgsub_norm, timeT, 'df_events_unsync')
+    df_events_all = mscope.get_events(df_dFF_fiji_norm, timeT, 'df_events_all')
+    df_events_unsync = mscope.get_events(df_dFF_fiji_bgsub_norm, timeT, 'df_events_unsync')
 
 if load_data:
     # Load data
     [df_fiji, df_fiji_bgsub, df_extract, trials, coord_fiji, coord_ext, reg_th,
      reg_bad_frames] = mscope.load_processed_files()
-    df_fiji_norm = mscope.norm_traces(df_fiji,'minmax')
-    df_fiji_bgsub_norm = mscope.norm_traces(df_fiji_bgsub,'minmax')
     df_events_all = pd.read_csv(mscope.path+'\\processed files\\'+'df_events_all.csv')
     df_events_unsync = pd.read_csv(mscope.path+'\\processed files\\'+'df_events_unsync.csv')
 
@@ -131,7 +138,11 @@ for f in filelist:
 
 # Standard plots - example traces and ROI masks
 trial_plot = 2
-mscope.plot_stacked_traces(frame_time, df_fiji_norm, trial_plot, plot_data) # input can be one trial or trials_ses
+df_dFF_fiji = mscope.compute_dFF(df_fiji)
+df_dFF_fiji_bgsub = mscope.compute_dFF(df_fiji_bgsub)
+df_dFF_fiji_norm = mscope.norm_traces(df_dFF_fiji, 'min_max')
+df_dFF_fiji_bgsub_norm = mscope.norm_traces(df_dFF_fiji_bgsub, 'min_max')
+mscope.plot_stacked_traces(frame_time, df_dFF_fiji_norm, trial_plot, plot_data) # input can be one trial or trials_ses
 mscope.plot_rois_ref_image(ref_image, coord_fiji, plot_data)
 
 # Microzones plots, order correlation matrix by distance between neurons - do this for raw signals
@@ -139,13 +150,13 @@ centroid_fiji = mscope.get_roi_centroids(coord_fiji)
 distance_neurons = mscope.distance_neurons(centroid_fiji, 0)
 th_cluster = 0.6
 colormap_cluster = 'hsv'
-[colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_fiji_norm, centroid_fiji, distance_neurons, trial_plot, th_cluster, colormap_cluster, plot_data)
+[colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_dFF_fiji, centroid_fiji, distance_neurons, trial_plot, th_cluster, colormap_cluster, plot_data)
 mscope.plot_roi_clustering_spatial(ref_image, colors_cluster, idx_roi_cluster, coord_fiji, plot_data)
-mscope.plot_roi_clustering_temporal(df_fiji_norm, frame_time, centroid_fiji, distance_neurons, trial_plot, colors_cluster, idx_roi_cluster, plot_data)
+mscope.plot_roi_clustering_temporal(df_dFF_fiji, frame_time, centroid_fiji, distance_neurons, trial_plot, colors_cluster, idx_roi_cluster, plot_data)
 
 # Plot trace with events - examples and session
 roi_plot = 25
-mscope.plot_events_roi_examples(trial_plot, roi_plot, frame_time, df_fiji_norm, df_fiji_bgsub_norm, df_events_all, df_events_unsync, plot_data)
+mscope.plot_events_roi_examples(trial_plot, roi_plot, frame_time, df_dFF_fiji_norm, df_dFF_fiji_bgsub_norm, df_events_all, df_events_unsync, plot_data)
 # mscope.plot_events_roi_trial(trial_plot, frame_time, df_fiji_norm, df_fiji_bgsub_norm, df_events_all, df_events_unsync, plot_data)
 
 # Calcium events stats

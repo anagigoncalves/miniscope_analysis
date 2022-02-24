@@ -157,8 +157,8 @@ class miniscope_session:
         """Function to do a min-max normalization or z-scoring of the calcim trace of the dataframe
         Input:
             df_fiji: dataframe with session info and calcium traces
-            nrom-name: (str) min_max or zscore"""
-        if norm_name == 'minmax':
+            norm_name: (str) min_max or zscore"""
+        if norm_name == 'min_max':
             min_fiji = np.tile(np.array(df_fiji.iloc[:, 2:].min(axis=0)), (np.shape(df_fiji)[0], 1))
             arr_fiji_norm = (np.array(df_fiji.iloc[:, 2:]) - min_fiji) / (
                         np.array(df_fiji.iloc[:, 2:].max(axis=0)) - np.array(df_fiji.iloc[:, 2:].min(axis=0)))
@@ -174,6 +174,18 @@ class miniscope_session:
         df_fiji2 = pd.DataFrame(arr_fiji_norm, columns=roi_list)
         df_fiji_minmax = pd.concat([df_fiji1, df_fiji2], axis=1)
         return df_fiji_minmax
+
+    @staticmethod
+    def compute_dFF(df_fiji):
+        """Function to compute dF/F for each trial using as F0 the 10th percentile of the signal for that trial"""
+        trials = df_fiji['trial'].unique()
+        for t in trials:
+            trial_length = np.shape(df_fiji.loc[df_fiji['trial'] == t])[0]
+            trial_idx = df_fiji.loc[df_fiji['trial'] == t].index
+            perc_arr = np.tile(np.nanpercentile(np.array(df_fiji.iloc[trial_idx,2:]), 10, axis=0), (trial_length, 1))
+            dFF_trial = (np.array(df_fiji.iloc[trial_idx, 2:]) - perc_arr) / perc_arr
+            df_fiji.iloc[trial_idx, 2:] = dFF_trial
+        return df_fiji
 
     @staticmethod
     def get_roi_stats(coord_cell):
@@ -437,7 +449,129 @@ class miniscope_session:
         idx_to_nan = np.where(corrXY<=th)[0]
         df_dFF.iloc[idx_to_nan,2:] = np.nan
         return idx_to_nan, df_dFF
-   
+
+    def rois_larger_motion(self, df_extract, coord_ext, idx_to_nan, x_offset, y_offset, width_roi, height_roi, plot_data):
+        """Function to compute how much the ROI size is larger than the shift of the FOV done during motion correction
+        Inputs:
+            df_extract: (dataframe) with ROIs traces
+            coord_ext. (list) with ROI coordinates
+            idx_to_nan: indices of frames to make nan, parts where motion was large
+            x_offset: x shift of frames during motion correction
+            y_offset: y shift of frames during motion correction
+            width_roi: width of ROIs
+            height_roi_ height of ROIs
+            plot_data: boolean"""
+        reg_good_frames = np.setdiff1d(np.arange(0, np.shape(df_extract)[0]), idx_to_nan)
+        x_offset_clean = x_offset[reg_good_frames]
+        y_offset_clean = y_offset[reg_good_frames]
+        x_offset_minmax = np.abs(
+            np.array([np.min(x_offset_clean), np.max(x_offset_clean)]))  # corresponds to x in coord_cell
+        y_offset_minmax = np.abs(
+            np.array([np.min(y_offset_clean), np.max(y_offset_clean)]))  # corresponds to y in coord_cell
+        roi_number = len(df_extract.columns[2:])
+        keep_rois = np.intersect1d(np.where(width_roi > x_offset_minmax[1])[0] + 1,
+                                   np.where(height_roi > y_offset_minmax[1])[0] + 1, assume_unique=True)
+        coord_ext_nomotion = []
+        for r in keep_rois-1:
+            coord_ext_nomotion.append(coord_ext[r])
+        roi_list = df_extract.columns[2:]
+        rois_del = np.setdiff1d(np.arange(1,len(roi_list)+1),keep_rois)
+        rois_del_list = []
+        for r in rois_del:
+            rois_del_list.append('ROI'+str(r))
+        df_extract = df_extract.drop(columns = rois_del_list)
+        if plot_data:
+            fig, ax = plt.subplots(1, 2, figsize=(12, 5), tight_layout=True)
+            ax = ax.ravel()
+            ax[0].scatter(np.arange(1, roi_number+1), width_roi, s=10, color='blue')
+            ax[0].axhline(x_offset_minmax[0], color='black')
+            ax[0].axhline(x_offset_minmax[1], color='black')
+            ax[0].spines['right'].set_visible(False)
+            ax[0].spines['top'].set_visible(False)
+            ax[0].set_title('ROIs width and X max and min offsets', fontsize=self.fsize-4)
+            ax[1].scatter(np.arange(1, roi_number+1), height_roi, s=10, color='blue')
+            ax[1].axhline(y_offset_minmax[0], color='black')
+            ax[1].axhline(y_offset_minmax[1], color='black')
+            ax[1].spines['right'].set_visible(False)
+            ax[1].spines['top'].set_visible(False)
+            ax[1].set_title('ROIs height and Y max and min offsets', fontsize=self.fsize-4)
+        return [coord_ext_nomotion, df_extract]
+
+    def correlation_signal_motion(self, df_extract, x_offset, y_offset, trial, idx_to_nan, plot_data):
+        """Function to compute the ROIs signal correlation with the shift of the FOV done during motion correction-
+        It outputs the correlation plot between the traces and the FOV offsets and an example ROI trace with the shifts.
+        Inputs:
+            df_extract: (dataframe) with ROIs traces
+            x_offset: x shift of frames during motion correction
+            y_offset: y shift of frames during motion correction
+            trial: (int) example trial to do this computation
+            idx_to_nan: indices of frames to make nan, parts where motion was large
+            plot_data: boolean"""
+        data = np.transpose(np.array(df_extract.loc[df_extract['trial'] == trial].iloc[:, 2:]))
+        roi_nr = len(df_extract.columns[2:])
+        p_corrcoef = np.zeros((roi_nr, 2))
+        p_corrcoef[:] = np.nan
+        for r in range(roi_nr):
+            idx_nonan = np.where(~np.isnan(data[0, :]))[0]
+            p_corrcoef[r, 0] = np.cov(data[r, idx_nonan], x_offset[idx_nonan])[0][
+                                   1] / np.sqrt(
+                np.var(data[r, idx_nonan]) * np.var(x_offset[idx_nonan]))
+            if p_corrcoef[r, 0] > 1:
+                p_corrcoef[r, 0] = 1
+            p_corrcoef[r, 1] = np.cov(data[r, idx_nonan], y_offset[idx_nonan])[0][
+                                   1] / np.sqrt(
+                np.var(data[r, idx_nonan]) * np.var(y_offset[idx_nonan]))
+            if p_corrcoef[r, 1] > 1:
+                p_corrcoef[r, 1] = 1
+        reg_good_frames = np.setdiff1d(np.arange(0, np.shape(df_extract)[0]), idx_to_nan)
+        x_offset_clean = x_offset[reg_good_frames]
+        y_offset_clean = y_offset[reg_good_frames]
+        x_offset_clean_norm = (x_offset_clean - np.max(x_offset_clean)) / (
+                    np.max(x_offset_clean) - np.min(x_offset_clean))
+        y_offset_clean_norm = (y_offset_clean - np.max(y_offset_clean)) / (
+                    np.max(y_offset_clean) - np.min(y_offset_clean))
+        if plot_data:
+            r = np.random.randint(1, roi_nr + 1)
+            df_extract_norm = self.norm_traces(df_extract, 'min_max')
+            fig, ax = plt.subplots(2, 1, figsize=(20, 10), tight_layout=True)
+            ax = ax.ravel()
+            ax[0].plot(np.array(df_extract_norm.loc[df_extract['trial'] == trial, 'ROI' + str(r)]), color='darkgrey')
+            ax[0].plot(
+                x_offset_clean_norm[np.array(df_extract_norm.loc[df_extract_norm['trial'] == trial, 'ROI' + str(r)].index)],
+                color='blue')
+            ax[0].spines['right'].set_visible(False)
+            ax[0].spines['top'].set_visible(False)
+            ax[0].set_title('Example ROI trace with X offset', fontsize=self.fsize-4)
+            ax[1].plot(np.array(df_extract_norm.loc[df_extract_norm['trial'] == trial, 'ROI' + str(r)]), color='darkgrey')
+            ax[1].plot(
+                y_offset_clean_norm[np.array(df_extract_norm.loc[df_extract_norm['trial'] == trial, 'ROI' + str(r)].index)],
+                color='blue')
+            ax[1].spines['right'].set_visible(False)
+            ax[1].spines['top'].set_visible(False)
+            ax[1].set_title('Example ROI trace with Y offset', fontsize=16)
+
+            fig, ax = plt.subplots(figsize=(10, 7), tight_layout=True)
+            ax.plot(np.arange(1, roi_nr + 1), p_corrcoef[:, 0], color='blue', marker='o',
+                    label='correlation of trace with x shifts')
+            ax.plot(np.arange(1, roi_nr + 1), p_corrcoef[:, 1], color='orange', marker='o',
+                    label='correlation of trace with y shifts')
+            ax.legend(frameon=False, fontsize=self.fsize-6)
+            ax.set_title('Correlation of traces with FOV shift during motion correction', fontsize=self.fsize - 4)
+            ax.set_xticks(np.arange(1, roi_nr + 1)[::10])
+            ax.set_xticklabels(list(df_extract.columns[2::10]))
+            ax.set_xlabel('ROI ID', fontsize=self.fsize - 6)
+            ax.set_ylabel('Correlation coefficient', fontsize=self.fsize - 6)
+            ax.spines['right'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.tick_params(axis='x', labelsize=self.fsize - 6)
+            ax.tick_params(axis='y', labelsize=self.fsize - 6)
+            if self.delim == '/':
+                plt.savefig(self.path + 'images/' + 'corr_trace_motionreg_shifts',
+                            dpi=self.my_dpi)
+            else:
+                plt.savefig(self.path + 'images\\' + 'corr_trace_motionreg_shifts',
+                            dpi=self.my_dpi)
+
     def get_ref_image(self):
         """Function to get the session reference image from suite2p"""
         if self.delim == '/':
@@ -469,14 +603,14 @@ class miniscope_session:
         coord_cell_t = []
         for c in range(len(coord_cell)):
             coord_cell_switch = np.zeros(np.shape(coord_cell[c]))
-            coord_cell_switch[:,0] = coord_cell[c][:,1]/self.pixel_to_um
-            coord_cell_switch[:,1] = coord_cell[c][:,0]/self.pixel_to_um
+            coord_cell_switch[:,0] = coord_cell[c][:,0]/self.pixel_to_um
+            coord_cell_switch[:,1] = coord_cell[c][:,1]/self.pixel_to_um
             coord_cell_t.append(coord_cell_switch)
         # trace as dataframe
         roi_list =  []
         for r in range(len(coord_cell)):
             roi_list.append('ROI'+str(r+1))
-        data_ext1 = {'trial': np.repeat(2, len(frame_time[trial - 1])), 'time': frame_time[trial - 1]}
+        data_ext1 = {'trial': np.repeat(trial, len(frame_time[trial - 1])), 'time': frame_time[trial - 1]}
         df_ext1 = pd.DataFrame(data_ext1)
         df_ext2 = pd.DataFrame(trace_ext, columns=roi_list)
         df_ext = pd.concat([df_ext1, df_ext2], axis=1)
@@ -545,7 +679,7 @@ class miniscope_session:
         df_fiji = pd.concat([df_fiji1, df_fiji2], axis=1)
         return coord_fiji, df_fiji
 
-    def roi_curation(self, ref_image, df_dFF, coord_cell, trial_curation):
+    def roi_curation(self, ref_image, df_dFF, coord_cell, aspect_ratio, trial_curation):
         """Check each ROI spatial and temporally (for a certain trial) and choose the ones to keep.
         Enter to keep and click to discard.
         Input:
@@ -553,51 +687,96 @@ class miniscope_session:
             df_dFF: dataframe with calcium trace values
             coord_cell: list with ROI coordinates
             trial_curation: (int) trial to plot"""
-        skewness_dFF = df_dFF.skew(axis=0, skipna=True)
+        rois_idx_aspectratio = list(np.where(np.array(aspect_ratio) > 1.2)[0])
+        coord_ext_aspectratio = []
+        for r in rois_idx_aspectratio:
+            coord_ext_aspectratio.append(coord_cell[r])
+        centroid_ext_aspectratio = np.multiply(mscope.get_roi_centroids(coord_ext_aspectratio), mscope.pixel_to_um)
+        roi_idx_bad_aspectratio = np.setdiff1d(np.arange(1, len(coord_ext) + 1), np.array(rois_idx_aspectratio) + 1)
+        roi_list_bad_aspectratio = ['ROI' + str(i) for i in roi_idx_bad_aspectratio]
+        df_dFF_aspectratio = df_dFF.drop(columns=roi_list_bad_aspectratio)
+        skewness_dFF = df_dFF_aspectratio.skew(axis=0, skipna=True)
         skewness_dFF_argsort = np.argsort(np.array(skewness_dFF[2:]))
         # ROI curation (ΔF/F with the same range)
-        range_dFF = [df_dFF.loc[df_dFF['trial'] == trial_curation].min(axis=0)[2:].min(),
-                     df_dFF.loc[df_dFF['trial'] == trial_curation].max(axis=0)[2:].max()]
+        range_dFF = [df_dFF_aspectratio.loc[df_dFF_aspectratio['trial'] == trial_curation].min(axis=0)[2:].min(),
+                     df_dFF_aspectratio.loc[df_dFF_aspectratio['trial'] == trial_curation].max(axis=0)[2:].max()]
+        roi_list_after_aspectratio = df_dFF_aspectratio.columns[2:]
+        roi_list_sort_skewness = roi_list_after_aspectratio[skewness_dFF_argsort[::-1]]
+        roi_idx_sort_skewness = skewness_dFF_argsort[::-1]
         keep_roi = []
+        keep_roi_idx = []
         count_r = 0
-        for r in skewness_dFF_argsort[::-1]:  # check by descending order of skewness
-            fig = plt.figure(figsize=(25, 7), tight_layout=True)
-            gs = fig.add_gridspec(1, 3)
-            ax1 = fig.add_subplot(gs[0, :2])
-            ax1.plot(np.linspace(0, 110 - 60, df_dFF.loc[df_dFF['trial'] == trial_curation].shape[0]),
-                     df_dFF.loc[(df_dFF['trial'] == trial_curation), 'ROI' + str(r + 1)], color='black')
-            ax1.set_title('Trial ' + str(trial_curation) + ' ROI ' + str(count_r + 1) + '/' + str(
-                df_dFF.loc[df_dFF['trial'] == trial_curation].shape[1]))
+        for r in roi_list_sort_skewness:  # check by descending order of skewness
+            fig = plt.figure(figsize=(25, 15), tight_layout=True)
+            gs = fig.add_gridspec(2, 3)
+            ax1 = fig.add_subplot(gs[0, :])
+            ax1.plot(np.linspace(0, 110 - 60,
+                                 df_dFF_aspectratio.loc[df_dFF_aspectratio['trial'] == trial_curation].shape[0]),
+                     df_dFF_aspectratio.loc[(df_dFF_aspectratio['trial'] == trial_curation), r], color='black')
+            ax1.set_title('Trial ' + str(trial_curation) + ' ' + str(count_r + 1) + '/' + str(
+                len(df_dFF_aspectratio.columns[2:])))
             ax1.set_ylim(range_dFF)
             ax1.set_xlabel('Time (s)')
             ax1.spines['right'].set_visible(False)
             ax1.spines['top'].set_visible(False)
-            ax2 = fig.add_subplot(gs[0, 2])
-            ax2.scatter(coord_cell[r][:, 0], coord_cell[r][:, 1], s=1, color='blue', alpha=0.5)
-            ax2.set_title('ROI '+str(r+1), fontsize=self.fsize)
+            ax2 = fig.add_subplot(gs[1, 0])
+            ax2.scatter(coord_ext_aspectratio[roi_idx_sort_skewness[count_r]][:, 0],
+                        coord_ext_aspectratio[roi_idx_sort_skewness[count_r]][:, 1], s=1, color='blue', alpha=0.5)
+            ax2.set_title(r, fontsize=mscope.fsize)
             ax2.imshow(ref_image,
-                       extent=[0, np.shape(ref_image)[1] / self.pixel_to_um, np.shape(ref_image)[0] / self.pixel_to_um,
+                       extent=[0, np.shape(ref_image)[1] / mscope.pixel_to_um,
+                               np.shape(ref_image)[0] / mscope.pixel_to_um,
                                0], cmap=plt.get_cmap('gray'))
-            ax2.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
-            ax2.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
-            ax2.tick_params(axis='x', labelsize=self.fsize - 4)
-            ax2.tick_params(axis='y', labelsize=self.fsize - 4)
-            ax2.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
-            ax2.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
-            ax2.tick_params(axis='x', labelsize=self.fsize - 4)
-            ax2.tick_params(axis='y', labelsize=self.fsize - 4)
+            ax2.set_xlabel('FOV in micrometers', fontsize=mscope.fsize - 4)
+            ax2.set_ylabel('FOV in micrometers', fontsize=mscope.fsize - 4)
+            ax2.tick_params(axis='x', labelsize=mscope.fsize - 4)
+            ax2.tick_params(axis='y', labelsize=mscope.fsize - 4)
+            ax3 = fig.add_subplot(gs[1, 1])
+            ax3.scatter(coord_ext_aspectratio[roi_idx_sort_skewness[count_r]][:, 0],
+                        coord_ext_aspectratio[roi_idx_sort_skewness[count_r]][:, 1], s=1, color='blue')
+            ax3.set_title(r + ' check for discontinuities', fontsize=mscope.fsize)
+            ax3.set_xlabel('ROI coordinates X', fontsize=mscope.fsize - 4)
+            ax3.set_ylabel('ROI coordinates Y', fontsize=mscope.fsize - 4)
+            ax3.tick_params(axis='x', labelsize=mscope.fsize - 4)
+            ax3.tick_params(axis='y', labelsize=mscope.fsize - 4)
+            # isolation metric
+            # find 100th closest pixel
+            dist = []
+            pixel_x = []
+            pixel_y = []
+            for i in range(608 + 1):
+                for j in range(608 + 1):
+                    dist.append(np.linalg.norm(centroid_ext_aspectratio[0] - np.array([i, j])))
+                    pixel_x.append(i)
+                    pixel_y.append(i)
+            coord_100th = np.array([pixel_x[np.argsort(dist)[100]], pixel_y[np.argsort(dist)[100]]])
+            tiff_stack = tiff.imread(
+                mscope.path + 'Registered video\\T' + str(trial_curation) + '_reg.tif')  # read tiffs
+            coord_100th_trace = np.zeros((np.shape(tiff_stack)[0]))
+            for f in range(np.shape(tiff_stack)[0]):
+                coord_100th_trace[f] = np.nansum(tiff_stack[f, coord_100th[1], coord_100th[0]])
+            coord_id = np.zeros(608)
+            coord_id[np.int64(coord_ext_aspectratio[0][:, 0])] = 1
+            principalComponents_2CP = PCA(n_components=2).fit_transform(np.mean(tiff_stack, axis=0))
+            fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+            h = plt.scatter(principalComponents_2CP[:, 0], principalComponents_2CP[:, 1], s=5, c=coord_id)
             bpress = plt.waitforbuttonpress()
             if bpress:
                 keep_roi.append(r)
+                keep_roi_idx.append(roi_idx_sort_skewness[count_r])
             plt.close('all')
             count_r += 1
         # remove bad rois
-        list_bad_rois = np.setdiff1d(np.arange(0, df_dFF.shape[1] - 2), keep_roi)
-        bad_roi_list = []
-        for r in list_bad_rois:
-            bad_roi_list.append('ROI' + str(r + 1))
-        df_dFF_clean = df_dFF.drop(bad_roi_list, axis=1)
-        return keep_roi, df_dFF_clean
+        idx_order = np.argsort([np.int64(i[3:]) for i in keep_roi])
+        keep_roi_arr = np.array(keep_roi)
+        roi_list_ordered = list(keep_roi_arr[idx_order])
+        roi_list_ordered.insert(0, 'trial')
+        roi_list_ordered.insert(0, 'time')
+        df_dFF_clean = df_dFF_aspectratio[roi_list_ordered]
+        coord_cell_clean = []
+        for r in np.sort(keep_roi_idx):
+            coord_cell_clean.append(coord_ext_aspectratio[r])
+        return coord_cell_clean, df_dFF_clean
 
     def get_miniscope_frame_time(self, trials, frames_dFF, version):
         """From timestamp.dat file compute time of acquisiton of each frame for all trials in a session
@@ -1029,7 +1208,7 @@ class miniscope_session:
                 np.vstack((ROIouter_fill_coord[idx_nonoverlap, 0], ROIouter_fill_coord[idx_nonoverlap, 1])))
             donut_trace_trials = []
             for t in trials:
-                tiff_stack = tiff.imread(self.path + 'Registered video\\T' + str(t) + '_reg.tif')  ##read tiffs
+                tiff_stack = tiff.imread(self.path + 'Registered video\\T' + str(t) + '_reg.tif')  # read tiffs
                 donut_trace_tiffmean = np.zeros((np.shape(tiff_stack)[0]))
                 for f in range(np.shape(tiff_stack)[0]):
                     donut_trace_tiffmean[f] = np.nansum(tiff_stack[f, ROIdonut_coord[:, 1], ROIdonut_coord[:, 0]])/np.shape(ROIdonut_coord)[0]
@@ -2265,94 +2444,71 @@ class miniscope_session:
             files_ordered.append(matfiles_animal[tr_ind])
         return files_ordered
 
-    # def compute_dFF_bgsub(self,Fbg_array):
-    #     """Function to compute dFF given a path to the suite2p output folder.
-    #     It doesn't take background subtraction into account.'
-    #     Input: Fbg_array: array with background values for each ROI pre-ROI curation"""
-    #     if self.delim == '/':
-    #         path_F = 'Suite2p/suite2p/plane0/F.npy'
-    #         path_iscell = 'Suite2p/suite2p/plane0/iscell.npy'
-    #     else:
-    #         path_F = 'Suite2p\\suite2p\\plane0\\F.npy'
-    #         path_iscell = 'Suite2p\\suite2p\\plane0\\iscell.npy' 
-    #     #GEt F values from Suite2p
-    #     F = np.load(self.path+path_F)
-    #     iscell = np.load(self.path+path_iscell)
-    #     iscell_idx = np.where(iscell[:,0])[0]
-    #     F_cell = F[iscell_idx,:] 
-    #     #F-r*Fbg - r is ratio between blood vessel signal and background
-    #     r_bg = 0.7
-    #     perc_value = 10
-    #     Fcell_bg = np.zeros((np.shape(F_cell)[0],np.shape(F_cell)[1]))
-    #     for r in range(np.shape(F_cell)[0]):
-    #         Fcell_bg[r,:] = F_cell[r,:np.shape(Fbg_array)[1]]-(r_bg*Fbg_array[r,:])
-    #     F0_roi_perc_bg = []
-    #     for c in range(np.shape(Fcell_bg)[0]):
-    #         F0_roi_perc_bg.append(np.percentile(Fcell_bg[c,:],perc_value))
-    #     #roi x time array
-    #     F0_perc_bg = np.transpose(np.tile(np.array(F0_roi_perc_bg),(np.shape(Fcell_bg)[1],1)))
-    #     #compute dFF - there is division by zero
-    #     dFF_perc_bg = (Fcell_bg-F0_perc_bg)/F0_perc_bg
-    #     dFF_perc_bg[~np.isfinite(dFF_perc_bg)] = np.nan #for errors in division by zero
-    #     return dFF_perc_bg
-        
-    # def compute_dFF(self,method):
-    #     """Function to compute dFF given a path to the suite2p output folder.
-    #     It doesn't take background subtraction into account.'
-    #     Input: method -  'percentile' for computing dFF with 10% percentile for each ROI (same value across time)
-    #            method - 'median' for computing with median of whole frame across time"""
-    #     if delim == '/':
-    #         path_F = 'Suite2p/suite2p/plane0/F.npy'
-    #     else:
-    #         path_F = 'Suite2p\\suite2p\\plane0\\F.npy'
-    #     if delim == '/':       
-    #         path_iscell = 'Suite2p/suite2p/plane0/iscell.npy'
-    #     else:       
-    #         path_iscell = 'Suite2p\\suite2p\\plane0\\iscell.npy'    
-    #     F = np.load(self.path+path_F)
-    #     iscell = np.load(self.path+path_iscell)
-    #     iscell_idx = np.where(iscell[:,0])[0]
-    #     F_cell = F[iscell_idx,:]       
-    #     if method == 'percentile':
-    #         #F0 using percentile for each ROI
-    #         F0_roi_perc = []
-    #         for c in range(len(iscell_idx)):
-    #             F0_roi_perc.append(np.percentile(F_cell[c,:],10))
-    #         #roi x time array
-    #         F0 = np.transpose(np.tile(np.array(F0_roi_perc),(np.shape(F_cell)[1],1)))
-    #     if method == 'median':
-    #         #F0 using median of whole frame
-    #         tiflist = glob.glob(self.path+'*.tif') #get list of tifs
-    #         tiff_boolean = 0
-    #         if not tiflist:
-    #             tiflist = glob.glob(self.path+'*.tiff') 
-    #             tiff_boolean = 1
-    #         trial_id = []
-    #         for t in range(len(tiflist)):
-    #             tifname = tiflist[t].split(delim) 
-    #             if tiff_boolean:
-    #                 tifname_split = tifname[-1].split('_')
-    #                 trial_id.append(int(tifname_split[-2]))
-    #             else:
-    #                 trial_id.append(int(tifname[-1][1:-4])) #get trial order in that list    
-    #         trial_order = np.sort(trial_id) #reorder trials
-    #         files_ordered = [] #order tif filenames by file order
-    #         for f in range(len(tiflist)):
-    #             tr_ind = np.where(trial_order[f] == trial_id)[0][0]
-    #             files_ordered.append(tiflist[tr_ind])
-    #         #read tiffs to do median of whole frame
-    #         F0_frame_median = []
-    #         for f in range(len(files_ordered)):
-    #             image_stack = tiff.imread(files_ordered[f]) #choose right tiff
-    #             F0_median_trial = np.zeros(np.shape(image_stack)[0])
-    #             for frame in range(np.shape(image_stack)[0]):
-    #                 F0_median_trial[frame] = np.median(image_stack[frame,:,:].flatten())
-    #             F0_frame_median.extend(F0_median_trial)
-    #         F0 = np.tile(F0_frame_median,(np.shape(F_cell)[0],1))   
-    #     #compute dFF - there is division by zero
-    #     dFF = (F_cell-F0)/F0
-    #     dFF[~np.isfinite(dFF)] = np.nan #for errors in division by zero
-    #     return dFF
+    def create_registered_tiffs(self, frame_time, trials):
+        """Function to create tiffs from the registered stacks that are suite2p output. Each tiff has the same length as the trials.
+        Input:
+        frame_time: list with mscope timestamps
+        trials: list with trials in session"""
+        reg_path = self.path + '\\Suite2p\\suite2p\\plane0\\reg_tif\\'
+        if not os.path.exists(self.path + '\\Registered video\\'):
+            os.mkdir(self.path + 'Registered video\\')
+        trial_end = np.cumsum([len(frame_time[k]) for k in range(len(frame_time))])
+        trial_beg = np.insert(trial_end[:-1], 0, 0)
+        tiflist = glob.glob(reg_path + '*.tif')
+        tiflist_all = []
+        for tifff in tiflist:
+            image_stack = tiff.imread(tifff)
+            tiflist_all.append(image_stack)
+        tiflist_concat = np.concatenate(tiflist_all, axis=0)
+        for t in trials:
+            trial_frames_full = tiflist_concat[trial_beg[t - 1]:trial_end[t - 1], :, :]
+            tiff.imsave(self.path + 'Registered video\\T' + str(t) + '_reg.tif', trial_frames_full, bigtiff=True)
+        return
+
+    def create_residuals_tiffs(self, df_fiji, coord_fiji):
+        """Function to create the residual movies (movie without the activity of the
+        detected ROIs
+        Input:
+        df_fiji: dataframe with the ROIs traces
+        coord_fiji: list with the ROIs coordinates"""
+        reg_path_tiff = self.path + 'Registered video\\'
+        tiflist_reg = glob.glob(reg_path_tiff + '*.tif')
+        roi_list = df_fiji.columns[2:]
+        for tifff in tiflist_reg:
+            tiff_name = tifff.split('\\')[-1]
+            image_stack = tiff.imread(tifff)
+            residuals_stack = image_stack
+            for c in range(len(coord_fiji)):
+                coord_fiji_pixel = np.int64(coord_fiji[c] * self.pixel_to_um)
+                trace = np.array(df_fiji.loc[df_fiji['trial'] == np.int64(tiff_name.split('_')[0][1:]), roi_list[c]])
+                for f in range(len(trace)):
+                    residuals_stack[f, coord_fiji_pixel[:, 1], coord_fiji_pixel[:, 0]] = image_stack[f, coord_fiji_pixel[:,1], coord_fiji_pixel[:,0]] - trace[f]
+            plt.imshow(np.mean(residuals_stack, axis=0))
+            tiff.imsave(self.path + path_bgsub + 'T' + tiff_name.split('_')[0][1:] + '_reg_bgsub.tif',
+                        image_stack_bgsub, bigtiff=True)
+        return
+
+    def create_contrast_tiffs(self):
+        """Function to create tiffs from the registered stacks that have contrast enhancement.
+        For each pixel, check the distribution of fluorescence values and subtract its 10th percentile."""
+        perc_th = 10
+        reg_path_tiff = self.path + 'Registered video\\'
+        tiflist_reg = glob.glob(reg_path_tiff + '*.tif')
+        path_bgsub = '\\Registered video without background\\'
+        if not os.path.exists(self.path + path_bgsub):
+            os.mkdir(self.path + path_bgsub)
+        for tifff in tiflist_reg:
+            tiff_name = tifff.split('\\')[-1]
+            image_stack = tiff.imread(tifff)
+            # Compute background of registered tiffs
+            perc_pixel = np.zeros((np.shape(image_stack)[1], np.shape(image_stack)[2]))
+            for i in range(np.shape(image_stack)[1]):
+                for j in range(np.shape(image_stack)[2]):
+                    perc_pixel[i, j] = np.percentile(image_stack[:, i, j], perc_th)
+            perc_pixel_tile = np.tile(perc_pixel, (np.shape(image_stack)[0], 1, 1))
+            image_stack_bgsub = image_stack - perc_pixel_tile
+            tiff.imsave(self.path + path_bgsub + 'T' + tiff_name.split('_')[0][1:] + '_reg_bgsub.tif', image_stack_bgsub, bigtiff=True)
+        return
 
     # def check_f0(self):
     #     """Print ROIs from suite2p (1st trial) with respective 10% percentile"""

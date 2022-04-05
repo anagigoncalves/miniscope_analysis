@@ -1,35 +1,59 @@
+from math import ceil
+from turtle import width
 import wave
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import scipy.signal as signal
 import pywt
 # wavelet
 data_raw = pd.read_csv('preprocessed_data/AnaG_traces_raw.csv')
-data_bgsub = pd.read_csv('preprocessed_data/AnaG_traces_bgsub.csv')
 event = pd.read_csv('preprocessed_data/AnaG_events_all.csv')
-roi1_events = event['ROI2'][event['trial']==2].to_numpy()
+ROIs = data_raw.columns.values[3:]
+n_trials = 23
 
-roi1 = data_raw['ROI2'][data_raw['trial']==2].to_numpy()
-
-dt = 0.33  # 30 Hz sampling
-widths = np.arange(0.01, 0.33,0.01)
-wavelet_list = pywt.wavelist()
+dt = 0.033  # 30 Hz sampling
+widths = np.arange(1, 41)
 wavelet = 'morl'
-scales = pywt.scale2frequency(wavelet, widths) / dt
-cwtmatr, freq = pywt.cwt(roi1,scales,wavelet=wavelet, method='fft')
+for r in ROIs:
+    for t in range(1,n_trials+1):
+    
+        data_raw[r][data_raw['trial']==t] = data_raw[r][data_raw['trial']==t].fillna(0)
+        roi_trace = data_raw[r][data_raw['trial']==t].to_numpy()
+        cwtmatr, freq = pywt.cwt(roi_trace,widths,wavelet=wavelet,sampling_period=dt)
+        roi_events = event[r][event['trial']==t].to_numpy()
 
-fig, ax1 = plt.subplots()
-ax1.imshow(cwtmatr, cmap='seismic', aspect='auto', vmax=abs(cwtmatr).max(), vmin=cwtmatr.min())
-ax2 = plt.twinx(ax1)
-#ax2.plot(roi1_events*0.5, 'grey')
-ax2.plot(roi1, 'black', alpha = 0.5)
+        all_ridges = []
+        scale_ridges = []
+        fig1,(ridges_ax, ax1) = plt.subplots(2,1, sharex=True)
+        trace_ax = plt.twinx(ridges_ax)
+        trace_ax.plot(roi_events, 'grey', alpha=0.7) 
+        trace_ax.plot(roi_trace, 'black')
+        trace_ax.set_ylim(0,1)         
+        for i,w in enumerate(widths):
+            peaks,_= signal.find_peaks(cwtmatr[i,:], distance=ceil(w))
+            y = i*np.ones(len(peaks))
+            ridges_ax.scatter(peaks,y,s=4,color='red', marker ='.')
+            all_ridges.append(peaks)
+            scale_ridges.append(y)
+      
 
-plt.show()
+        ax2 = plt.twinx(ax1)
+        ax1.imshow(cwtmatr, cmap='seismic', aspect='auto')
+        ax1.invert_yaxis()
+        ax2.plot(roi_trace, 'black')
+        ax2.set_ylim(0,1)
+        ax1.set_title(r + ' trail '+str(t))
+        plt.show()
+
+        
 
 
 # for i in range(len(cwtmatr)):
+
 #     plt.plot(cwtmatr[i,:])
-#     plt.text(0,1,str(scales[i]))
+#     plt.plot(roi_events, 'grey')
+#     plt.text(0,1,str(widths[i]))
 #     plt.ylim(-1,1)
 #     plt.show()
 

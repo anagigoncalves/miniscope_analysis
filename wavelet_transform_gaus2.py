@@ -27,14 +27,19 @@ for r in ROIs[:1]:
         trace_ax = plt.twinx(ridges_ax)
         trace_ax.plot(roi_events, 'grey', alpha=0.7) 
         trace_ax.plot(roi_trace, 'black')
-        trace_ax.set_ylim(0,1)         
+        trace_ax.set_ylim(0,1) 
+
+        ridges_matrix = np.zeros((len(widths),len(roi_trace)))        
         for i,w in enumerate(widths):
             peaks,_= signal.find_peaks(cwtmatr[i,:], width=w)
             y = (i)*np.ones(len(peaks))
-            ridges_ax.scatter(peaks,y,s=4,color='red', marker ='.')
+            #ridges_ax.scatter(peaks,y,s=4,color='red', marker ='.')
             all_ridges.append(peaks)
             scale_ridges.append(y)
-    
+            ridges_matrix[i][peaks]=True 
+
+        ridges_ax.imshow(ridges_matrix, aspect='auto', cmap='Reds')
+        ridges_ax.invert_yaxis()
         ax2 = plt.twinx(ax1)
         ax1.imshow(cwtmatr, cmap='seismic', aspect='auto',vmax=cwtmatr.max(), vmin=cwtmatr.min())
         ax1.invert_yaxis()

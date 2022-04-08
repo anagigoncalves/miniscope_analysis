@@ -9,6 +9,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import scipy.signal as signal
 # wavelet
+# numero minimo di punti che definiscono il ridge (25)
+min_scale = 30
+# se il CWT massimo dello specifico ridge è minore della 15th (circa 3Hz) scale lo escludo come rumore ad alta frequenza
+min_peak_position = 15
 data_raw = pd.read_csv('preprocessed_data/AnaG_traces_raw.csv')
 event = pd.read_csv('preprocessed_data/AnaG_events_all.csv')
 ROIs = data_raw.columns.values[3:]
@@ -26,8 +30,7 @@ fs = morse.log_spaced_frequencies(high=np.pi/0.2, low=np.pi / 15)
 # plt.ylabel('PSD [V**2/Hz]')
 # plt.show()
 for r in ROIs:
-    for t in range(1,n_trials+1):
-    
+    for t in range(1,n_trials+1):    
         data_raw[r][data_raw['trial']==t] = data_raw[r][data_raw['trial']==t].fillna(0)
         roi_trace = data_raw[r][data_raw['trial']==t].to_numpy()
         roi_events = event[r][event['trial']==t].to_numpy()
@@ -36,20 +39,15 @@ for r in ROIs:
         wp = analytic_wavelet_transform(np.real(roi_trace), psi_f, np.isrealobj(psi))    
         wp = abs(wp)
         ridges = ridges_detection(wp)
-        #aggiungere due condizioni
-        # numero minimo di punti che definiscono il ridge (25)
-        min_scale = 35
-        # se il CWT massimo dello specifico ridge è minore della 15th (circa 3Hz) scale lo escludo come rumore ad alta frequenza
-        min_peak_position = 20
-    
+        
         fig1,(cwt_ax,ridges_ax) = plt.subplots(2,1, sharex=True)  
-
         ridges_ax.set_title(r + ' trail '+str(t))
         trace_ax1 = plt.twinx(ridges_ax)
         trace_ax1.plot(roi_events, 'grey', alpha=0.7) 
         trace_ax1.plot(roi_trace, 'black')
         #trace_ax1.set_ylim(0,1) 
         rifened_ridges=[]
+        peaks_pos =[]
         for ridge in ridges:
             cwt_ridge = []
             ind_x = ridge[0][:]
@@ -58,9 +56,14 @@ for r in ROIs:
                 cwt_ridge.append(wp[ind_x[c],ind_y[c]])
             max_cwt_ridge = max(cwt_ridge)
             peak_pos = cwt_ridge.index(max_cwt_ridge)
+            event_pos = np.where(wp==max_cwt_ridge)[1]
             if len(ridge[0])>min_scale and peak_pos>min_peak_position:
                 ridges_ax.scatter(ridge[1][:], ridge[0][:],s=4,color='red', marker ='.' )
-                rifened_ridges.append(ridge) 
+                rifened_ridges.append(ridge)
+                peaks_pos.append(event_pos)
+        events_cwt = np.zeros((len(roi_events)))
+        events_cwt[peaks_pos] = 1
+        trace_ax1.plot(events_cwt*0.5, 'purple', alpha=0.5)
 
         trace_ax2 = plt.twinx(cwt_ax)
         cwt_ax.imshow(wp, cmap='seismic', aspect='auto',vmax=wp.max(), vmin=-wp.max())
@@ -70,7 +73,10 @@ for r in ROIs:
         #trace_ax2.set_ylim(0,1)
         plt.show()
 
-        
+#valuatzione performance:
+# su eventi estratti da jorge
+# su eventi visti a mano
+
 
 
 # for i in range(len(wp)):

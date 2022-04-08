@@ -3,10 +3,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from wavelet_transform_fun import *
 
-# traces = pd.read_csv('preprocessed_data/AnaG_traces_raw.csv')
-traces_df =  pd.read_excel('preprocessed_data/fijibgsub.xlsx', sheet_name='trace', engine='openpyxl')   
+traces_df =  pd.read_excel('preprocessed_data/fiji.xlsx', sheet_name='trace', engine='openpyxl')   
 traces = pd.DataFrame(traces_df)
-events_comp_df =  pd.read_excel('preprocessed_data/fijibgsub.xlsx', sheet_name='events', engine='openpyxl')   
+events_comp_df =  pd.read_csv('preprocessed_data/manual_events.csv')   
 events_comp = pd.DataFrame(events_comp_df)
 
 ROIs = traces.columns.values[3:]

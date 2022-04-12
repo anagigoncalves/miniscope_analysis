@@ -8,12 +8,10 @@ import pandas as pd
 # path inputs
 path = 'E:\\TM RAW FILES\\split ipsi fast\\MC8855\\2021_04_05\\'
 path_loco = 'E:\\TM TRACKING FILES\\split ipsi fast\\split ipsi fast S1 050421\\'
-# path = 'E:\\TM RAW FILES\\tied baseline\\MC8855\\2021_04_04\\'
-# path_loco = 'E:\\TM TRACKING FILES\\tied baseline\\tied baseline S1 040421\\'
-session_type = 'split'
+session_type = 'tied'
 delim = path[-1]
 version_mscope = 'v4'
-load_data = 1
+load_data = 0
 plot_data = 0
 paw_colors = ['red', 'magenta', 'blue', 'cyan']
 fsize = 24
@@ -22,8 +20,8 @@ fsize = 24
 os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 mscope = miniscope_session_class.miniscope_session(path)
-import locomotion_class
-loco = locomotion_class.loco_class(path_loco)
+# import locomotion_class
+# loco = locomotion_class.loco_class(path_loco)
 
 # create plots folders
 if delim == '/':
@@ -47,12 +45,12 @@ if not os.path.exists(path_events):
 
 # Trial structure, reference image and triggers
 animal = mscope.get_animal_id()
-session = loco.get_session_id()
+# session = loco.get_session_id()
 trials = mscope.get_trial_id()
 frames_dFF = mscope.get_black_frames()  # black frames removed before ROI segmentation
-[trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
-strobe_nr_txt = loco.bcam_strobe_number()
-trial_start_blip_nr = loco.trial_start_blips()
+# [trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
+# strobe_nr_txt = loco.bcam_strobe_number()
+# trial_start_blip_nr = loco.trial_start_blips()
 frame_time = mscope.get_miniscope_frame_time(trials, frames_dFF, version_mscope)  # get frame time for each trial
 ref_image = mscope.get_ref_image()
 session_type = path.split(delim)[-4].split(' ')[0]  # tied or split
@@ -125,16 +123,16 @@ if load_data:
     df_events_unsync = pd.read_csv(mscope.path+'\\processed files\\'+'df_events_unsync.csv')
 
 # Load behavioral data
-filelist = loco.get_track_files(animal, session)
-st_strides_trials = []
-sw_strides_trials = []
-count_trial = 0
-for f in filelist:
-    [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f, 0.9, int(frames_loco[count_trial]))
-    [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
-    st_strides_trials.append(st_strides_mat)
-    sw_strides_trials.append(sw_pts_mat)
-    count_trial += 1
+# filelist = loco.get_track_files(animal, session)
+# st_strides_trials = []
+# sw_strides_trials = []
+# count_trial = 0
+# for f in filelist:
+#     [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f, 0.9, int(frames_loco[count_trial]))
+#     [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
+#     st_strides_trials.append(st_strides_mat)
+#     sw_strides_trials.append(sw_pts_mat)
+#     count_trial += 1
 
 # Standard plots - example traces and ROI masks
 trial_plot = 2

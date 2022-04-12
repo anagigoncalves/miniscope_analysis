@@ -58,9 +58,9 @@ def wavelet_transform_gaus2(trace,sampling_period=0.033,min_scale=10,min_peak_po
     return cwt2d, rifened_ridges, events_cwt
 
 
-def plot_cwt2d_trace(cwt_ax, cwt2d, trace, events=None, cmap='seismic'):
+def plot_cwt2d_trace(cwt_ax, cwt2d, trace, events=None, cmap='jet'):
     trace_ax = plt.twinx(cwt_ax)
-    cwt_ax.imshow(cwt2d, cmap=cmap, aspect='auto',vmax=cwt2d.max(), vmin=-cwt2d.max())
+    cwt_ax.imshow(cwt2d, cmap=cmap, aspect='auto',vmax=cwt2d.max(), vmin=0)#-cwt2d.max())
     cwt_ax.invert_yaxis()
     if events is not None:
         trace_ax.plot(events, 'grey', alpha=0.7)

@@ -16,7 +16,7 @@ for r in ROIs:
         traces[r][traces['trial']==t] = traces[r][traces['trial']==t].fillna(0)
         roi_trace = traces[r][traces['trial']==t].to_numpy()
         roi_events_comp = events_comp[r][traces['trial']==t].to_numpy()
-        cwt2d, ridges, events_cwt = wavelet_transform_morse(roi_trace)
+        cwt2d, ridges, events_cwt = wavelet_transform_morse(roi_trace, min_scale=35)
         # cwt2d, ridges, events_cwt = wavelet_transform_gaus2(roi_trace)
         fig1,(cwt_ax,ridges_ax) = plt.subplots(2,1, sharex=True)  
         cwt_ax.set_title(r + ' trial '+str(t))

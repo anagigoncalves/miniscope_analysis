@@ -24,7 +24,7 @@ def wavelet_transform_morse(trace,gamma=3,beta=2,min_scale=30,min_peak_position=
             cwt_ridge.append(cwt2d[ind_x[c],ind_y[c]])
         max_cwt_ridge = max(cwt_ridge)
         peak_pos = cwt_ridge.index(max_cwt_ridge)
-        event_pos = np.where(cwt2d==max_cwt_ridge)[1]
+        event_pos =int(np.where(cwt2d==max_cwt_ridge)[1])
         if len(ridge[0])>min_scale and peak_pos>min_peak_position:
             rifened_ridges.append(ridge)
             peaks_pos.append(event_pos)
@@ -48,7 +48,7 @@ def wavelet_transform_gaus2(trace,sampling_period=0.033,min_scale=10,min_peak_po
             cwt_ridge.append(cwt2d[ind_x[c],ind_y[c]])
         max_cwt_ridge = max(cwt_ridge)
         peak_pos = cwt_ridge.index(max_cwt_ridge)
-        event_pos = np.where(cwt2d==max_cwt_ridge)[1]
+        event_pos = int(np.where(cwt2d==max_cwt_ridge)[1])
         if len(ridge[0])>min_scale and peak_pos>min_peak_position:
             rifened_ridges.append(ridge)
             peaks_pos.append(event_pos)
@@ -60,7 +60,7 @@ def wavelet_transform_gaus2(trace,sampling_period=0.033,min_scale=10,min_peak_po
 
 def plot_cwt2d_trace(cwt_ax, cwt2d, trace, events=None, cmap='jet'):
     trace_ax = plt.twinx(cwt_ax)
-    cwt_ax.imshow(cwt2d, cmap=cmap, aspect='auto',vmax=cwt2d.max(), vmin=0)#-cwt2d.max())
+    cwt_ax.imshow(cwt2d, cmap=cmap, aspect='auto',vmax=cwt2d.max(), vmin=-cwt2d.max())
     cwt_ax.invert_yaxis()
     if events is not None:
         trace_ax.plot(events, 'grey', alpha=0.7)
@@ -70,11 +70,11 @@ def plot_cwt2d_trace(cwt_ax, cwt2d, trace, events=None, cmap='jet'):
 def plot_ridges_trace_events(ridges_ax, ridges, trace, events, events_comp = None):
     trace_ax = plt.twinx(ridges_ax)
     if events_comp is not None:
-        trace_ax.plot(events_comp, 'grey', alpha=0.7) 
+        trace_ax.plot(events_comp*(max(trace)-min(trace))+min(trace), 'grey', alpha=0.7) 
         events = events*0.5
     trace_ax.plot(trace, 'black')
     for ridge in ridges:
         ridges_ax.scatter(ridge[1][:], ridge[0][:],s=4,color='red', marker ='.' )
-    trace_ax.plot(events, 'purple', alpha=0.7)
+    trace_ax.plot(events*(max(trace)-min(trace))+min(trace), 'purple', alpha=0.7)
     return
 

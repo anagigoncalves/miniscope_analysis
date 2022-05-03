@@ -11,6 +11,7 @@ from skimage import io
 from skimage.transform import downscale_local_mean
 from wavelet_transform_fun import *
 from sklearn.metrics import davies_bouldin_score as db_score
+import matplotlib.patches as patches
 '''The score is defined as the average similarity measure of each cluster with its most similar cluster, where similarity is the ratio of within-cluster distances to between-cluster distances. Thus, clusters which are farther apart and less dispersed will result in a better score.'''
 #from sklearn.decomposition import PCA
 
@@ -33,9 +34,11 @@ class Neuropil:
             os.mkdir(os.path.join(self.path,'T'+str(trial)+'_neuropil'))
         self.fname_neuropil = os.path.join(self.path,'T'+str(trial)+'_neuropil','T'+str(self.trial)+'_neuropil_signal_'+m+'.csv')
         self.fname_clusters = os.path.join(self.path,'T'+str(trial)+'_neuropil','T'+str(self.trial)+'_clusters_'+m+'.csv')
+        self.fname_cluster_idx = os.path.join(self.path,'T'+str(trial)+'_neuropil','T'+str(self.trial)+'_clusters_idx_sorted_'+m+'.csv')
         self.fname_dendrogram = os.path.join(self.path,'T'+str(trial)+'_neuropil','T'+str(self.trial)+'_dendrogram_'+m+'.png')
         self.fname_events_neuropil = os.path.join(self.path,'T'+str(trial)+'_neuropil','T'+str(self.trial)+'_neuropil_events_'+m+'.csv')
         self.fname_corr_mat = os.path.join(self.path,'T'+str(trial)+'_neuropil','T'+str(self.trial)+'_correlation_matrix_'+m+'.csv')
+        self.fname_corr_map = os.path.join(self.path,'T'+str(trial)+'_neuropil','T'+str(self.trial)+'_correlation_map_'+m+'.png')
 
 
     def grid_division(self, downscale_factor=5, save=True):
@@ -48,7 +51,7 @@ class Neuropil:
         ds_image_stack = downscale_local_mean(image_stack,(1,downscale_factor,downscale_factor))
         # if self.mask is not None:
         #     ds_image_stack[]
-
+        self.n_grid_i_j = [ds_image_stack.shape[1],ds_image_stack.shape[2]]
         self.neurpil = pd.DataFrame()
         for i in range(ds_image_stack.shape[1]): 
             for j in range(ds_image_stack.shape[2]):
@@ -60,6 +63,7 @@ class Neuropil:
         if save:
             print('Saving neuropil signal for ',self.fname_video)
             self.neurpil.to_csv(self.fname_neuropil)
+            np.savetxt(os.path.join(self.path,'n_grid_ij.csv'),self.n_grid_i_j,delimiter=',')
         return 
 
     def neuropil_clustering_by_trial(self,th_cluster=0.6, save=True):
@@ -75,13 +79,16 @@ class Neuropil:
         print('Performing hierachical clustering')
         z = linkage(y=distance, method='complete', metric='euclidean')
         idx = fcluster(z, th_cluster * distance.max(), 'distance')  # clustering of linkage output
+        d = {'pixel_idx': neuropil.columns, 'cluster_idx': idx}
+        cluster_idx = pd.DataFrame(data=d)
+        cluster_idx = cluster_idx.sort_values('cluster_idx')
         nr_clusters = np.unique(idx)
-        # TODO exclude cluster < 3% of the all image size
-        print(nr_clusters[-1])
+
         fig = plt.figure(figsize=(20,15))
         dn = dendrogram(z,above_threshold_color='y',no_labels=True,orientation='top') 
-
-        n_grid_i = 0
+        n_grid_i=122
+        n_grid_j=122
+        """ n_grid_i = 0
         n_grid_j = 0
         for i,pos in enumerate(neuropil.columns[1:]):
             n_grid_i_old = int(pos[1:pos.find('_')])
@@ -89,7 +96,7 @@ class Neuropil:
             if n_grid_i_old>n_grid_i:
                 n_grid_i=n_grid_i_old
             if n_grid_j_old>n_grid_j:
-                n_grid_j=n_grid_j_old
+                n_grid_j=n_grid_j_old """
 
         self.cluster_image = np.zeros((n_grid_i+1,n_grid_j+1))
         for i,pos in enumerate(neuropil.columns[1:]):
@@ -99,8 +106,29 @@ class Neuropil:
         if save:
             print('Saving clustering output for '+self.fname_neuropil)
             np.savetxt(self.fname_clusters,self.cluster_image,delimiter=',')
+            cluster_idx.to_csv(self.fname_cluster_idx)
             fig.savefig(self.fname_dendrogram)
         return self.cluster_image
+
+    def clustered_pixels_correlation(self, save=True):
+        if os.path.exists(self.fname_cluster_idx):
+            cluster_idx = pd.read_csv(self.fname_cluster_idx, index_col='pixel_idx')
+        else:
+            self.neuropil_clustering_by_trial()
+            cluster_idx = pd.read_csv(self.fname_cluster_idx, index_col='pixel_idx')
+
+        pixel_idx = cluster_idx.index.values.tolist()
+        neuropil = pd.read_csv(self.fname_neuropil, usecols=pixel_idx)
+        print('Computing pairwise correlation between pixels')
+        neuropil=neuropil[pixel_idx]
+        corr_mat=neuropil.corr('pearson')
+        
+        if save:
+            print('Saving correlation matrix')
+            corr_mat.to_csv(self.fname_corr_mat)
+        else:
+            plt.show()
+        return corr_mat
 
     def pixel_trace():
         # TODO plot pixel trace: same color cluster, intensity.
@@ -133,37 +161,45 @@ class Neuropil:
     # def pca_neuropil_signal(self, show_fig=False, save=True):
 
     @staticmethod
-    def neuropil_clustering(path,fname,th_cluster=0.6, save=True):
-        neuropil = pd.read_csv(os.path.join(path,fname))
+    def neuropil_clustering(path,fname,th_cluster=0.5, save=True):
+        columns = np.loadtxt(os.path.join(path,'pixel_of_interest.csv'), dtype=str)
+        neuropil = pd.read_csv(os.path.join(path,fname), usecols=columns)
         print('Computing pairwise distance')
         distance = pdist(neuropil.T,'correlation')
         # self.m = squareform(distance)
         print('Performing hierachical clustering')
         z = linkage(y=distance, method='complete', metric='euclidean')
         idx = fcluster(z, th_cluster * distance.max(), 'distance')  # clustering of linkage output
+        
+        cluster_index = pd.DataFrame(data=idx,index=columns)
         nr_clusters = np.unique(idx)
         # TODO exclude cluster < 3% of the all image size
         print(nr_clusters[-1])
+        n_grid_i=122
+        n_grid_j=122
+        # n_grid_i = 0
+        # n_grid_j = 0
+        # for i,pos in enumerate(neuropil.columns[1:]):
 
-        n_grid_i = 0
-        n_grid_j = 0
-        for i,pos in enumerate(neuropil.columns[2:]):
-            
-            n_grid_i_old = int(pos[1:pos.find('_')])
-            n_grid_j_old = int(pos[pos.find('j')+1:]) 
-            if n_grid_i_old>n_grid_i:
-                n_grid_i=n_grid_i_old
-            if n_grid_j_old>n_grid_j:
-                n_grid_j=n_grid_j_old
+        #     n_grid_i_old = int(pos[1:pos.find('_')])
+        #     n_grid_j_old = int(pos[pos.find('j')+1:]) 
+        #     if n_grid_i_old>n_grid_i:
+        #         n_grid_i=n_grid_i_old
+        #     if n_grid_j_old>n_grid_j:
+        #         n_grid_j=n_grid_j_old
 
         cluster_image = np.zeros((n_grid_i+1,n_grid_j+1))
-        for i,pos in enumerate(neuropil.columns[2:]):
+        for i,pos in enumerate(neuropil.columns[1:]):
             ind_i = int(pos[1:pos.find('_')])
             ind_j = int(pos[pos.find('j')+1:])
             cluster_image[ind_i,ind_j]=idx[i]
+        
+        
         if save:
             print('Saving clustering output')
-            np.savetxt(os.path.join(path,'clusters_idx.csv'),cluster_image,delimiter=',')
+            np.savetxt(os.path.join(path,'clusters_map.csv'),cluster_image,delimiter=',')
+            cluster_index.to_csv(os.path.join(path,'clusters_idx.csv'))
+
         return 
 
 

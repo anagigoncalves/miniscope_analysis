@@ -1,4 +1,7 @@
+from cProfile import label
 import matplotlib.pyplot as plt
+from matplotlib import cm
+import matplotlib.patches as patches
 import numpy as np
 from numpy import asarray
 import os
@@ -11,14 +14,16 @@ from skimage import io
 from skimage.transform import downscale_local_mean
 from wavelet_transform_fun import *
 from sklearn.metrics import davies_bouldin_score as db_score
-import matplotlib.patches as patches
+from sklearn.decomposition import PCA
+
+
 '''The score is defined as the average similarity measure of each cluster with its most similar cluster, where similarity is the ratio of within-cluster distances to between-cluster distances. Thus, clusters which are farther apart and less dispersed will result in a better score.'''
-#from sklearn.decomposition import PCA
+
 
 fsize=18
 
 class Neuropil:
-    def __init__(self,path,trial):
+    def __init__(self,path,trial=1):
         trial_name = 'T'+str(trial)+'_reg.tif'
         self.path = path
         self.trial = trial
@@ -39,6 +44,7 @@ class Neuropil:
         self.fname_events_neuropil = os.path.join(self.path,'T'+str(trial)+'_neuropil','T'+str(self.trial)+'_neuropil_events_'+m+'.csv')
         self.fname_corr_mat = os.path.join(self.path,'T'+str(trial)+'_neuropil','T'+str(self.trial)+'_correlation_matrix_'+m+'.csv')
         self.fname_corr_map = os.path.join(self.path,'T'+str(trial)+'_neuropil','T'+str(self.trial)+'_correlation_map_'+m+'.png')
+        self.fname_pixel_traces = os.path.join(self.path,'T'+str(trial)+'_neuropil','T'+str(self.trial)+'_pixel_mean_traces.png')
 
 
     def grid_division(self, downscale_factor=5, save=True):
@@ -66,13 +72,14 @@ class Neuropil:
             np.savetxt(os.path.join(self.path,'n_grid_ij.csv'),self.n_grid_i_j,delimiter=',')
         return 
 
-    def neuropil_clustering_by_trial(self,th_cluster=0.6, save=True):
+    def neuropil_clustering_by_trial(self, th_cluster=0.6, x_pixels=122, y_pixels=122, save=True, save_image=True):
 
         if os.path.exists(self.fname_neuropil):
-            neuropil = pd.read_csv(self.fname_neuropil)
+            neuropil = pd.read_csv(self.fname_neuropil, index_col=0)
         else:
             self.grid_division()
             neuropil = self.neurpil
+
         print('Computing pairwise distance')
         distance = pdist(neuropil.T,'correlation')
         # self.m = squareform(distance)
@@ -82,24 +89,13 @@ class Neuropil:
         d = {'pixel_idx': neuropil.columns, 'cluster_idx': idx}
         cluster_idx = pd.DataFrame(data=d)
         cluster_idx = cluster_idx.sort_values('cluster_idx')
-        nr_clusters = np.unique(idx)
+        cluster_idx_list = np.unique(cluster_idx['cluster_idx'].to_numpy())      
 
-        fig = plt.figure(figsize=(20,15))
-        dn = dendrogram(z,above_threshold_color='y',no_labels=True,orientation='top') 
-        n_grid_i=122
-        n_grid_j=122
-        """ n_grid_i = 0
-        n_grid_j = 0
-        for i,pos in enumerate(neuropil.columns[1:]):
-            n_grid_i_old = int(pos[1:pos.find('_')])
-            n_grid_j_old = int(pos[pos.find('j')+1:]) 
-            if n_grid_i_old>n_grid_i:
-                n_grid_i=n_grid_i_old
-            if n_grid_j_old>n_grid_j:
-                n_grid_j=n_grid_j_old """
+        # fig = plt.figure(figsize=(20,15))
+        # dn = dendrogram(z,above_threshold_color='y',no_labels=True,orientation='top') 
 
-        self.cluster_image = np.zeros((n_grid_i+1,n_grid_j+1))
-        for i,pos in enumerate(neuropil.columns[1:]):
+        self.cluster_image = np.zeros((x_pixels+1,y_pixels+1))
+        for i,pos in enumerate(neuropil.columns):
             ind_i = int(pos[1:pos.find('_')])
             ind_j = int(pos[pos.find('j')+1:])
             self.cluster_image[ind_i,ind_j]=idx[i]
@@ -107,31 +103,84 @@ class Neuropil:
             print('Saving clustering output for '+self.fname_neuropil)
             np.savetxt(self.fname_clusters,self.cluster_image,delimiter=',')
             cluster_idx.to_csv(self.fname_cluster_idx)
-            fig.savefig(self.fname_dendrogram)
+            # fig.savefig(self.fname_dendrogram)
+        if save_image:
+            nr_clusters = len(cluster_idx_list)
+            cmap = cm.get_cmap('inferno', int(nr_clusters)+1)
+            cmap.colors[0]=[1,1,1,1]
+            fig = plt.figure(figsize=(20,20), tight_layout=True)    
+            plt.imshow(self.cluster_image, aspect='auto', cmap=cmap)
+            for i,c in enumerate(cluster_idx_list):
+                fig.text(0.9,0.9-i*0.025,'cluster index: '+str(c), size = 16, bbox=dict(boxstyle ='round', fc=cmap.colors[i+1]))
+            # plt.show()
+            fig.savefig(self.fname_clusters[:-4]+'.png')
+
         return self.cluster_image
 
-    def clustered_pixels_correlation(self, save=True):
-        if os.path.exists(self.fname_cluster_idx):
-            cluster_idx = pd.read_csv(self.fname_cluster_idx, index_col='pixel_idx')
+    def clustered_pixels_correlation(self, cluster_idx, cmap, save=True, save_image=True, all_session=True):
+        if all_session:
+            fname_corr_map = os.path.join(self.path,'T'+str(self.trial)+'_corr_map_session_clusters.png')
+            fname_corr_mat = os.path.join(self.path,'T'+str(self.trial)+'_corr_mat_session_clusters.csv')
         else:
-            self.neuropil_clustering_by_trial()
-            cluster_idx = pd.read_csv(self.fname_cluster_idx, index_col='pixel_idx')
+            fname_corr_map = self.fname_corr_map
+            fname_corr_mat = self.fname_corr_mat
 
-        pixel_idx = cluster_idx.index.values.tolist()
+        pixel_idx = cluster_idx['pixel_idx'].tolist()
         neuropil = pd.read_csv(self.fname_neuropil, usecols=pixel_idx)
+
         print('Computing pairwise correlation between pixels')
         neuropil=neuropil[pixel_idx]
         corr_mat=neuropil.corr('pearson')
         
         if save:
             print('Saving correlation matrix')
-            corr_mat.to_csv(self.fname_corr_mat)
-        else:
-            plt.show()
+            corr_mat.to_csv(fname_corr_mat)
+
+        if save_image:
+            index = cluster_idx.index
+            cluster_idx_list = np.unique(cluster_idx['cluster_idx'].to_numpy())
+            print('Plotting correlation map')
+            fig, ax = plt.subplots(1,figsize=(20,20))  
+            ax.matshow(corr_mat,cmap='coolwarm',vmin=0, vmax=1)
+            for i,c in enumerate(cluster_idx_list):
+                p = index[cluster_idx['cluster_idx']==c].to_list()
+                rect = patches.Rectangle((p[0], p[0]), p[-1]-p[0]+1, p[-1]-p[0]+1, linewidth=5, edgecolor=cmap.colors[i+1], facecolor="none")
+                ax.add_patch(rect)
+            fig.savefig(fname_corr_map)
+
+
         return corr_mat
 
-    def pixel_trace():
-        # TODO plot pixel trace: same color cluster, intensity.
+    def clustered_pixel_trace(self, cmap, cluster_idx, k=1, selected_clusters=None, save_image=True, all_session=True):
+
+        if selected_clusters is None:
+            cluster_idx_list = np.unique(cluster_idx['cluster_idx'].to_numpy())
+        else:
+            cluster_idx_list = selected_clusters
+
+        if all_session:
+            fname_pixel_traces = os.path.join(self.path,'T'+str(self.trial)+'_pixel_mean_traces.png')
+        else:
+            fname_pixel_traces = self.fname_pixel_traces
+
+        pixel_idx = cluster_idx.index.values.tolist()
+        neuropil = pd.read_csv(self.fname_neuropil, usecols=pixel_idx)
+        fig_mean,ax_mean= plt.subplots(figsize=(20,20), tight_layout=True)
+        t = neuropil.index.values.tolist()
+        for i,c in enumerate(cluster_idx_list):
+            pixel_list = cluster_idx[cluster_idx['cluster_idx']==c].index.values.tolist()
+            cluster_activity =[]
+            for j,p in enumerate(pixel_list):
+                cluster_activity.append(neuropil[p].to_numpy())
+             
+            mean_cluster_activity = np.mean(cluster_activity,axis=0)
+            sd_cluster_activity = np.std(cluster_activity,axis=0)
+            ax_mean.plot(t,mean_cluster_activity+i*k,color=cmap.colors[c], label='cluster'+str(c))
+            ax_mean.fill_between(t,(mean_cluster_activity+i*k)+sd_cluster_activity,(mean_cluster_activity+i*k)-sd_cluster_activity,color=cmap.colors[c], alpha=0.8)
+            ax_mean.legend()
+        if save_image:
+            fig_mean.savefig(fname_pixel_traces)       
+
         return
 
     def Ca_events_neuropil(self, show_fig=False, save=True):
@@ -157,48 +206,71 @@ class Neuropil:
                 self.events_neuropil.to_csv(self.fname_events_neuropil)
         return
     
-    #TODO pca on neurpil signal        
-    # def pca_neuropil_signal(self, show_fig=False, save=True):
+    @staticmethod       
+    def pca_neuropil_signal(path,fname,trials,show_fig=False, save=True):
+
+        neuropil = pd.read_csv(os.path.join(path,fname), index_col=0)
+
+        pca = PCA(n_components=3)
+        principalComponents_3CP = pca.fit_transform(neuropil)
+
+        fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+        plt.plot(np.arange(1, 4), np.cumsum(pca.explained_variance_ratio_), color='black')
+        plt.scatter(3, np.cumsum(pca.explained_variance_ratio_)[2], color='red')
+        ax.set_xlabel('PCA components', fontsize=14)
+        ax.set_ylabel('Explained variance', fontsize=14)
+        plt.xticks(fontsize=13)
+        plt.yticks(fontsize=13)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+
+        ax = plt.figure(figsize=(16,10)).gca(projection='3d')
+        ax.scatter(xs=principalComponents_3CP[:, 0], ys=principalComponents_3CP[:, 1], zs=principalComponents_3CP[:, 2], s=1)
+        ax.set_title('First 3 PCs - explained variance of ' + str(np.round(np.cumsum(pca.explained_variance_ratio_)[2], decimals=3)), fontsize=24)
+        ax.set_xlabel('PC component 1', fontsize=20)
+        ax.set_ylabel('PC component 2', fontsize=20)
+        # ax.set_zlabel('PC component 3', fontsize=20)
+
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        plt.show()
+        return 
 
     @staticmethod
-    def neuropil_clustering(path,fname,th_cluster=0.5, save=True):
-        columns = np.loadtxt(os.path.join(path,'pixel_of_interest.csv'), dtype=str)
-        neuropil = pd.read_csv(os.path.join(path,fname), usecols=columns)
+    def neuropil_clustering(path, fname, th_cluster=0.6, x_pixels=122, y_pixels=122,  save=True, save_image=True):
+
+        neuropil = pd.read_csv(os.path.join(path,fname), index_col=0)
         print('Computing pairwise distance')
         distance = pdist(neuropil.T,'correlation')
         # self.m = squareform(distance)
         print('Performing hierachical clustering')
         z = linkage(y=distance, method='complete', metric='euclidean')
         idx = fcluster(z, th_cluster * distance.max(), 'distance')  # clustering of linkage output
-        
-        cluster_index = pd.DataFrame(data=idx,index=columns)
-        nr_clusters = np.unique(idx)
-        # TODO exclude cluster < 3% of the all image size
-        print(nr_clusters[-1])
-        n_grid_i=122
-        n_grid_j=122
-        # n_grid_i = 0
-        # n_grid_j = 0
-        # for i,pos in enumerate(neuropil.columns[1:]):
+        d = {'pixel_idx': neuropil.columns, 'cluster_idx': idx}
+        cluster_idx = pd.DataFrame(data=d)
+        cluster_idx = cluster_idx.sort_values('cluster_idx')
+        cluster_idx_list = np.unique(cluster_idx['cluster_idx'].to_numpy())
+        nr_clusters = len(cluster_idx_list)
+        cmap = cm.get_cmap('inferno', int(nr_clusters)+1)
+        cmap.colors[0]=[1,1,1,1]
 
-        #     n_grid_i_old = int(pos[1:pos.find('_')])
-        #     n_grid_j_old = int(pos[pos.find('j')+1:]) 
-        #     if n_grid_i_old>n_grid_i:
-        #         n_grid_i=n_grid_i_old
-        #     if n_grid_j_old>n_grid_j:
-        #         n_grid_j=n_grid_j_old
-
-        cluster_image = np.zeros((n_grid_i+1,n_grid_j+1))
+        cluster_image = np.zeros((x_pixels+1,y_pixels+1))
         for i,pos in enumerate(neuropil.columns[1:]):
             ind_i = int(pos[1:pos.find('_')])
             ind_j = int(pos[pos.find('j')+1:])
             cluster_image[ind_i,ind_j]=idx[i]
         
-        
         if save:
             print('Saving clustering output')
             np.savetxt(os.path.join(path,'clusters_map.csv'),cluster_image,delimiter=',')
-            cluster_index.to_csv(os.path.join(path,'clusters_idx.csv'))
+            cluster_idx.to_csv(os.path.join(path,'clusters_idx.csv'))
+
+        if save_image:
+            fig = plt.figure(figsize=(20,20), tight_layout=True)
+            plt.imshow(cluster_image, aspect='auto', cmap=cmap)            
+            for i,c in enumerate(cluster_idx_list):
+                fig.text(0.9,0.9-i*0.025,'cluster index: '+str(c), size = 16, bbox=dict(boxstyle ='round', fc=cmap.colors[i+1]))
+            fig.savefig(os.path.join(path,'clusters.png'))
 
         return 
 

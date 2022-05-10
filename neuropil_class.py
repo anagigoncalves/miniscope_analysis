@@ -183,7 +183,7 @@ class Neuropil:
 
         return
 
-    def Ca_events_neuropil(self, show_fig=False, save=True):
+    def Ca_events_neuropil(self, show_fig=True, save=True):
         if os.path.exists(self.fname_neuropil):
             neuropil = pd.read_csv(self.fname_neuropil)
         else:
@@ -192,7 +192,7 @@ class Neuropil:
 
         self.events_neuropil=pd.DataFrame(columns=neuropil.columns)
         for i_j in neuropil.columns: 
-            signal_ij=self.neurpil[i_j]
+            signal_ij=neuropil[i_j]
             print('Computing continuos wavelet transformation for neuropil signal')
             cwt2d, ridges, events_cwt = wavelet_transform_morse(signal_ij,gamma=3,beta=2,min_scale=20,min_peak_position=15,min_freq=1, max_freq=20)
             self.events_neuropil[i_j]=events_cwt
@@ -201,39 +201,38 @@ class Neuropil:
                 plot_cwt2d_trace(cwt_ax, cwt2d, signal_ij)
                 plot_ridges_trace_events(ridges_ax, ridges, signal_ij, events_cwt)
                 plt.show()
-            if save:
-                print('Saving detected events in '+self.fname_neuropil)
-                self.events_neuropil.to_csv(self.fname_events_neuropil)
+        if save:
+            print('Saving detected events in '+self.fname_neuropil)
+            self.events_neuropil.to_csv(self.fname_events_neuropil)
         return
     
     @staticmethod       
-    def pca_neuropil_signal(path,fname,trials,show_fig=False, save=True):
-
-        neuropil = pd.read_csv(os.path.join(path,fname), index_col=0)
+    def pca_neuropil_signal(neuropil,c,cmap, show_fig=False, save=True):
 
         pca = PCA(n_components=3)
         principalComponents_3CP = pca.fit_transform(neuropil)
 
-        fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
-        plt.plot(np.arange(1, 4), np.cumsum(pca.explained_variance_ratio_), color='black')
-        plt.scatter(3, np.cumsum(pca.explained_variance_ratio_)[2], color='red')
-        ax.set_xlabel('PCA components', fontsize=14)
-        ax.set_ylabel('Explained variance', fontsize=14)
-        plt.xticks(fontsize=13)
-        plt.yticks(fontsize=13)
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
+        # fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+        # plt.plot(np.arange(1, 4), np.cumsum(pca.explained_variance_ratio_), color='black')
+        # plt.scatter(3, np.cumsum(pca.explained_variance_ratio_)[2], color='red')
+        # ax.set_xlabel('PCA components', fontsize=14)
+        # ax.set_ylabel('Explained variance', fontsize=14)
+        # plt.xticks(fontsize=13)
+        # plt.yticks(fontsize=13)
+        # ax.spines['right'].set_visible(False)
+        # ax.spines['top'].set_visible(False)
 
         ax = plt.figure(figsize=(16,10)).gca(projection='3d')
-        ax.scatter(xs=principalComponents_3CP[:, 0], ys=principalComponents_3CP[:, 1], zs=principalComponents_3CP[:, 2], s=1)
+        ax.scatter(xs=principalComponents_3CP[:, 0], ys=principalComponents_3CP[:, 1], zs=principalComponents_3CP[:, 2], s=1, c=c, cmap=cmap)
         ax.set_title('First 3 PCs - explained variance of ' + str(np.round(np.cumsum(pca.explained_variance_ratio_)[2], decimals=3)), fontsize=24)
         ax.set_xlabel('PC component 1', fontsize=20)
         ax.set_ylabel('PC component 2', fontsize=20)
-        # ax.set_zlabel('PC component 3', fontsize=20)
+        ax.set_zlabel('PC component 3', fontsize=20)
 
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         plt.show()
+        # ax.savefig(os.path.join(path,'pca_temporal.png'))    
         return 
 
     @staticmethod

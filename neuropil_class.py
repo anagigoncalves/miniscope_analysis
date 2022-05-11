@@ -1,4 +1,3 @@
-from cProfile import label
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import matplotlib.patches as patches
@@ -34,7 +33,7 @@ class Neuropil:
             m = 'masked'
         else: 
             self.mask = None
-            m = None
+            m = ''
         if not os.path.exists(os.path.join(self.path,'T'+str(trial)+'_neuropil')):
             os.mkdir(os.path.join(self.path,'T'+str(trial)+'_neuropil'))
         self.fname_neuropil = os.path.join(self.path,'T'+str(trial)+'_neuropil','T'+str(self.trial)+'_neuropil_signal_'+m+'.csv')
@@ -265,6 +264,9 @@ class Neuropil:
             cluster_idx.to_csv(os.path.join(path,'clusters_idx.csv'))
 
         if save_image:
+            fig_d = plt.figure(figsize=(20,15))
+            dn = dendrogram(z,above_threshold_color='y',no_labels=True,orientation='top') 
+            fig_d.savefig(os.path.join(path,'dendogram.png'))
             fig = plt.figure(figsize=(20,20), tight_layout=True)
             plt.imshow(cluster_image, aspect='auto', cmap=cmap)            
             for i,c in enumerate(cluster_idx_list):
@@ -272,7 +274,3 @@ class Neuropil:
             fig.savefig(os.path.join(path,'clusters.png'))
 
         return 
-
-
-
-    

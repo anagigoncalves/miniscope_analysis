@@ -39,7 +39,7 @@ for trial in range(1,n_trials+1):
     neuropil_trial_signal = pd.read_csv(neuropil.fname_neuropil)
     neuropil_session_signal.append(neuropil_trial_signal)    
 
-df_session = pd.concat(neuropil_session_signal)
+df_session = pd.concat(neuropil_session_signal
 df_session.to_csv(os.path.join(path,'neuropil_session_signal.csv'))
 #  '''
 

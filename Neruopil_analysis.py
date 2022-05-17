@@ -5,21 +5,24 @@ import matplotlib.patches as patches
 from matplotlib import cm
 import os
 import pandas as pd
+from PIL import Image
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 from scipy.spatial.distance import pdist, squareform
 
+# root_path = '/media/careylab/Samsung_T5/TM RAW FILES/split ipsi fast/MC8855/2021_04_05'
+root_path = '/media/careylab/Samsung_T5/TM RAW FILES/tied baseline/MC8855/2021_04_04'
+path_video = os.path.join(root_path,'Registered video') 
+path_results = os.path.join(root_path,'Neuropil_analysis')
+# n_trials = 23
+n_trials = 6
 
-path_results = '/media/careylab/Samsung_T5/TM RAW FILES/split ipsi fast/MC8855/2021_04_05/Neuropil_analysis'
-n_trials = 23
-# path_results = '/media/careylab/Samsung_T5/TM RAW FILES/tied baseline/MC8855/2021_04_04/Registered video/'
-# n_trials = 6
-# '''************************************ SINGLE TRIAL NEUROPIL SIGNAL ************************************
+'''************************************ SINGLE TRIAL NEUROPIL SIGNAL ************************************
 for trial in range(1,n_trials+1):
     print('trial number: ', trial)
     neuropil = Neuropil(path_results, trial)    
 
     trial_name = 'T'+str(trial)+'_reg.tif'
-    fname_video = os.path.join('/media/careylab/Samsung_T5/TM RAW FILES/split ipsi fast/MC8855/Registered video',trial_name)    
+    fname_video = os.path.join(path_video,trial_name)    
     neurpil_signal, n_grid_ij = neuropil.grid_division(fname_video)
 
     print('Saving neuropil signal for trial ', trial)
@@ -27,7 +30,7 @@ for trial in range(1,n_trials+1):
     np.savetxt(os.path.join(path_results,'n_grid_ij.csv'),n_grid_ij,delimiter=',')
 #  '''
 
-# '''***************************************** CONCATENATE TRIALS *****************************************
+'''***************************************** CONCATENATE TRIALS *****************************************
 neuropil_session_signal = []
 
 for trial in range(1,n_trials+1):
@@ -37,13 +40,16 @@ for trial in range(1,n_trials+1):
     neuropil_session_signal.append(neuropil_trial_signal)    
 
 df_session = pd.concat(neuropil_session_signal)
+print(df_session.columns)
+df_session.drop("Unnamed: 0", axis=1, inplace=True)
 df_session.to_csv(os.path.join(path_results,'neuropil_session_signal.csv'))
 #  '''
 
-# '''****************************************** SESSION CLUSTERS ******************************************
+'''****************************************** SESSION CLUSTERS ******************************************
 neuropil = Neuropil(path_results)
 neuropil_session_signal = pd.read_csv(os.path.join(path_results,'neuropil_session_signal.csv'), index_col=0)
-cluster_image, cluster_idx, z = neuropil.neuropil_h_clustering(neuropil_session_signal,th_cluster=0.4)
+#TODO normalizzare segnale
+cluster_image, cluster_idx, z = neuropil.neuropil_h_clustering(neuropil_session_signal,th_cluster=0.55)
 
 print('Saving clustering output for entire session')
 np.savetxt(os.path.join(path_results,'clusters_map.csv'),cluster_image,delimiter=',')
@@ -66,16 +72,19 @@ for i,c in enumerate(cluster_idx_list):
     fig_cluster.text(0.9,0.9-i*0.025,'cluster index: '+str(c), size = 16, bbox=dict(boxstyle ='round', fc=cmap.colors[i+1]))
 fig_cluster.savefig(os.path.join(path_results,'clusters.png'))
 
+# cluster_map = Image.fromarray(cluster_image)
+# cluster_map.save(os.path.join(path_results,'clusters_bw.png'), format="png")
+
 print('Plotting dendogram')
-fig_dendogram = plt.figure(figsize=(15,20), tight_layout=True)
+fig_dendogram = plt.figure(figsize=(20,15), tight_layout=True)
 dn = dendrogram(z,above_threshold_color='y',no_labels=True,orientation='top') 
 fig_dendogram.savefig(os.path.join(path_results,'dendrogram.png'))
 
 #  '''
 
-# '''**************************************** SESSION CORRELATION *****************************************
+'''**************************************** SESSION CORRELATION *****************************************
 print('Loading clustering output for entire session')
-cluster_idx = pd.read_csv(os.path.join(path_results,'clusters_idx.csv'), index_col='pixel_idx')
+cluster_idx = pd.read_csv(os.path.join(path_results,'clusters_idx.csv'), index_col=0)
 pixel_idx = cluster_idx['pixel_idx'].tolist()
 neuropil_signal = pd.read_csv(os.path.join(path_results,'neuropil_session_signal.csv'), usecols=pixel_idx)
 
@@ -86,7 +95,7 @@ print('Saving correlation matrix')
 corr_mat.to_csv(os.path.join(path_results,'corr_mat.csv'))
 
 # print('Loading correlation output for entire session')
-# cluster_idx = pd.read_csv(os.path.join(path_results,'clusters_idx.csv'), index_col='pixel_idx')
+# cluster_idx = pd.read_csv(os.path.join(path_results,'clusters_idx.csv'), index_col=0)
 # pixel_idx = cluster_idx['pixel_idx'].tolist()
 # corr_mat = pd.read_csv(os.path.join(path_results,'corr_mat.csv'), index_col=0)
 
@@ -100,14 +109,14 @@ index = cluster_idx.index
 print('Plotting correlation map')
 fig, ax = plt.subplots(1,figsize=(20,20))  
 ax.matshow(corr_mat,cmap='coolwarm',vmin=0, vmax=1)
-for i,c in enumerate(cluster_idx_list):
-    p = index[cluster_idx['cluster_idx']==c].to_list()
-    rect = patches.Rectangle((p[0], p[0]), p[-1]-p[0]+1, p[-1]-p[0]+1, linewidth=5, edgecolor=cmap.colors[i+1], facecolor="none")
-    ax.add_patch(rect)
+# for i,c in enumerate(cluster_idx_list):
+#     p = index[cluster_idx['cluster_idx']==c].to_list()
+#     rect = patches.Rectangle((p[0], p[0]), p[-1]-p[0]+1, p[-1]-p[0]+1, linewidth=5, edgecolor=cmap.colors[i+1], facecolor="none")
+#     ax.add_patch(rect)
 fig.savefig(os.path.join(path_results,'correlation_map.png'))
 #  '''
 
-# '''****************************** FIXED CLUSTERS SINGLE TRIAL CORRELATION *****************************
+'''******************************* FIXED CLUSTERS SINGLE TRIAL CORRELATION ******************************
 print('Loading clustering output for entire session')
 cluster_idx = pd.read_csv(os.path.join(path_results,'clusters_idx.csv'))
 pixel_idx = cluster_idx['pixel_idx'].tolist()
@@ -147,13 +156,13 @@ for trial in range(1,n_trials+1):
 
 # '''
 
-# '''*************************************** SINGLE TRIAL CLUSTERS ****************************************
+'''*************************************** SINGLE TRIAL CLUSTERS ****************************************
 for trial in range(1,n_trials+1):
     print('trial number: ', trial)
     neuropil = Neuropil(path_results, trial)
 
     neuropil_signal = pd.read_csv(neuropil.fname_neuropil, index_col=0)
-    cluster_image, cluster_idx, z = neuropil.neuropil_h_clustering(neuropil_signal,th_cluster=0.4)
+    cluster_image, cluster_idx, z = neuropil.neuropil_h_clustering(neuropil_signal,th_cluster=0.5)
 
     print('Saving clustering output for trial ', trial)
     np.savetxt(neuropil.fname_clusters,cluster_image,delimiter=',')
@@ -266,46 +275,38 @@ neuropil_signal = pd.read_csv(os.path.join(path_results,'neuropil_session_signal
 neuropil.pca_neuropil_signal(neuropil_signal,c=c, cmap=cmap)
 #  '''
 
-'''*********************************************** ROI EXTRACT ************************************************
-
-print('Computing pairwise distance')
-rois = pd.read_csv(os.path.join(path_results,'df_extract_raw_split.csv'))
+'''*************************************** ROI EXTRACT CLUSTERS *****************************************
+rois = pd.read_csv(os.path.join(path_results,'df_extract_raw_tied.csv'))
 rois = rois[rois.columns[2:]].replace(np.nan,0.0)
 
-# print(rois.isnull().values.any())
+th_cluster = 0.45
+
+print('Computing pairwise distance')
 distance = pdist(rois.T,'correlation')
 
-# from scipy.stats import pearsonr
-# def pearson_distance(a,b):
-#     return 1 - pearsonr(a,b)[0]
-
-# dist = pdist(rois.T, pearson_distance)
-# print(dist)
-
-# self.m = squareform(distance)
 print('Performing hierachical clustering')
 z = linkage(y=distance, method='complete', metric='euclidean')
-th_cluster = 0.8
 idx = fcluster(z, th_cluster * distance.max(), 'distance')  # clustering of linkage output
+
 d = {'roi_idx': rois.columns, 'cluster_idx': idx}
 cluster_idx = pd.DataFrame(data=d)
 cluster_idx = cluster_idx.sort_values('cluster_idx')
-cluster_idx.to_csv(os.path.join(path_results,'rois_clsuters_idx.csv'))
+cluster_idx.to_csv(os.path.join(path_results,'roi_EXTRACT_clusters_idx.csv'))
+
 cluster_idx_list = np.unique(cluster_idx['cluster_idx'].to_numpy())
 nr_clusters = len(cluster_idx_list)
-# print(cluster_idx)
-# fig = plt.figure(figsize=(20,15))
-# dn = dendrogram(z,above_threshold_color='y',no_labels=True,orientation='top') 
-# plt.show()
+
+fig = plt.figure(figsize=(20,15))
+dn = dendrogram(z,above_threshold_color='y',no_labels=True,orientation='top') 
+plt.show()
 cmap = cm.get_cmap('viridis', int(nr_clusters)+1)
-# cmap.colors[0]=[1,1,1,1]
 
 pixel_to_um = 0.608
-coord_cell = np.load(os.path.join(path_results,'coord_split.npy'),allow_pickle=True)
+coord_cell = np.load(os.path.join(path_results,'coord_tied.npy'),allow_pickle=True)
 coord_cell = coord_cell*pixel_to_um
 
 fig = plt.figure(figsize=(10, 10), tight_layout=True)
-path_mask = '/media/careylab/Samsung_T5/TM RAW FILES/split ipsi fast/MC8855/2021_04_05/first mask/'
+path_mask = path_results #'/media/careylab/Samsung_T5/TM RAW FILES/split ipsi fast/MC8855/2021_04_05/first mask/'
 mask = Image.open(os.path.join(path_mask,'Mask.png'))
 cmap_mask = cm.get_cmap('inferno',2)
 cmap_mask.colors[0]=[0,0,0,1]
@@ -314,23 +315,23 @@ plt.imshow(mask, cmap=cmap_mask)
 for i,r in enumerate(rois.columns):
     c = int(cluster_idx['cluster_idx'][cluster_idx['roi_idx']==r].to_numpy())
     plt.scatter(coord_cell[i][:, 0], coord_cell[i][:, 1], color=cmap.colors[c], s=1, alpha=0.6)
-
-fig.savefig(os.path.join(path_results,'roi_cluster_map.png'), transparent=True)
-
+fig.savefig(os.path.join(path_results,'roi_EXTRACT_cluster_map.png'), transparent=True)
 #  '''
 
-'''***********************************************  ROI FROM RAW VIDEO ************************************************
+'''****************************************  ROI FROM RAW VIDEO *****************************************
 # extract raw signal from each roi 
 from skimage import io
 pixel_to_um = 0.608
-coord_cell = np.load(os.path.join(path_results,'coord_split.npy'),allow_pickle=True)
+coord_cell = np.load(os.path.join(path_results,'coord_tied.npy'),allow_pickle=True)
 coord_cell = coord_cell*pixel_to_um
-rois = pd.read_csv(os.path.join(path_results,'df_extract_raw_split.csv'), index_col='time')
+rois = pd.read_csv(os.path.join(path_results,'df_extract_raw_tied.csv'), index_col='time')
 
 for trial in range(1,n_trials+1):
     print('trial number: ', trial)
     neuropil = Neuropil(path_results, trial)
-    image_stack = io.ImageCollection(neuropil.fname_video, conserve_memory=True)
+    trial_name = 'T'+str(trial)+'_reg.tif'
+    fname_video = os.path.join(path_video,trial_name)
+    image_stack = io.ImageCollection(fname_video, conserve_memory=True)
     image_stack = image_stack.concatenate()
     for i,r in enumerate(rois.columns[1:]):
         roi_signal = []
@@ -341,30 +342,31 @@ for trial in range(1,n_trials+1):
 rois.to_csv(os.path.join(path_results,'df_rois_raw_split.csv'))
 #  '''
 
-'''*********************************************** ROI CLUSTERS FROM RAW VIDEO ************************************************
+# '''************************************* ROI CLUSTERS FROM RAW VIDEO ************************************
 # compute clusters with raw signals
 rois = pd.read_csv(os.path.join(path_results,'df_rois_raw_split.csv'))
 rois = rois[rois.columns[2:]]
+
+th_cluster = 0.5
+
 distance = pdist(rois.T,'correlation')
 print('Performing hierachical clustering')
 z = linkage(y=distance, method='complete', metric='euclidean')
-th_cluster = 0.35
 idx = fcluster(z, th_cluster * distance.max(), 'distance')  # clustering of linkage output
 d = {'roi_idx': rois.columns, 'cluster_idx': idx}
 cluster_idx = pd.DataFrame(data=d)
 cluster_idx = cluster_idx.sort_values('cluster_idx')
-cluster_idx.to_csv(os.path.join(path_results,'raw_rois_clusters_idx.csv'))
+cluster_idx.to_csv(os.path.join(path_results,'roi_RAW_clusters_idx.csv'))
 cluster_idx_list = np.unique(cluster_idx['cluster_idx'].to_numpy())
 nr_clusters = len(cluster_idx_list)
 cmap = cm.get_cmap('viridis', int(nr_clusters)+1)
 
 pixel_to_um = 0.608
-coord_cell = np.load(os.path.join(path_results,'coord_split.npy'),allow_pickle=True)
+coord_cell = np.load(os.path.join(path_results,'coord_tied.npy'),allow_pickle=True)
 coord_cell = coord_cell*pixel_to_um
 
 fig = plt.figure(figsize=(10, 10), tight_layout=True)
-path_mask = '/media/careylab/Samsung_T5/TM RAW FILES/split ipsi fast/MC8855/2021_04_05/first mask/'
-mask = Image.open(os.path.join(path_mask,'Mask.png'))
+mask = Image.open(os.path.join(path_results,'Mask.png'))
 cmap_mask = cm.get_cmap('inferno',2)
 cmap_mask.colors[0]=[0,0,0,1]
 cmap_mask.colors[1]=[1,1,1,0]
@@ -373,10 +375,10 @@ for i,r in enumerate(rois.columns):
     c = int(cluster_idx['cluster_idx'][cluster_idx['roi_idx']==r].to_numpy())
     plt.scatter(coord_cell[i][:, 0], coord_cell[i][:, 1], color=cmap.colors[c], s=1, alpha=0.6)
 
-fig.savefig(os.path.join(path_results,'roi_cluster_map.png'), transparent=True)
+fig.savefig(os.path.join(path_results,'roi_RAW_cluster_map.png'), transparent=True)
 #  '''
 
-'''*********************************************** ROI CORRELATION WITH CLUSTER SIGNAL ************************************************
+'''********************************* ROI CORRELATION WITH CLUSTER SIGNAL ********************************
 
 # correlation matrix
 # event detection

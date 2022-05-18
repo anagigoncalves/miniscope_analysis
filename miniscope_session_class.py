@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 import matplotlib as mp
 import numpy as np
 import tifffile as tiff
+from statsmodels import robust
+from scipy import signal, stats
 from scipy.signal import correlate
 from scipy.signal import correlation_lags
 from scipy.signal import wiener
@@ -29,9 +31,10 @@ import mat73
 from matplotlib.patches import Ellipse
 from sklearn.decomposition import PCA
 import mahotas
-import matplotlib.patches as mp
+import matplotlib.patches as mp_patch
 import SlopeThreshold as ST
 import read_roi
+import scipy.spatial.distance as spdist
 
  #to call class
 #os.chdir('/Users/anagoncalves/Documents/PhD/Code/Miniscope pipeline/')
@@ -183,7 +186,9 @@ class miniscope_session:
             trial_length = np.shape(df_fiji.loc[df_fiji['trial'] == t])[0]
             trial_idx = df_fiji.loc[df_fiji['trial'] == t].index
             perc_arr = np.tile(np.nanpercentile(np.array(df_fiji.iloc[trial_idx,2:]), 10, axis=0), (trial_length, 1))
-            dFF_trial = (np.array(df_fiji.iloc[trial_idx, 2:]) - perc_arr) / perc_arr
+            with np.errstate(divide='ignore', invalid='ignore'):
+                dFF_trial = np.true_divide((np.array(df_fiji.iloc[trial_idx, 2:]) - perc_arr), perc_arr)
+                dFF_trial[dFF_trial == np.inf] = 0
             df_fiji.iloc[trial_idx, 2:] = dFF_trial
         return df_fiji
 
@@ -581,40 +586,84 @@ class miniscope_session:
         ops = np.load(self.path+path_ops,allow_pickle=True)
         ref_image = ops[()]['meanImg']
         return ref_image
-    
-    def read_extract_output(self, threshold_spatial_weights, frame_time, trial):
+
+    def read_extract_output(self, threshold_spatial_weights, frame_time, trials):
         """Function to get the pixel coordinates (list of arrays) and calcium trace
          (dataframe) for each ROI giving a threshold on the spatial weights
         (EXTRACT output)
         Inputs:
             threshold_spatial_weights: float
             frame_time: list with miniscope timestamps
-            trial: (int) - while EXTRACT is run on a single trial"""
+            trials: list of trials"""
         if self.delim == '/':
-            path_extract = self.path + '/EXTRACT/'
+            path_extract = self.path + '/Registered video/EXTRACT/'
         if self.delim == '\\':
-            path_extract = self.path + '\\EXTRACT\\'
-        ext_rois = mat73.loadmat(path_extract+'extract_output.mat')
+            path_extract = self.path + '\\Registered video\\EXTRACT\\'
+        files_extract = glob.glob(path_extract + '*.mat')
+        ext_rois = mat73.loadmat(files_extract[0]) #masks are the same across trials
         spatial_weights = ext_rois['spatial_weights']
-        trace_ext = ext_rois['trace_nonneg']
+        trace_ext_list = []
+        for f in range(len(files_extract)):
+            ext_dict = mat73.loadmat(files_extract[f])
+            trace_ext_list.append(ext_dict['trace_nonneg'])
+        trace_ext_arr = np.concatenate(trace_ext_list, axis=0)
         coord_cell = []
         for c in range(np.shape(spatial_weights)[2]):
-            coord_cell.append(np.transpose(np.array(np.where(spatial_weights[:, :, c]>threshold_spatial_weights))))
+            coord_cell.append(np.transpose(np.array(np.where(spatial_weights[:, :, c] > threshold_spatial_weights))))
         coord_cell_t = []
         for c in range(len(coord_cell)):
             coord_cell_switch = np.zeros(np.shape(coord_cell[c]))
-            coord_cell_switch[:,0] = coord_cell[c][:,0]/self.pixel_to_um
-            coord_cell_switch[:,1] = coord_cell[c][:,1]/self.pixel_to_um
+            coord_cell_switch[:, 0] = coord_cell[c][:, 1] / self.pixel_to_um
+            coord_cell_switch[:, 1] = coord_cell[c][:, 0] / self.pixel_to_um
             coord_cell_t.append(coord_cell_switch)
         # trace as dataframe
-        roi_list =  []
+        roi_list = []
         for r in range(len(coord_cell)):
-            roi_list.append('ROI'+str(r+1))
-        data_ext1 = {'trial': np.repeat(trial, len(frame_time[trial - 1])), 'time': frame_time[trial - 1]}
+            roi_list.append('ROI' + str(r + 1))
+        trial_ext = []
+        frame_time_ext = []
+        for t in trials:
+            trial_ext.extend(np.repeat(t, len(frame_time[t - 1])))
+            frame_time_ext.extend(frame_time[t - 1])
+        data_ext1 = {'trial': trial_ext, 'time': frame_time_ext}
         df_ext1 = pd.DataFrame(data_ext1)
-        df_ext2 = pd.DataFrame(trace_ext, columns=roi_list)
+        df_ext2 = pd.DataFrame(trace_ext_arr, columns=roi_list)
         df_ext = pd.concat([df_ext1, df_ext2], axis=1)
         return coord_cell_t, df_ext
+
+    def compute_extract_rawtrace(self, coord_ext, trials, frame_time):
+        """Function to compute the raw traces from the ROI coordinates from EXTRACT.
+        Input:
+            coord_cell: list with ROIs coordinates
+            trials: array with all the trials in the session
+            frame_time: list with frame timestamps"""
+        ext_trace_all_list = []
+        for c in range(len(coord_ext)):
+            ext_trace_trials = []
+            for t in trials:
+                tiff_stack = tiff.imread(self.path + 'Registered video\\T' + str(t) + '_reg.tif')  # read tiffs
+                ext_trace_tiffmean = np.zeros((np.shape(tiff_stack)[0]))
+                for f in range(np.shape(tiff_stack)[0]):
+                    ext_trace_tiffmean[f] = np.nansum(tiff_stack[f, np.int64(
+                        np.round(coord_ext[c][:, 1] * self.pixel_to_um)), np.int64(
+                        np.round(coord_ext[c][:, 0] * self.pixel_to_um))]) / np.shape(coord_ext[c])[0]
+                ext_trace_trials.append(ext_trace_tiffmean)
+            ext_trace_concat = np.hstack(ext_trace_trials)
+            ext_trace_all_list.append(ext_trace_concat)
+        ext_trace_arr = np.transpose(np.vstack(ext_trace_all_list))        # trace as dataframe
+        roi_list = []
+        for r in range(len(coord_cell)):
+            roi_list.append('ROI'+str(r+1))
+        trial_ext = []
+        frame_time_ext = []
+        for t in trials:
+            trial_ext.extend(np.repeat(t, len(frame_time[t-1])))
+            frame_time_ext.extend(frame_time[t - 1])
+        dict_ext = {'trial': trial_ext, 'time': frame_time_ext}
+        df_ext1 = pd.DataFrame(dict_ext)
+        df_ext2 = pd.DataFrame(ext_trace_arr, columns=roi_list)
+        df_ext_raw = pd.concat([df_ext1, df_ext2], axis=1)
+        return df_ext_raw
 
     def get_imagej_output(self,frame_time,trials,norm):
         """Function to get the pixel coordinates (list of arrays) and calcium trace
@@ -691,9 +740,8 @@ class miniscope_session:
         coord_ext_aspectratio = []
         for r in rois_idx_aspectratio:
             coord_ext_aspectratio.append(coord_cell[r])
-        centroid_ext_aspectratio = np.multiply(mscope.get_roi_centroids(coord_ext_aspectratio), mscope.pixel_to_um)
-        roi_idx_bad_aspectratio = np.setdiff1d(np.arange(1, len(coord_ext) + 1), np.array(rois_idx_aspectratio) + 1)
-        roi_list_bad_aspectratio = ['ROI' + str(i) for i in roi_idx_bad_aspectratio]
+        roi_idx_bad_aspectratio = np.setdiff1d(np.arange(1, len(coord_cell)), np.array(rois_idx_aspectratio))
+        roi_list_bad_aspectratio = df_dFF.columns[2:][roi_idx_bad_aspectratio]
         df_dFF_aspectratio = df_dFF.drop(columns=roi_list_bad_aspectratio)
         skewness_dFF = df_dFF_aspectratio.skew(axis=0, skipna=True)
         skewness_dFF_argsort = np.argsort(np.array(skewness_dFF[2:]))
@@ -722,44 +770,23 @@ class miniscope_session:
             ax2 = fig.add_subplot(gs[1, 0])
             ax2.scatter(coord_ext_aspectratio[roi_idx_sort_skewness[count_r]][:, 0],
                         coord_ext_aspectratio[roi_idx_sort_skewness[count_r]][:, 1], s=1, color='blue', alpha=0.5)
-            ax2.set_title(r, fontsize=mscope.fsize)
+            ax2.set_title(r, fontsize=self.fsize)
             ax2.imshow(ref_image,
-                       extent=[0, np.shape(ref_image)[1] / mscope.pixel_to_um,
-                               np.shape(ref_image)[0] / mscope.pixel_to_um,
+                       extent=[0, np.shape(ref_image)[1] / self.pixel_to_um,
+                               np.shape(ref_image)[0] / self.pixel_to_um,
                                0], cmap=plt.get_cmap('gray'))
-            ax2.set_xlabel('FOV in micrometers', fontsize=mscope.fsize - 4)
-            ax2.set_ylabel('FOV in micrometers', fontsize=mscope.fsize - 4)
-            ax2.tick_params(axis='x', labelsize=mscope.fsize - 4)
-            ax2.tick_params(axis='y', labelsize=mscope.fsize - 4)
+            ax2.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
+            ax2.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
+            ax2.tick_params(axis='x', labelsize=self.fsize - 4)
+            ax2.tick_params(axis='y', labelsize=self.fsize - 4)
             ax3 = fig.add_subplot(gs[1, 1])
             ax3.scatter(coord_ext_aspectratio[roi_idx_sort_skewness[count_r]][:, 0],
                         coord_ext_aspectratio[roi_idx_sort_skewness[count_r]][:, 1], s=1, color='blue')
-            ax3.set_title(r + ' check for discontinuities', fontsize=mscope.fsize)
-            ax3.set_xlabel('ROI coordinates X', fontsize=mscope.fsize - 4)
-            ax3.set_ylabel('ROI coordinates Y', fontsize=mscope.fsize - 4)
-            ax3.tick_params(axis='x', labelsize=mscope.fsize - 4)
-            ax3.tick_params(axis='y', labelsize=mscope.fsize - 4)
-            # isolation metric
-            # find 100th closest pixel
-            dist = []
-            pixel_x = []
-            pixel_y = []
-            for i in range(608 + 1):
-                for j in range(608 + 1):
-                    dist.append(np.linalg.norm(centroid_ext_aspectratio[0] - np.array([i, j])))
-                    pixel_x.append(i)
-                    pixel_y.append(i)
-            coord_100th = np.array([pixel_x[np.argsort(dist)[100]], pixel_y[np.argsort(dist)[100]]])
-            tiff_stack = tiff.imread(
-                mscope.path + 'Registered video\\T' + str(trial_curation) + '_reg.tif')  # read tiffs
-            coord_100th_trace = np.zeros((np.shape(tiff_stack)[0]))
-            for f in range(np.shape(tiff_stack)[0]):
-                coord_100th_trace[f] = np.nansum(tiff_stack[f, coord_100th[1], coord_100th[0]])
-            coord_id = np.zeros(608)
-            coord_id[np.int64(coord_ext_aspectratio[0][:, 0])] = 1
-            principalComponents_2CP = PCA(n_components=2).fit_transform(np.mean(tiff_stack, axis=0))
-            fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
-            h = plt.scatter(principalComponents_2CP[:, 0], principalComponents_2CP[:, 1], s=5, c=coord_id)
+            ax3.set_title(r + ' check for discontinuities', fontsize=self.fsize)
+            ax3.set_xlabel('ROI coordinates X', fontsize=self.fsize - 4)
+            ax3.set_ylabel('ROI coordinates Y', fontsize=self.fsize - 4)
+            ax3.tick_params(axis='x', labelsize=self.fsize - 4)
+            ax3.tick_params(axis='y', labelsize=self.fsize - 4)
             bpress = plt.waitforbuttonpress()
             if bpress:
                 keep_roi.append(r)
@@ -777,6 +804,147 @@ class miniscope_session:
         for r in np.sort(keep_roi_idx):
             coord_cell_clean.append(coord_ext_aspectratio[r])
         return coord_cell_clean, df_dFF_clean
+
+    def isolation_distance(self, roi, trial, coord_fiji, plot_data):
+        """Isolation distance metric between ROI and neuropil (Stringer, Pachitariu, 2019, Curr.Op.Neurobio.
+        Computes the mahalanobis distance between ROI cluster in PCA space and 100th closest neuropil pixel
+        Outputs the distance for the raw signal and the distance for the background subtracted signal
+        Inputs:
+            roi: (int) roi to plot
+            trial: (int) trial to plot
+            coord_fiji: list of ROI ccordinates"""
+        tiff_stack = tiff.imread(
+            self.path + 'Registered video\\T' + str(trial) + '_reg.tif')  # read tiffs
+        centroid_fiji_um = self.get_roi_centroids(coord_fiji)
+        centroid_fiji = np.multiply(centroid_fiji_um, self.pixel_to_um)
+        cent_fiji = centroid_fiji_um[roi]
+        coord_roi = np.int64(np.multiply(coord_fiji[roi - 1], self.pixel_to_um))
+        xlength_fiji = np.abs(coord_fiji[roi][-1, 0] - coord_fiji[roi][0, 0])
+        ylength_fiji = np.abs(coord_fiji[roi][-1, 1] - coord_fiji[roi][0, 1])
+        height_fiji = np.sqrt(np.square(xlength_fiji) + np.square(ylength_fiji))
+        # get F signal for all pixels in the ROI
+        F_coord_roi = np.zeros((np.shape(coord_roi)[0], np.shape(tiff_stack)[0]))
+        for f in range(np.shape(tiff_stack)[0]):
+            F_coord_roi[:, f] = tiff_stack[f, coord_roi[:, 1], coord_roi[:, 0]]
+        F_coord_roi_norm = F_coord_roi - np.transpose(np.tile(np.nanmean(F_coord_roi, axis=1), (np.shape(F_coord_roi)[1],1)))  # mean subtraction is essential for PCA, zscore might be bad for mahalanobnis distance
+        # Find pixels of the surrounding neuropil, ordered by distance to ROI center
+        dist = []
+        pixel_x = []
+        pixel_y = []
+        for i in range(608):
+            pixel_coord_i = np.where(coord_roi[:, 0] == i)[0]
+            for j in range(608):
+                pixel_coord_j = coord_roi[pixel_coord_i, 1]
+                if j not in pixel_coord_j:  # remove pixels of the ROI
+                    dist.append(np.linalg.norm(centroid_fiji[roi - 1] - np.array([i, j])))
+                    pixel_x.append(i)
+                    pixel_y.append(j)
+        pixel_x_arr = np.array(pixel_x)
+        pixel_y_arr = np.array(pixel_y)
+        x_neuropil = pixel_x_arr[np.argsort(dist)[:1000]]
+        y_neuropil = pixel_y_arr[np.argsort(dist)[:1000]]
+        # get F signal for the nearby neuropil pixels
+        F_coord_neuropil = np.zeros((len(x_neuropil), np.shape(tiff_stack)[0]))
+        for f in range(np.shape(tiff_stack)[0]):
+            F_coord_neuropil[:, f] = tiff_stack[f, y_neuropil, x_neuropil]
+        F_coord_neuropil_norm = F_coord_neuropil - np.transpose(np.tile(np.nanmean(F_coord_neuropil, axis=1), (
+        np.shape(F_coord_neuropil)[1],
+        1)))  # mean subtraction is essential for PCA, zscore might be bad for mahalanobnis distance
+        ROI_neuropil_arr = np.transpose(np.vstack((F_coord_roi_norm, F_coord_neuropil_norm)))
+        # PCA of ROI and nearby neuropil pixels
+        coord_id = np.zeros(np.shape(ROI_neuropil_arr)[1])
+        coord_id[:np.shape(F_coord_roi)[0]] = 1
+        coord_100th = np.array(pixel_x_arr[np.argsort(dist)[100]]) + np.shape(F_coord_roi)[0]
+        principalComponents_2CP = PCA(n_components=2).fit_transform(np.transpose(ROI_neuropil_arr))
+        # isolation distance is the mahalanobis distance of points to the cluster center,
+        # get the 100th closest neuropil pixel
+        centroid_roi_cluster = np.nanmean(principalComponents_2CP[:np.shape(F_coord_roi)[0], :], axis=0)
+        dist_pca = np.zeros(np.shape(F_coord_roi)[0])
+        for p in range(np.shape(F_coord_roi)[0]):
+            dist_pca[p] = np.linalg.norm(centroid_roi_cluster - principalComponents_2CP[p, :])
+        centroid_roi_cluster_idx = np.argmin(dist_pca)
+        mahalanobis_dist_100thpixel = spdist.cdist(principalComponents_2CP, np.array([principalComponents_2CP[centroid_roi_cluster_idx, :]]),
+                     metric='mahalanobis')[coord_100th]
+        # get F signal for ROI pixels after background subtraction
+        ell = mp_patch.Ellipse((cent_fiji[0], cent_fiji[1]), 30, height_fiji + 15,
+                         -(90 - np.degrees(np.arctan(ylength_fiji / xlength_fiji))))
+        ell2 = mp_patch.Ellipse((cent_fiji[0], cent_fiji[1]), 50, height_fiji + 30,
+                          -(90 - np.degrees(np.arctan(ylength_fiji / xlength_fiji))))
+        ellpath = ell.get_path()
+        vertices = ellpath.vertices.copy()
+        coord_ell_inner = ell.get_patch_transform().transform(vertices)
+        ellpath2 = ell2.get_path()
+        vertices2 = ellpath2.vertices.copy()
+        coord_ell_outer = ell2.get_patch_transform().transform(vertices2)
+        ROIinner_fill_x, ROIinner_fill_y = zip(*self.render(np.int64(coord_ell_inner * self.pixel_to_um)))
+        ROIouter_fill_x, ROIouter_fill_y = zip(*self.render(np.int64(coord_ell_outer * self.pixel_to_um)))
+        ROIinner_fill_coord = np.transpose(np.vstack((ROIinner_fill_x, ROIinner_fill_y)))
+        ROIouter_fill_coord = np.transpose(np.vstack((ROIouter_fill_x, ROIouter_fill_y)))
+        idx_overlap_outer = []
+        for x in range(np.shape(ROIinner_fill_coord)[0]):
+            if ROIinner_fill_coord[x, 0] in ROIouter_fill_coord[:, 0]:
+                idx_overlap = np.where((ROIouter_fill_coord[:, 0] == ROIinner_fill_coord[x, 0]) & (
+                        ROIouter_fill_coord[:, 1] == ROIinner_fill_coord[x, 1]))[0]
+                if len(idx_overlap) > 0:
+                    idx_overlap_outer.append(idx_overlap[0])
+        idx_nonoverlap = np.setdiff1d(range(np.shape(ROIouter_fill_coord)[0]), idx_overlap_outer)
+        ROIdonut_coord = np.transpose(
+            np.vstack((ROIouter_fill_coord[idx_nonoverlap, 0], ROIouter_fill_coord[idx_nonoverlap, 1])))
+        F_coord_donut = np.zeros((np.shape(ROIdonut_coord)[0], np.shape(tiff_stack)[0]))
+        for f in range(np.shape(tiff_stack)[0]):
+            F_coord_donut[:, f] = tiff_stack[f, ROIdonut_coord[:, 1], ROIdonut_coord[:, 0]]
+        F_coord_bg = F_coord_roi - np.nanmean(F_coord_donut, axis=0)
+        F_coord_bg_norm = F_coord_bg - np.transpose(np.tile(np.nanmean(F_coord_bg, axis=1), (np.shape(F_coord_bg)[1],1)))  # mean subtraction is essential for PCA, zscore might be bad for mahalanobnis distance
+        # PCA of bg sub ROI and nearby neuropil pixels
+        ROIbg_neuropil_arr = np.transpose(np.vstack((F_coord_bg_norm, F_coord_neuropil_norm)))
+        principalComponents_2CP_bg = PCA(n_components=2).fit_transform(np.transpose(ROIbg_neuropil_arr))
+        # isolation distance is the mahalanobis distance of points to the cluster center,
+        # get the 100th closest neuropil pixel
+        centroid_roi_cluster_bg = np.nanmean(principalComponents_2CP[:np.shape(F_coord_roi)[0], :], axis=0)
+        dist_pca_bg = np.zeros(np.shape(F_coord_roi)[0])
+        for p in range(np.shape(F_coord_roi)[0]):
+            dist_pca_bg[p] = np.linalg.norm(centroid_roi_cluster_bg - principalComponents_2CP_bg[p, :])
+        centroid_roi_cluster_idx_bg = np.argmin(dist_pca_bg)
+        mahalanobis_dist_100thpixel_bg = spdist.cdist(principalComponents_2CP_bg, np.array([principalComponents_2CP_bg[centroid_roi_cluster_idx_bg, :]]),
+                     metric='mahalanobis')[coord_100th]
+        if plot_data:
+            fig = plt.figure(figsize=(15, 10), tight_layout=True)
+            gs = fig.add_gridspec(2, 2)
+            ax1 = fig.add_subplot(gs[0, :])
+            ax1.plot(np.nanmean(F_coord_neuropil_norm, axis=0), color='red', label='neuropil')
+            ax1.plot(np.nanmean(F_coord_roi_norm, axis=0), color='blue', label='ROI')
+            ax1.plot(np.nanmean(F_coord_bg_norm, axis=0), color='green', label='ROI bg')
+            ax1.legend(frameon=False)
+            ax1.set_xlabel('Frames', fontsize=14)
+            ax1.set_ylabel('Fluorescence', fontsize=14)
+            plt.xticks(fontsize=13)
+            plt.yticks(fontsize=13)
+            ax1.spines['right'].set_visible(False)
+            ax1.spines['top'].set_visible(False)
+            ax2 = fig.add_subplot(gs[1, 0])
+            ax2.scatter(principalComponents_2CP[:, 0], principalComponents_2CP[:, 1], s=15, c=coord_id)
+            ax2.scatter(principalComponents_2CP[coord_100th, 0], principalComponents_2CP[coord_100th, 1], s=40,
+                        color='red')
+            ax2.set_title('PCA space on ROI and neuropil signals ' + str(np.round(mahalanobis_dist_100thpixel[0], 2)))
+            ax2.set_xlabel('PC1', fontsize=14)
+            ax2.set_ylabel('PC2', fontsize=14)
+            plt.xticks(fontsize=13)
+            plt.yticks(fontsize=13)
+            ax2.spines['right'].set_visible(False)
+            ax2.spines['top'].set_visible(False)
+            ax2 = fig.add_subplot(gs[1, 1])
+            ax2.scatter(principalComponents_2CP_bg[:, 0], principalComponents_2CP_bg[:, 1], s=15, c=coord_id)
+            ax2.scatter(principalComponents_2CP_bg[coord_100th, 0], principalComponents_2CP_bg[coord_100th, 1], s=40,
+                        color='red')
+            ax2.set_title(
+                'PCA space on ROI bg and neuropil signals ' + str(np.round(mahalanobis_dist_100thpixel_bg[0], 2)))
+            ax2.set_xlabel('PC1', fontsize=14)
+            ax2.set_ylabel('PC2', fontsize=14)
+            plt.xticks(fontsize=13)
+            plt.yticks(fontsize=13)
+            ax2.spines['right'].set_visible(False)
+            ax2.spines['top'].set_visible(False)
+        return [mahalanobis_dist_100thpixel, mahalanobis_dist_100thpixel_bg]
 
     def get_miniscope_frame_time(self, trials, frames_dFF, version):
         """From timestamp.dat file compute time of acquisiton of each frame for all trials in a session
@@ -982,6 +1150,35 @@ class miniscope_session:
                 plt.savefig(self.path + 'images\\' + 'rois_fov', dpi=self.my_dpi)
         return
 
+    def plot_heatmap_baseline(self, df_dFF, plot_data):
+        """Plots the heatmap for all ROIs given the their traces (min-max normalized).
+        Plots the first 6 trials - baseline trials or fully tied, depending on the session
+        Input:
+            df_dFF: dataframe with traces
+            plot_data: boolean"""
+        trials = np.unique(df_dFF['trial'])
+        fig, ax = plt.subplots(2, 3, figsize=(25, 12), tight_layout=True)
+        ax = ax.ravel()
+        for t in trials[:7]:
+            sns.heatmap(np.transpose(df_dFF[df_dFF['trial'] == t].iloc[:, 2:]), cmap='coolwarm',
+                        ax=ax[t - 1], cbar=False)
+            ax[t - 1].set_title('Trial ' + str(t), fontsize=self.fsize - 4)
+            ax[t - 1].set_xticks(np.linspace(0, len(df_dFF[df_dFF['trial'] == t].iloc[:, 1]), num=15))
+            ax[t - 1].set_xticklabels(list(map(str, np.round(
+                np.linspace(0, df_dFF[df_dFF['trial'] == t].iloc[-1, 1], num=15), 1))),
+                                      fontsize=self.fsize - 4)
+            ax[t - 1].set_yticks(np.arange(0, len(df_dFF.columns[2:]), 2))
+            ax[t - 1].set_yticklabels(df_dFF.columns[2::2], fontsize=self.fsize - 4)
+            ax[t - 1].set_xlabel('Time (s)', fontsize=self.fsize - 4)
+        if plot_data:
+            if self.delim == '/':
+                plt.savefig(self.path + '/images/' + 'heatmap_1st_6trials_minmax_traces_allROIs',
+                            dpi=self.my_dpi)
+            else:
+                plt.savefig(self.path + '\\images\\' + 'heatmap_1st_6trials_minmax_traces_allROIs',
+                            dpi=self.my_dpi)
+        return
+
     def plot_stacked_traces(self, frame_time, df_dFF, trials_plot, print_plots):
         """"Funtion to compute stacked traces for a single trial or for the transition trials in the session.
         Input:
@@ -995,8 +1192,10 @@ class miniscope_session:
             ax = ax.ravel()
             for t in trials_plot:
                 dFF_trial = df_dFF.loc[df_dFF['trial'] == t]  # get dFF for the desired trial
-                for r in range(df_dFF.shape[1] - 2):
-                    ax[count_t].plot(frame_time[t - 1], dFF_trial['ROI' + str(r + 1)] + (r / 2), color='black')
+                count_r = 0
+                for r in df_dFF.columns[2:]:
+                    ax[count_t].plot(frame_time[t - 1], dFF_trial[r] + (count_r / 2), color='black')
+                    count_r += 1
                 ax[count_t].set_xlabel('Time (s)', fontsize=self.fsize - 4)
                 ax[count_t].set_ylabel('Calcium trace for trial ' + str(t), fontsize=self.fsize - 4)
                 plt.xticks(fontsize=self.fsize - 4)
@@ -1011,8 +1210,10 @@ class miniscope_session:
         else:
             dFF_trial = df_dFF.loc[df_dFF['trial'] == trials_plot]  # get dFF for the desired trial
             fig, ax = plt.subplots(figsize=(10, 20), tight_layout=True)
-            for r in range(df_dFF.shape[1] - 2):
-                plt.plot(frame_time[trials_plot - 1], dFF_trial['ROI' + str(r + 1)] + (r / 2), color='black')
+            count_r = 0
+            for r in df_dFF.columns[2:]:
+                plt.plot(frame_time[trials_plot - 1], dFF_trial[r] + (count_r / 2), color='black')
+                count_r += 1
             ax.set_xlabel('Time (s)', fontsize=self.fsize - 4)
             ax.set_ylabel('Calcium trace for trial ' + str(trials_plot), fontsize=self.fsize - 4)
             plt.xticks(fontsize=self.fsize - 4)
@@ -1030,6 +1231,63 @@ class miniscope_session:
                 plt.savefig(self.path + 'images/' + 'dFF_stacked_traces', dpi=self.my_dpi)
             else:
                 plt.savefig(self.path + 'images\\' + 'dFF_stacked_traces', dpi=self.my_dpi)
+
+    def plot_stacked_traces_singleROI(self, frame_time, df_dFF, roi_plot, session_type, trials, print_plots):
+        """"Funtion to compute stacked traces for all trials in a session for a single ROI.
+        Input:
+        frame_time: list with mscope timestamps
+        df_dFF: dataframe with calcium trace
+        roi_plot: int or list
+        print_plots: boolean"""
+        greys = mp.cm.get_cmap('Greys', 14)
+        reds = mp.cm.get_cmap('Reds', 23)
+        blues = mp.cm.get_cmap('Blues', 23)
+        oranges = mp.cm.get_cmap('Oranges', 23)
+        purples = mp.cm.get_cmap('Purples', 23)
+        if session_type=='tied':
+            if len(trials) == 6:
+                colors_session = [greys(4), greys(7), greys(12), oranges(7), oranges(13), oranges(23)]
+            if len(trials) == 12:
+                colors_session = [greys(4), greys(7), greys(12), oranges(7), oranges(13), oranges(23), purples(7), purples(13), purples(23)]
+            if len(trials) == 18:
+                colors_session = [greys(4), greys(6), greys(8), greys(10), greys(12), greys(14),
+                                  oranges(6), oranges(10), oranges(13), oranges(16), oranges(19), oranges(23),
+                                  purples(6), purples(10), purples(13), purples(16), purples(19), purples(23)]
+        if session_type == 'split':
+            if len(trials) == 23:
+                colors_session = [greys(4), greys(7), greys(12), reds(5), reds(7), reds(9), reds(11), reds(13), reds(15),
+                              reds(17), reds(19), reds(21), reds(23), blues(5), blues(7), blues(9), blues(11),
+                              blues(13),
+                              blues(15), blues(17), blues(19), blues(21), blues(23)]
+            if len(trials) == 26:
+                colors_session = [greys(4), greys(6), greys(8), greys(10), greys(12), greys(14), reds(5), reds(7), reds(9), reds(11), reds(13), reds(15),
+                              reds(17), reds(19), reds(21), reds(23), blues(5), blues(7), blues(9), blues(11),
+                              blues(13),
+                              blues(15), blues(17), blues(19), blues(21), blues(23)]
+        fig, ax = plt.subplots(figsize=(15, 30),  tight_layout=True)
+        count_t = 0
+        for t in trials:
+            dFF_trial = df_dFF.loc[df_dFF['trial'] == t,'ROI'+str(roi_plot)]  # get dFF for the desired trial
+            ax.plot(frame_time[t - 1], dFF_trial + count_t, color=colors_session[count_t])
+            ax.set_xlabel('Time (s)', fontsize=self.fsize - 4)
+            ax.set_ylabel('Calcium trace for ROI ' + str(roi_plot), fontsize=self.fsize - 4)
+            plt.xticks(fontsize=self.fsize - 4)
+            plt.yticks(fontsize=self.fsize - 4)
+            plt.setp(ax.get_yticklabels(), visible=False)
+            ax.tick_params(axis='y', which='y', length=0)
+            ax.spines['right'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            plt.tick_params(axis='y', labelsize=0, length=0)
+            count_t += 1
+        if print_plots:
+            if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi_plot)):
+                os.mkdir(self.path + '\\images\\events\\ROI' + str(roi_plot))
+            if self.delim == '/':
+                plt.savefig(self.path + '/images/events/ROI' + str(roi_plot) + '/' + 'dFF_stacked_traces', dpi=self.my_dpi)
+            else:
+                plt.savefig(self.path + '\\images\\events\\ROI' + str(roi_plot) + '\\' + 'dFF_stacked_traces', dpi=self.my_dpi)
+        return
 
     def compute_roi_clustering(self, df_dFF, centroid_cell, distance_neurons, trial, th_cluster, colormap_cluster, plot_data):
         """Function to get colors of ROIs according to its cluster id
@@ -1134,13 +1392,16 @@ class miniscope_session:
             colors: colors for each cluster
             idx: to which cluster each ROI belongs to
             print_plots (boolean)"""
+        df_dFF_norm = self.norm_traces(df_dFF,'min_max')
         furthest_neuron = np.argmax(np.array(centroid_cell)[:, 0])
         neuron_order = np.argsort(distance_neurons[furthest_neuron, :])
-        dFF_trial = df_dFF.loc[df_dFF['trial'] == trial_plot]  # get dFF for the desired trial
+        roi_list = df_dFF_norm.columns[2:]
+        roi_list_ordered = roi_list[neuron_order]
+        dFF_trial = df_dFF_norm.loc[df_dFF_norm['trial'] == trial_plot]  # get dFF for the desired trial
         fig, ax = plt.subplots(figsize=(10, 20), tight_layout=True)
         count_r = 0
-        for r in neuron_order:
-            plt.plot(frame_time[trial_plot - 1], dFF_trial['ROI' + str(r + 1)] + (count_r / 2), color=colors[idx[r] - 1])
+        for r in roi_list_ordered:
+            plt.plot(frame_time[trial_plot - 1], dFF_trial[r] + count_r, color=colors[idx[count_r] - 1])
             count_r += 1
         ax.set_xlabel('Time (s)', fontsize=self.fsize - 4)
         ax.set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=self.fsize - 4)
@@ -1182,9 +1443,9 @@ class miniscope_session:
         donut_trace_all_list = []
         for rfiji in range(len(coord_cell)):
             cent_fiji = np.nanmean(coord_cell[rfiji], axis=0)
-            ell = mp.Ellipse((cent_fiji[0], cent_fiji[1]), 30, height_fiji[rfiji] + 15,
+            ell = mp_patch.Ellipse((cent_fiji[0], cent_fiji[1]), 30, height_fiji[rfiji] + 15,
                              -(90 - np.degrees(np.arctan(ylength_fiji[rfiji] / xlength_fiji[rfiji]))))
-            ell2 = mp.Ellipse((cent_fiji[0], cent_fiji[1]), 50, height_fiji[rfiji] + 30,
+            ell2 = mp_patch.Ellipse((cent_fiji[0], cent_fiji[1]), 50, height_fiji[rfiji] + 30,
                               -(90 - np.degrees(np.arctan(ylength_fiji[rfiji] / xlength_fiji[rfiji]))))
             ellpath = ell.get_path()
             vertices = ellpath.vertices.copy()
@@ -1232,15 +1493,68 @@ class miniscope_session:
         df_fiji1 = pd.DataFrame(data_fiji1)
         df_fiji2 = pd.DataFrame(roi_trace_bgsub_arr, columns=roi_list)
         df_fiji = pd.concat([df_fiji1, df_fiji2], axis=1)
-        return df_fiji
+        return [df_fiji, roi_trace_bgsub_arr]
 
-    def save_processed_files(self, df_fiji, df_trace_bgsub, df_extract, trials, coord_fiji, coord_ext, th, idx_to_nan):
+    def save_processed_files(self, df_extract, trials, df_events_extract, coord_ext, th, amp_arr, idx_to_nan):
+        """Saves calcium traces, ROI coordinates, trial number and motion frames.
+        Saves them under path/processed files
+        Inputs:
+            df_extract: dataframe with calcium trace from EXTRACT
+            trials: array with list of recorded trials
+            df_events_extract: dataframe with the events using JR method on calcium trace from EXTRACT
+            coord_ext: ROI coordinates from EXTRACT
+            th: threshold to discard frames for poor correlation with ref image
+            amp_arr: array with the amplitudes used for event detection for each ROI and trial
+            idx_to_nan: indices of frames to dismiss while processing (too much motion)"""
+        if not os.path.exists(self.path + 'processed files'):
+            os.mkdir(self.path + 'processed files')
+        if self.delim == '/':
+            df_extract.to_csv(self.path + '/processed files/' + 'df_extract.csv', sep=',', index = False)
+            df_events_extract.to_csv(self.path + '/processed files/' + 'df_events_extract.csv', sep=',', index=False)
+            np.save(self.path + '/processed files/' + 'coord_ext.npy', coord_ext, allow_pickle = True)
+            np.save(self.path + '/processed files/' + 'trials.npy', trials)
+            np.save(self.path + '/processed files/' + 'reg_th.npy', th)
+            np.save(self.path + '/processed files/' + 'amplitude_events.npy', amp_arr)
+            np.save(self.path + '/processed files/' + 'frames_to_exclude.npy', idx_to_nan)
+        else:
+            df_extract.to_csv(self.path + '\\processed files\\' + 'df_extract.csv', sep=',', index = False)
+            df_events_extract.to_csv(self.path + '\\processed files\\' + 'df_events_extract.csv', sep=',', index=False)
+            np.save(self.path + '\\processed files\\' + 'coord_ext.npy', coord_ext, allow_pickle = True)
+            np.save(self.path + '\\processed files\\' + 'trials.npy', trials)
+            np.save(self.path + '\\processed files\\' + 'reg_th.npy', th)
+            np.save(self.path + '\\processed files\\' + 'amplitude_events.npy', amp_arr)
+            np.save(self.path + '\\processed files\\' + 'frames_to_exclude.npy', idx_to_nan)
+        return
+
+    def load_processed_files(self):
+        """Loads processed files that were saved under path/processed files"""
+        if self.delim == '/':
+            df_extract = pd.read_csv(self.path + '/processed files/' + 'df_extract.csv')
+            df_events_extract = pd.read_csv(self.path + '/processed files/' + 'df_events_extract.csv')
+            coord_ext = np.load(self.path + '/processed files/' + 'coord_ext.npy', allow_pickle=True)
+            trials = np.load(self.path + '/processed files/' + 'trials.npy')
+            reg_th = np.load(self.path + '/processed files/' + 'reg_th.npy')
+            amp_arr = np.load(self.path + '/processed files/' + 'amplitude_events.npy')
+            reg_bad_frames = np.load(self.path + '/processed files/' + 'frames_to_exclude.npy')
+        else:
+            df_extract = pd.read_csv(self.path + '\\processed files\\' + 'df_extract.csv')
+            df_events_extract = pd.read_csv(self.path + '\\processed files\\' + 'df_events_extract.csv')
+            coord_ext = np.load(self.path + '\\processed files\\' + 'coord_ext.npy', allow_pickle=True)
+            trials = np.load(self.path + '\\processed files\\' + 'trials.npy')
+            reg_th = np.load(self.path + '\\processed files\\' + 'reg_th.npy')
+            amp_arr = np.load(self.path + '\\processed files\\' + 'amplitude_events.npy')
+            reg_bad_frames = np.load(self.path + '\\processed files\\' + 'frames_to_exclude.npy')
+        return df_extract, df_events_extract, trials, coord_ext, reg_th, amp_arr, reg_bad_frames
+
+    def save_processed_files_ext_fiji(self, df_fiji, df_trace_bgsub, df_extract, df_events_all, df_events_unsync, trials, coord_fiji, coord_ext, th, idx_to_nan):
         """Saves calcium traces, ROI coordinates, trial number and motion frames.
         Saves them under path/processed files
         Inputs:
             df_dFF: dataframe with calcium trace from ImageJ
             df_trace_bgsub: dataframe with calcium trace from ImageJ
             df_extract: dataframe with calcium trace from EXTRACT
+            df_events_all: dataframe with the events using JR method on Fiji raw calcium trace
+            df_events_unsync: dataframe with the events using JR method on Fiji bgsub calcium trace
             trials: array with list of recorded trials
             coord_fiji: ROI coordinates from ImageJ
             coord_ext: ROI coordinates from EXTRACT
@@ -1252,6 +1566,8 @@ class miniscope_session:
             df_fiji.to_csv(self.path + '/processed files/' + 'df_fiji.csv', sep=',', index = False)
             df_trace_bgsub.to_csv(self.path + '/processed files/' + 'df_fiji_bgsub.csv', sep=',', index = False)
             df_extract.to_csv(self.path + '/processed files/' + 'df_extract.csv', sep=',', index = False)
+            df_events_all.to_csv(self.path + '/processed files/' + 'df_events_all.csv', sep=',', index=False)
+            df_events_unsync.to_csv(self.path + '/processed files/' + 'df_events_unsync.csv', sep=',', index=False)
             np.save(self.path + '/processed files/' + 'coord_fiji.npy', coord_fiji, allow_pickle = True)
             np.save(self.path + '/processed files/' + 'coord_ext.npy', coord_ext, allow_pickle = True)
             np.save(self.path + '/processed files/' + 'trials.npy', trials)
@@ -1261,6 +1577,8 @@ class miniscope_session:
             df_fiji.to_csv(self.path + '\\processed files\\' + 'df_fiji.csv', sep=',', index = False)
             df_trace_bgsub.to_csv(self.path + '\\processed files\\' + 'df_fiji_bgsub.csv', sep=',', index = False)
             df_extract.to_csv(self.path + '\\processed files\\' + 'df_extract.csv', sep=',', index = False)
+            df_events_all.to_csv(self.path + '\\processed files\\' + 'df_events_all.csv', sep=',', index=False)
+            df_events_unsync.to_csv(self.path + '\\processed files\\' + 'df_events_unsync.csv', sep=',', index=False)
             np.save(self.path + '\\processed files\\' + 'coord_fiji.npy', coord_fiji, allow_pickle = True)
             np.save(self.path + '\\processed files\\' + 'coord_ext.npy', coord_ext, allow_pickle = True)
             np.save(self.path + '\\processed files\\' + 'trials.npy', trials)
@@ -1268,7 +1586,7 @@ class miniscope_session:
             np.save(self.path + '\\processed files\\' + 'frames_to_exclude.npy', idx_to_nan)
         return
 
-    def load_processed_files(self):
+    def load_processed_files_ext_fiji(self):
         """Loads processed files that were saved under path/processed files"""
         if self.delim == '/':
             df_fiji = pd.read_csv(self.path+'/processed files/'+'df_fiji.csv')
@@ -1290,515 +1608,221 @@ class miniscope_session:
             reg_bad_frames = np.load(self.path+'\\processed files\\'+'frames_to_exclude.npy')
         return df_fiji, df_fiji_bgsub, df_extract, trials, coord_fiji, coord_ext, reg_th, reg_bad_frames
 
-    def get_nearest_rois_manual_roi(self,rois_df,centroid_cell,rfiji):
-        """Get the nearest ROIs (from EXTRACT or others) to a certain manual
-        ROI drawn with Fiji
-        Input:
-        rois_df: dataframe with ROIs coordinates from Fiji
-        centroid_cell (list of ROI centroids from EXTRACT or others)
-        rfiji: int with the id of ROI to compare
-        """
-        cent_fiji = [
-            np.nanmean(np.arange(rois_df.iloc[rfiji, 0] / self.pixel_to_um, rois_df.iloc[rfiji, 1] / self.pixel_to_um)),
-            np.nanmean(np.arange(rois_df.iloc[rfiji, 2] / self.pixel_to_um, rois_df.iloc[rfiji, 3] / self.pixel_to_um))]
-        rois_ext_near_fiji = []
-        for c in range(np.shape(centroid_cell)[0]):
-            if (np.abs(centroid_cell[c][0] - cent_fiji[0]) < 75) and (np.abs(centroid_cell[c][1] - cent_fiji[1]) < 75):
-                rois_ext_near_fiji.append(c)
-        return rois_ext_near_fiji
-    
-    def plot_overlap_extract_manual_rois(self, rfiji, rext, ref_image, rois_df, coord_cell, roi_trace_minmax_bgsub, trace):
-        """Plot overlap of EXTRACT (or others) with corresponding manual ROI from Fiji. Plots also calcium trace.
-        Input:
-        rois_df: dataframe with ROIs coordinates from Fiji
-        coord_cell (list of ROI cooridnates from EXTRACT or others)
-        roi_trace_minmax_bgsub: array with Fiji calcium trace normalized (0-1)
-        trace: array with EXTRACT activity probabilities
-        ref_image: aray with a reference image
-        rfiji: int with the id of ROI Fiji to compare
-        rext: int with the id of ROI EXTRACT to compare
-        """
-        cent_fiji = [np.nanmean(
-            np.arange(rois_df.iloc[rfiji, 0] / self.pixel_to_um, rois_df.iloc[rfiji, 1] / self.pixel_to_um)),
-                     np.nanmean(np.arange(rois_df.iloc[rfiji, 2] / self.pixel_to_um,
-                                          rois_df.iloc[rfiji, 3] / self.pixel_to_um))]
-        fig = plt.figure(figsize=(25, 12), tight_layout=True)
-        gs = fig.add_gridspec(2, 2)
-        ax1 = fig.add_subplot(gs[0, 0])
-        for r in range(np.shape(rois_df)[0]):
-            ax1.plot([rois_df.iloc[r, 0] / self.pixel_to_um, rois_df.iloc[r, 1] / self.pixel_to_um],
-                     [rois_df.iloc[r, 2] / self.pixel_to_um, rois_df.iloc[r, 3] / self.pixel_to_um])
-        ax1.set_title('Manual ROIs', fontsize=self.fsize)
-        ax1.imshow(ref_image,
-                   extent=[0, np.shape(ref_image)[1] / self.pixel_to_um, np.shape(ref_image)[0] / self.pixel_to_um,
-                           0], cmap=plt.get_cmap('gray'))
-        ax1.set_xlim([cent_fiji[0] - 100, cent_fiji[0] + 100])
-        ax1.set_ylim([cent_fiji[1] - 100, cent_fiji[1] + 100])
-        ax1.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
-        ax1.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
-        ax1.tick_params(axis='x', labelsize=self.fsize - 4)
-        ax1.tick_params(axis='y', labelsize=self.fsize - 4)
-        ax2 = fig.add_subplot(gs[0, 1])
-        ax2.plot([rois_df.iloc[rfiji, 0] / self.pixel_to_um, rois_df.iloc[rfiji, 1] / self.pixel_to_um],
-                 [rois_df.iloc[rfiji, 2] / self.pixel_to_um, rois_df.iloc[rfiji, 3] / self.pixel_to_um],
-                 color='blue')
-        ax2.scatter(coord_cell[rext][:, 0], coord_cell[rext][:, 1], s=1, color='red')
-        ax2.set_title('Manual ' + str(rfiji+1) + ' and corresponding EXTRACT ROI ' + str(rext), fontsize=self.fsize)
-        ax2.imshow(ref_image,
-                   extent=[0, np.shape(ref_image)[1] / self.pixel_to_um, np.shape(ref_image)[0] / self.pixel_to_um,
-                           0], cmap=plt.get_cmap('gray'))
-        ax2.set_xlim([cent_fiji[0] - 100, cent_fiji[0] + 100])
-        ax2.set_ylim([cent_fiji[1] - 100, cent_fiji[1] + 100])
-        ax2.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
-        ax2.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
-        ax2.tick_params(axis='x', labelsize=self.fsize - 4)
-        ax2.tick_params(axis='y', labelsize=self.fsize - 4)
-        ax3 = fig.add_subplot(gs[1, :])
-        ax3.plot(np.linspace(0, np.shape(roi_trace_minmax_bgsub)[0] / self.sr, len(roi_trace_minmax_bgsub[:, rfiji])),
-                 roi_trace_minmax_bgsub[:, rfiji], color='blue')
-        ax3.plot(np.linspace(0, np.shape(roi_trace_minmax_bgsub)[0] / self.sr, len(roi_trace_minmax_bgsub[:, rfiji])),
-                 trace[rext, :], color='red')
-        ax3.set_xlabel('Time (s)', fontsize=self.fsize - 4)
-        ax3.set_ylabel('Amplitude of F values', fontsize=self.fsize - 4)
-        ax3.tick_params(axis='x', labelsize=self.fsize - 4)
-        ax3.tick_params(axis='y', labelsize=self.fsize - 4)
-        ax3.spines['right'].set_visible(False)
-        ax3.spines['top'].set_visible(False)
-        return
-
-    def compare_extract_extract_rois(self,r1,r2,coord_cell1,coord_cell2,trace1,trace2,ref_image,comparison):
-        """Function to compare between two EXTRACT ROIs computed with different parameters.
-        Input:
-        r1: (int) roi 1
-        r2: (int) roi 2
-        coord_cell1: (list)
-        coord_cell2: (list)
-        trace1: (array)
-        trace2: (array)
-        comparison: (str) with the comparison name"""
-        centroid_cell = np.array([np.nanmean(coord_cell1[r1][:, 0]), np.nanmean(coord_cell1[r1][:, 1])])
-        fig = plt.figure(figsize=(25, 12), tight_layout=True)
-        gs = fig.add_gridspec(2, 2)
-        ax1 = fig.add_subplot(gs[0, 0])
-        ax1.scatter(coord_cell1[r1][:, 0], coord_cell1[r1][:, 1], s=1, color='orange')
-        ax1.scatter(coord_cell2[r2][:, 0], coord_cell2[r2][:, 1], s=1, color='blue', alpha=0.5)
-        ax1.set_title('ROIs', fontsize=self.fsize)
-        ax1.imshow(ref_image,
-                   extent=[0, np.shape(ref_image)[1] / self.pixel_to_um, np.shape(ref_image)[0] / self.pixel_to_um,
-                           0], cmap=plt.get_cmap('gray'))
-        ax1.set_xlim([centroid_cell[0] - 200, centroid_cell[0] + 200])
-        ax1.set_ylim([centroid_cell[1] - 200, centroid_cell[1] + 200])
-        ax1.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
-        ax1.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
-        ax1.tick_params(axis='x', labelsize=self.fsize - 4)
-        ax1.tick_params(axis='y', labelsize=self.fsize - 4)
-        ax2 = fig.add_subplot(gs[1, :])
-        ax2.plot(np.linspace(0, np.shape(trace1)[1] / self.sr, len(trace1[r1, :])),
-                 trace1[r1, :], color='orange', label='no '+comparison)
-        ax2.plot(np.linspace(0, np.shape(trace2)[1] / self.sr, len(trace2[r2, :])),
-                 trace2[r2, :], color='blue', label=comparison)
-        ax2.set_xlabel('Time (s)', fontsize=self.fsize - 4)
-        ax2.set_ylabel('Amplitude of F values', fontsize=self.fsize - 4)
-        ax2.tick_params(axis='x', labelsize=self.fsize - 4)
-        ax2.tick_params(axis='y', labelsize=self.fsize - 4)
-        ax2.spines['right'].set_visible(False)
-        ax2.spines['top'].set_visible(False)
-        return
-
-    def compute_bg_roi_fiji_example(self,trial,ref_image,rois_df,rfiji):
-        """Function to compute a donut background around one FIJI ROI and compute its background subtracted signal.
-        Plot all steps.
-        Input:
-            trial: int
-            ref_image: array with reference image from Suite2p
-            rois_df: dataframe with ROIs from FIJI
-            rfiji: int"""
-        tiff_stack = tiff.imread(self.path + '\\Registered video\\T'+str(trial)+'_reg.tif')  ##read tiffs
-        coord_fiji = []
-        height_fiji = []
-        xlength_fiji = []
-        ylength_fiji = []
-        for r in range(np.shape(rois_df)[0]):
-           coord_r = np.transpose(np.vstack(
-               (np.linspace(rois_df.iloc[r, 0]/self.pixel_to_um, rois_df.iloc[r, 1]/self.pixel_to_um, 100),
-                np.linspace(rois_df.iloc[r, 2]/self.pixel_to_um, rois_df.iloc[r, 3]/self.pixel_to_um, 100))))
-           x_length = np.abs(coord_r[-1, 0] - coord_r[0, 0])
-           y_length = np.abs(coord_r[-1, 1] - coord_r[0, 1])
-           xlength_fiji.append(x_length)
-           ylength_fiji.append(y_length)
-           coord_fiji.append(coord_r)
-           height_fiji.append(np.sqrt(np.square(x_length) + np.square(y_length)))
-        cent_fiji = np.nanmean(coord_fiji[rfiji - 1], axis=0)
-        ell = mp.Ellipse((cent_fiji[0], cent_fiji[1]), 30, height_fiji[rfiji - 1]+15,
-                        -(90 - np.degrees(np.arctan(ylength_fiji[rfiji - 1] / xlength_fiji[rfiji - 1]))))
-        ell2 = mp.Ellipse((cent_fiji[0], cent_fiji[1]), 50, height_fiji[rfiji - 1]+30,
-                         -(90 - np.degrees(np.arctan(ylength_fiji[rfiji - 1] / xlength_fiji[rfiji - 1]))))
-        ellpath = ell.get_path()
-        vertices = ellpath.vertices.copy()
-        coord_ell_inner = ell.get_patch_transform().transform(vertices)
-        ellpath2 = ell2.get_path()
-        vertices2 = ellpath2.vertices.copy()
-        coord_ell_outer = ell2.get_patch_transform().transform(vertices2)
-        ROIinner_fill_x, ROIinner_fill_y = zip(*self.render(np.int64(coord_ell_inner * self.pixel_to_um)))
-        ROIouter_fill_x, ROIouter_fill_y = zip(*self.render(np.int64(coord_ell_outer * self.pixel_to_um)))
-        ROIinner_fill_coord = np.transpose(np.vstack((ROIinner_fill_x, ROIinner_fill_y)))
-        ROIouter_fill_coord = np.transpose(np.vstack((ROIouter_fill_x, ROIouter_fill_y)))
-        idx_overlap_outer = []
-        for x in range(np.shape(ROIinner_fill_coord)[0]):
-           if ROIinner_fill_coord[x, 0] in ROIouter_fill_coord[:, 0]:
-               idx_overlap = np.where((ROIouter_fill_coord[:, 0] == ROIinner_fill_coord[x, 0]) & (
-                           ROIouter_fill_coord[:, 1] == ROIinner_fill_coord[x, 1]))[0]
-               if len(idx_overlap) > 0:
-                   idx_overlap_outer.append(idx_overlap[0])
-        idx_nonoverlap = np.setdiff1d(range(np.shape(ROIouter_fill_coord)[0]), idx_overlap_outer)
-        ROIdonut_coord = np.transpose(
-           np.vstack((ROIouter_fill_coord[idx_nonoverlap, 0], ROIouter_fill_coord[idx_nonoverlap, 1])))
-        ROI_donut_trace = np.zeros(np.shape(tiff_stack)[0])
-        for f in range(np.shape(tiff_stack)[0]):
-           ROI_donut_trace[f] = np.nansum(tiff_stack[f, ROIdonut_coord[:, 1], ROIdonut_coord[:, 0]])
-        coeff_sub = 1
-        roi_trace_tiffmean = np.zeros((np.shape(tiff_stack)[0]))
-        for f in range(np.shape(tiff_stack)[0]):
-           roi_trace_tiffmean[f] = np.nansum(tiff_stack[f, np.int64(
-               coord_fiji[rfiji - 1][:, 1] * self.pixel_to_um), np.int64(
-               coord_fiji[rfiji - 1][:, 0] * self.pixel_to_um)])
-        roi_trace_arr = roi_trace_tiffmean/len(coord_fiji[rfiji - 1][:, 1])
-        donut_trace_arr = ROI_donut_trace/len(ROIdonut_coord[:, 1])
-        roi_trace_bgsub_arr = roi_trace_arr - (coeff_sub * donut_trace_arr)
-        idx_neg = np.where(roi_trace_bgsub_arr < 0)[0]
-        roi_trace_bgsub_arr[idx_neg] = 0
-        roi_trace_bgsub_minmax = (roi_trace_bgsub_arr-np.min(roi_trace_bgsub_arr))/(np.max(roi_trace_bgsub_arr)-np.min(roi_trace_bgsub_arr))
-        fig = plt.figure(figsize=(30, 20), tight_layout=True)
-        gs = fig.add_gridspec(4, 3)
-        ax2 = fig.add_subplot(gs[0, 1])
-        ax2.plot(coord_fiji[rfiji - 1][:, 0], coord_fiji[rfiji - 1][:, 1], linewidth=2, color='blue')
-        ax2.scatter(ROIdonut_coord[:, 0] / self.pixel_to_um, ROIdonut_coord[:, 1] / self.pixel_to_um, s=10,
-                   color='green')
-        ax2.imshow(ref_image,
-                  extent=[0, np.shape(ref_image)[1] / self.pixel_to_um, np.shape(ref_image)[0] / self.pixel_to_um,
-                          0], cmap=plt.get_cmap('gray'))
-        ax2.set_title('Fiji ROI ' + str(rfiji - 1) + ' and respective background', fontsize=self.fsize - 4)
-        ax2.set_xlim([cent_fiji[0] - 100, cent_fiji[0] + 100])
-        ax2.set_ylim([cent_fiji[1] - 100, cent_fiji[1] + 100])
-        ax2.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
-        ax2.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
-        ax2.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
-        ax2.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
-        ax2.tick_params(axis='x', labelsize=self.fsize - 4)
-        ax2.tick_params(axis='y', labelsize=self.fsize - 4)
-        ax3 = fig.add_subplot(gs[1, :])
-        ax3.plot(np.linspace(0, np.shape(tiff_stack)[0] / self.sr, np.shape(tiff_stack)[0]), roi_trace_bgsub_minmax,
-                color='black', label='background subtracted Fiji signal')
-        ax3.legend(frameon=False, fontsize=self.fsize - 8)
-        ax3.set_ylabel('Signal amplitude', fontsize=self.fsize - 4)
-        ax3.set_ylabel('Time (s)', fontsize=self.fsize - 4)
-        ax3.spines['right'].set_visible(False)
-        ax3.spines['top'].set_visible(False)
-        plt.xticks(fontsize=self.fsize - 4)
-        plt.yticks(fontsize=self.fsize - 4)
-        ax4 = fig.add_subplot(gs[2, :])
-        ax4.plot(np.linspace(0, np.shape(tiff_stack)[0] / self.sr, np.shape(tiff_stack)[0]), donut_trace_arr,
-                color='green', label='background signal')
-        ax4.legend(frameon=False, fontsize=self.fsize - 8)
-        ax4.set_ylabel('Signal amplitude', fontsize=self.fsize - 4)
-        ax4.set_ylabel('Time (s)', fontsize=self.fsize - 4)
-        ax4.spines['right'].set_visible(False)
-        ax4.spines['top'].set_visible(False)
-        plt.xticks(fontsize=self.fsize - 4)
-        plt.yticks(fontsize=self.fsize - 4)
-        ax5 = fig.add_subplot(gs[3, :])
-        ax5.plot(np.linspace(0, np.shape(tiff_stack)[0] / self.sr, np.shape(tiff_stack)[0]), roi_trace_arr,
-                color='blue', label='roi signal')
-        ax5.legend(frameon=False, fontsize=self.fsize - 8)
-        ax5.set_ylabel('Signal amplitude', fontsize=self.fsize - 4)
-        ax5.set_ylabel('Time (s)', fontsize=self.fsize - 4)
-        ax5.spines['right'].set_visible(False)
-        ax5.spines['top'].set_visible(False)
-        plt.xticks(fontsize=self.fsize - 4)
-        plt.yticks(fontsize=self.fsize - 4)
-        if not os.path.exists(self.path + 'EXTRACT\\Fiji ROI bgsub'):
-           os.mkdir(self.path + 'EXTRACT\\Fiji ROI bgsub')
-        if self.delim == '/':
-           plt.savefig(self.path + 'EXTRACT/Fiji ROI bgsub/' + 'fiji_bgsub_'+str(rfiji)+'_T'+str(trial), dpi=self.my_dpi)
-        else:
-           plt.savefig(self.path + 'EXTRACT\\Fiji ROI bgsub\\' + 'fiji_bgsub_'+str(rfiji)+'_T'+str(trial), dpi=self.my_dpi)
-        return
-
-    def compute_bg_roi_fiji_extract(self,trial,ref_image,rois_df,coord_cell,trace,rfiji,rext,amp_fiji,amp_ext,plot_data):
-        """Function to compute a donut background around a determined FIJI ROI and compute its background subtracted signal.
-        The plot compares with a determined ROI from EXTRACT. ROIs from Fiji start at 1 and from EXTRACT start at 0
-        Input:
-            trial: int
-            ref_image: array with reference image from Suite2p
-            rois_df: dataframe with ROIs from FIJI
-            coord_cell: list ROIs from EXTRACT
-            trace: array signal from EXTRACT
-            rfiji: int
-            rext: int
-            plot_data: boolean"""
-        tiff_stack = tiff.imread(self.path+'Registered video\\T'+str(trial)+'_reg.tif')  ##read tiffs
-        coord_fiji = []
-        height_fiji = []
-        xlength_fiji = []
-        ylength_fiji = []
-        for r in range(np.shape(rois_df)[0]):
-           coord_r = np.transpose(np.vstack(
-               (np.linspace(rois_df.iloc[r, 0]/self.pixel_to_um, rois_df.iloc[r, 1]/self.pixel_to_um, 100),
-                np.linspace(rois_df.iloc[r, 2]/self.pixel_to_um, rois_df.iloc[r, 3]/self.pixel_to_um, 100))))
-           x_length = np.abs(coord_r[-1, 0] - coord_r[0, 0])
-           y_length = np.abs(coord_r[-1, 1] - coord_r[0, 1])
-           xlength_fiji.append(x_length)
-           ylength_fiji.append(y_length)
-           coord_fiji.append(coord_r)
-           height_fiji.append(np.sqrt(np.square(x_length) + np.square(y_length)))
-        cent_fiji = np.nanmean(coord_fiji[rfiji - 1], axis=0)
-        ell = mp.Ellipse((cent_fiji[0], cent_fiji[1]), 30, height_fiji[rfiji - 1]+15,
-                        -(90 - np.degrees(np.arctan(ylength_fiji[rfiji - 1] / xlength_fiji[rfiji - 1]))))
-        ell2 = mp.Ellipse((cent_fiji[0], cent_fiji[1]), 50, height_fiji[rfiji - 1]+30,
-                         -(90 - np.degrees(np.arctan(ylength_fiji[rfiji - 1] / xlength_fiji[rfiji - 1]))))
-        ellpath = ell.get_path()
-        vertices = ellpath.vertices.copy()
-        coord_ell_inner = ell.get_patch_transform().transform(vertices)
-        ellpath2 = ell2.get_path()
-        vertices2 = ellpath2.vertices.copy()
-        coord_ell_outer = ell2.get_patch_transform().transform(vertices2)
-        ROIinner_fill_x, ROIinner_fill_y = zip(*self.render(np.int64(coord_ell_inner * self.pixel_to_um)))
-        ROIouter_fill_x, ROIouter_fill_y = zip(*self.render(np.int64(coord_ell_outer * self.pixel_to_um)))
-        ROIinner_fill_coord = np.transpose(np.vstack((ROIinner_fill_x, ROIinner_fill_y)))
-        ROIouter_fill_coord = np.transpose(np.vstack((ROIouter_fill_x, ROIouter_fill_y)))
-        idx_overlap_outer = []
-        for x in range(np.shape(ROIinner_fill_coord)[0]):
-           if ROIinner_fill_coord[x, 0] in ROIouter_fill_coord[:, 0]:
-               idx_overlap = np.where((ROIouter_fill_coord[:, 0] == ROIinner_fill_coord[x, 0]) & (
-                           ROIouter_fill_coord[:, 1] == ROIinner_fill_coord[x, 1]))[0]
-               if len(idx_overlap) > 0:
-                   idx_overlap_outer.append(idx_overlap[0])
-        idx_nonoverlap = np.setdiff1d(range(np.shape(ROIouter_fill_coord)[0]), idx_overlap_outer)
-        ROIdonut_coord = np.transpose(
-           np.vstack((ROIouter_fill_coord[idx_nonoverlap, 0], ROIouter_fill_coord[idx_nonoverlap, 1])))
-        ROI_donut_trace = np.zeros(np.shape(tiff_stack)[0])
-        for f in range(np.shape(tiff_stack)[0]):
-           ROI_donut_trace[f] = np.nansum(tiff_stack[f, ROIdonut_coord[:, 1], ROIdonut_coord[:, 0]])
-        coeff_sub = 1
-        roi_trace_tiffmean = np.zeros((np.shape(tiff_stack)[0]))
-        for f in range(np.shape(tiff_stack)[0]):
-           roi_trace_tiffmean[f] = np.nansum(tiff_stack[f, np.int64(
-               coord_fiji[rfiji - 1][:, 1] * self.pixel_to_um), np.int64(
-               coord_fiji[rfiji - 1][:, 0] * self.pixel_to_um)])
-        roi_trace_arr = roi_trace_tiffmean / len(coord_fiji[rfiji - 1][:, 1])
-        donut_trace_arr = ROI_donut_trace / len(ROIdonut_coord[:, 1])
-        roi_trace_bgsub_arr = roi_trace_arr - (coeff_sub * donut_trace_arr)
-        idx_neg = np.where(roi_trace_bgsub_arr < 0)[0]
-        roi_trace_bgsub_arr[idx_neg] = 0
-        roi_trace_bgsub_minmax = (roi_trace_bgsub_arr - np.min(roi_trace_bgsub_arr)) / (
-                    np.max(roi_trace_bgsub_arr) - np.min(roi_trace_bgsub_arr))
-        trace_roi = trace[rext, :]
-        # compute events in fiji bgsub and extract trace
-        timeT = 10
-        [JoinedPosSet_fiji, JoinedNegSet_fiji, F_Values_fiji] = ST.SlopeThreshold(roi_trace_bgsub_minmax,
-                                                                                 amp_fiji, timeT,
-                                                                                 CollapSeq=True, acausal=False,
-                                                                                 verbose=0, graph=None)
-        events_fiji = ST.event_detection_calcium_trace(roi_trace_bgsub_minmax, JoinedPosSet_fiji, timeT)
-        [JoinedPosSet_ext, JoinedNegSet_ext, F_Values_ext] = ST.SlopeThreshold(trace_roi, amp_ext,
-                                                                              timeT, CollapSeq=True, acausal=False,
-                                                                              verbose=0, graph=None)
-        events_ext = ST.event_detection_calcium_trace(trace_roi, JoinedPosSet_ext, timeT)
-        if plot_data:
-           fig = plt.figure(figsize=(20, 10), tight_layout=True)
-           gs = fig.add_gridspec(2, 4)
-           ax1 = fig.add_subplot(gs[0, 0])
-           tiff_stack_ave = np.mean(tiff_stack, axis=0)
-           ax1.plot(coord_fiji[rfiji - 1][:, 0], coord_fiji[rfiji - 1][:, 1], linewidth=2, color='blue')
-           ax1.scatter(coord_cell[rext][:, 0], coord_cell[rext][:, 1], color='red')
-           ax1.imshow(ref_image,
-                      extent=[0, np.shape(ref_image)[1] / self.pixel_to_um, np.shape(ref_image)[0] / self.pixel_to_um,
-                              0], cmap=plt.get_cmap('gray'))
-           ax1.set_title('Fiji ROI ' + str(rfiji) + ' EXTRACT ROI ' + str(rext), fontsize=self.fsize)
-           ax1.set_xlim([cent_fiji[0] - 100, cent_fiji[0] + 100])
-           ax1.set_ylim([cent_fiji[1] - 100, cent_fiji[1] + 100])
-           ax1.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
-           ax1.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
-           ax1.tick_params(axis='x', labelsize=self.fsize - 4)
-           ax1.tick_params(axis='y', labelsize=self.fsize - 4)
-           ax2 = fig.add_subplot(gs[0, 1])
-           ax2.plot(coord_fiji[rfiji - 1][:, 0], coord_fiji[rfiji - 1][:, 1], linewidth=2, color='blue')
-           ax2.scatter(ROIdonut_coord[:, 0] / self.pixel_to_um, ROIdonut_coord[:, 1] / self.pixel_to_um, s=10,
-                       color='green')
-           ax2.imshow(ref_image,
-                      extent=[0, np.shape(ref_image)[1] / self.pixel_to_um, np.shape(ref_image)[0] / self.pixel_to_um,
-                              0], cmap=plt.get_cmap('gray'))
-           ax2.set_title('Fiji ROI ' + str(rfiji - 1) + ' and respective background', fontsize=self.fsize - 4)
-           ax2.set_xlim([cent_fiji[0] - 100, cent_fiji[0] + 100])
-           ax2.set_ylim([cent_fiji[1] - 100, cent_fiji[1] + 100])
-           ax2.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
-           ax2.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
-           ax2.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
-           ax2.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
-           ax2.tick_params(axis='x', labelsize=self.fsize - 4)
-           ax2.tick_params(axis='y', labelsize=self.fsize - 4)
-           ax3 = fig.add_subplot(gs[1, :])
-           ax3.plot(np.linspace(0, np.shape(tiff_stack)[0] / self.sr, np.shape(tiff_stack)[0]), trace_roi, color='red',
-                    label='EXTRACT signal')
-           ax3.scatter(events_ext / self.sr, trace_roi[events_ext], s=20, color='red')
-           ax3.plot(np.linspace(0, np.shape(tiff_stack)[0] / self.sr, np.shape(tiff_stack)[0]), roi_trace_bgsub_minmax,
-                    color='blue', label='background subtracted Fiji signal')
-           ax3.scatter(events_fiji / self.sr, roi_trace_bgsub_minmax[events_fiji], s=20, color='blue')
-           ax3.legend(frameon=False, fontsize=self.fsize - 8)
-           ax3.set_ylabel('Signal amplitude', fontsize=self.fsize - 4)
-           ax3.set_ylabel('Time (s)', fontsize=self.fsize - 4)
-           ax3.spines['right'].set_visible(False)
-           ax3.spines['top'].set_visible(False)
-           plt.xticks(fontsize=self.fsize - 4)
-           plt.yticks(fontsize=self.fsize - 4)
-           ax4 = fig.add_subplot(gs[0, 2:])
-           ax4.scatter(events_fiji/self.sr, np.ones(len(events_fiji)), s=20, color='blue')
-           ax4.scatter(events_ext/self.sr, np.ones(len(events_ext)) * 1.2, s=20, color='red')
-           ax4.set_xticks(np.arange(0, np.shape(tiff_stack)[0], 250)/self.sr)
-           ax4.set_xticklabels(map(str, np.round(np.arange(0, np.shape(tiff_stack)[0], 250)/self.sr,2)), rotation=45)
-           ax4.set_yticks([1, 1.2])
-           ax4.set_ylim([0.9, 1.3])
-           ax4.set_ylabel('Event frame Fiji', fontsize=self.fsize - 4)
-           ax4.set_ylabel('Event frame EXTRACT', fontsize=self.fsize - 4)
-           ax4.spines['right'].set_visible(False)
-           ax4.spines['top'].set_visible(False)
-           plt.xticks(fontsize=self.fsize - 4)
-           plt.yticks(fontsize=self.fsize - 4)
-           if not os.path.exists(self.path + 'EXTRACT\\EXTRACT comparisons'):
-               os.mkdir(self.path + 'EXTRACT\\EXTRACT comparisons')
-           if self.delim == '/':
-               plt.savefig(self.path + 'EXTRACT/EXTRACT comparisons/' + 'fiji_bgsub_'+str(rfiji)+'_ext_'+str(rext)+'_T'+str(trial), dpi=self.my_dpi)
-           else:
-               plt.savefig(self.path + 'EXTRACT\\EXTRACT comparisons\\' + 'fiji_bgsub_'+str(rfiji)+'_ext_'+str(rext)+'_T'+str(trial), dpi=self.my_dpi)
-        return coord_fiji, roi_trace_bgsub_minmax, trace_roi
-
-    def plot_events_roi_examples(self, trial_plot, roi_plot, frame_time, df_fiji_norm, df_fiji_bgsub_norm, df_events_all, df_events_unsync, plot_data):
-        """Function to plot events on top of traces with and without background subtraction for an example.
-        Input:
-        trial_plot: (str)
-        roi_plot: (str)
-        frame_time: list with mscope timestamps
-        df_fiji_norm: dataframe with traces raw
-        df_fiji_bgsub_norm: dataframe with traces background subtracted
-        df_events_all: dataframe with all the events
-        df_events_unsync: dataframe with unsynchronous the events
-        plot_data: boolean"""
-        fig, ax = plt.subplots(figsize=(20, 7), tight_layout=True)
-        ax.plot(frame_time[trial_plot - 1], df_fiji_norm.loc[df_fiji_norm['trial'] == trial_plot, 'ROI' + str(roi_plot)],
-                color='black')
-        events_plot = np.where(df_events_all.loc[df_fiji_norm['trial'] == trial_plot, 'ROI' + str(roi_plot)])[0]
-        for e in events_plot:
-            ax.scatter(frame_time[trial_plot - 1][e],
-                       np.array(df_fiji_norm.loc[df_fiji_norm['trial'] == trial_plot, 'ROI' + str(roi_plot)])[e], s=60,
-                       color='orange')
-        ax.plot(frame_time[trial_plot - 1],
-                df_fiji_bgsub_norm.loc[df_fiji_bgsub_norm['trial'] == trial_plot, 'ROI' + str(roi_plot)] + 5, color='grey')
-        events_unsync_plot = np.where(df_events_unsync.loc[df_fiji_bgsub_norm['trial'] == trial_plot, 'ROI' + str(roi_plot)])[0]
-        for e in events_unsync_plot:
-            ax.scatter(frame_time[trial_plot - 1][e],
-                       np.array(df_fiji_bgsub_norm.loc[df_fiji_bgsub_norm['trial'] == trial_plot, 'ROI' + str(roi_plot)])[
-                           e] + 5, s=20, color='red')
-        if plot_data:
-            if self.delim == '/':
-                plt.savefig(self.path + 'images/events/' + 'event_example_trial' + str(trial_plot) + '_roi' + str(roi_plot),
-                            dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + 'images\\events\\' + 'event_example_trial' + str(trial_plot) + '_roi' + str(roi_plot),
-                            dpi=self.my_dpi)
-
-    def plot_events_roi_trial(self, trial_plot, frame_time, df_fiji_norm, df_fiji_bgsub_norm, df_events_all, df_events_unsync, plot_data):
-        """Function to plot events on top of traces with and without background subtraction for all ROIs and one trial.
-        Input:
-        trial_plot: (str)
-        roi_plot: (str)
-        frame_time: list with mscope timestamps
-        df_fiji_norm: dataframe with traces raw
-        df_fiji_bgsub_norm: dataframe with traces background subtracted
-        df_events_all: dataframe with all the events
-        df_events_unsync: dataframe with unsynchronous the events
-        plot_data: boolean"""
-        df_fiji_trial_norm = df_fiji_norm.loc[df_fiji_norm['trial'] == trial_plot]  # get dFF for the desired trial
-        df_fiji_bgsub_trial_norm = df_fiji_bgsub_norm.loc[
-            df_fiji_bgsub_norm['trial'] == trial_plot]  # get dFF for the desired trial
-        fig, ax = plt.subplots(1, 2, figsize=(20, 20), tight_layout=True)
-        ax = ax.ravel()
-        for r in range(df_fiji_trial_norm.shape[1] - 2):
-            ax[0].plot(frame_time[trial_plot - 1], df_fiji_trial_norm['ROI' + str(r + 1)] + (r * 10), color='black')
-            events_plot = np.where(df_events_all.loc[df_fiji_norm['trial'] == trial_plot, 'ROI' + str(r + 1)])[0]
-            for e in events_plot:
-                ax[0].scatter(frame_time[trial_plot - 1][e], df_fiji_trial_norm.iloc[e, r + 2] + (r * 10), s=20,
-                              color='gray')
-            events_unsync_plot = \
-            np.where(df_events_unsync.loc[df_fiji_bgsub_norm['trial'] == trial_plot, 'ROI' + str(r + 1)])[0]
-            for e in events_unsync_plot:
-                ax[0].scatter(frame_time[trial_plot - 1][e], df_fiji_bgsub_trial_norm.iloc[e, r + 2] + (r * 10), s=20,
-                              color='orange')
-        ax[0].set_xlabel('Time (s)', fontsize=mscope.fsize - 4)
-        ax[0].set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=mscope.fsize - 4)
-        plt.xticks(fontsize=mscope.fsize - 4)
-        plt.yticks(fontsize=mscope.fsize - 4)
-        plt.setp(ax[0].get_yticklabels(), visible=False)
-        ax[0].tick_params(axis='y', which='y', length=0)
-        ax[0].spines['right'].set_visible(False)
-        ax[0].spines['top'].set_visible(False)
-        ax[0].spines['left'].set_visible(False)
-        plt.tick_params(axis='y', labelsize=0, length=0)
-        for r in range(df_fiji_bgsub_trial_norm.shape[1] - 2):
-            ax[1].plot(frame_time[trial_plot - 1], df_fiji_bgsub_trial_norm['ROI' + str(r + 1)] + (r * 10), color='black')
-            events_unsync_plot = \
-            np.where(df_events_unsync.loc[df_fiji_bgsub_norm['trial'] == trial_plot, 'ROI' + str(r + 1)])[0]
-            for e in events_unsync_plot:
-                ax[1].scatter(frame_time[trial_plot - 1][e], df_fiji_bgsub_trial_norm.iloc[e, r + 2] + (r * 10), s=20,
-                              color='gray')
-        ax[1].set_xlabel('Time (s)', fontsize=mscope.fsize - 4)
-        ax[1].set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=mscope.fsize - 4)
-        plt.xticks(fontsize=mscope.fsize - 4)
-        plt.yticks(fontsize=mscope.fsize - 4)
-        plt.setp(ax[1].get_yticklabels(), visible=False)
-        ax[1].tick_params(axis='y', which='y', length=0)
-        ax[1].spines['right'].set_visible(False)
-        ax[1].spines['top'].set_visible(False)
-        ax[1].spines['left'].set_visible(False)
-        plt.tick_params(axis='y', labelsize=0, length=0)
-        if plot_data:
-            if self.delim == '/':
-                plt.savefig(self.path + 'images/events/' + 'events_trial' + str(trial_plot),
-                            dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + 'images\\events\\' + 'events_trial' + str(trial_plot),
-                            dpi=self.my_dpi)
-        return
-
-    def get_events(self, df_dFF, timeT, csv_name):
+    def get_events(self, df_dFF, timeT, amp_vec, csv_name):
         """"Function to get the calcium event using Jorge's derivative method.
         Amplitude of envelope is determined as the median absolute deviation
         Inputs:
-        df_dFF: dataframe with calcium trace values
+        df_dFF: dataframe with calcium trace values after deltaF/F computation and z-scoring
         timeT: time thershold (within how many frames does the event happen)
-        csv_name: (str) filename of df_events create"""
+        amp_vec: vector with ROIs amplitudes for event detection; if empty it recorded the amplitudes used for each trial and ROI
+        csv_name: (str) filename of df_events create; if empty doesn't save file"""
         roi_trace = np.array(df_dFF.iloc[:,2:])
         roi_list = list(df_dFF.columns[2:])
         trial_ext = list(df_dFF['trial'])
+        trials = np.unique(trial_ext)
         frame_time_ext = list(df_dFF['time'])
         data_dFF1 = {'trial': trial_ext, 'time': frame_time_ext}
         df_dFF1 = pd.DataFrame(data_dFF1)
         df_dFF2 = pd.DataFrame(np.zeros(np.shape(roi_trace)), columns=roi_list)
         df_events = pd.concat([df_dFF1, df_dFF2], axis=1)
         roi_list = df_dFF.columns[2:]
-        for r in roi_list:
-            data = np.array(df_dFF[r])
+        if len(amp_vec) == 0:
+            amp_arr = np.zeros((len(trials),len(roi_list)))
+            count_r = 0
+            for r in roi_list:
+                count_t = 0
+                for t in trials:
+                    data = np.array(df_dFF.loc[df_dFF['trial'] == t, r])
+                    amp = robust.mad(data)
+                    events_mat = np.zeros(len(data))
+                    if (np.nanmax(data) - np.nanmin(data)) <= 1:  # if trace is event probability or min-max normed
+                        # the high number of 0 values are a problem for derivative estimation
+                        #data = data * 60
+                        amp = np.nanpercentile(data, 95)
+                    [JoinedPosSet_all, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(data, amp, timeT,
+                                                                                           CollapSeq=True, acausal=False,
+                                                                                           verbose=0, graph=None)
+                    if len(JoinedPosSet_all) == 0:
+                        print('No events for trial' + str(t) + ' and ' + r)
+                    else:
+                        events_mat[ST.event_detection_calcium_trace(data, JoinedPosSet_all, timeT)] = 1
+                    df_events.loc[df_events['trial'] == t, r] = events_mat
+                    amp_arr[count_t,count_r] = amp
+                    count_t += 1
+                count_r += 1
+        else:
+            count_r = 0
+            for r in roi_list:
+                amp = amp_vec[count_r]
+                for t in trials:
+                    data = np.array(df_dFF.loc[df_dFF['trial'] == t, r])
+                    events_mat = np.zeros(len(data))
+                    [JoinedPosSet_all, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(data, amp, timeT,
+                                                                                           CollapSeq=True, acausal=False,
+                                                                                           verbose=0, graph=None)
+                    if len(JoinedPosSet_all) == 0:
+                        print('No events for trial' + str(t) + ' and ' + r)
+                    else:
+                        events_mat[ST.event_detection_calcium_trace(data, JoinedPosSet_all, timeT)] = 1
+                    df_events.loc[df_events['trial'] == t, r] = events_mat
+                count_r += 1
+            amp_arr = amp_vec #to make output the same
+        if len(csv_name)>0:
+            if not os.path.exists(self.path + 'processed files'):
+                os.mkdir(self.path + 'processed files')
+            df_events.to_csv(self.path + '\\processed files\\' + csv_name + '.csv', sep=',', index=False)
+        return df_events, amp_arr
+
+    @staticmethod
+    def get_events_singletrial(traces, timeT):
+        """"Function to get the calcium event using Jorge's derivative method for a single trial across some ROIs.
+        Amplitude of envelope is determined as the median absolute deviation
+        Inputs:
+        traces: numpy array with the traces (frames x roi)
+        timeT: time thershold (within how many frames does the event happen)"""
+        events_traces = np.zeros(np.shape(traces))
+        for r in range(np.shape(traces)[1]):
+            data = traces[:,r]
+            amp = robust.mad(data)
             events_mat = np.zeros(len(data))
-            data_mad = mad(data, nan_policy='omit') #TODO CHANGE TO MAD OF DIFF (MULTIPLIED??)
-            [JoinedPosSet_all, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(data, data_mad, timeT,
+            if (np.max(data) - np.min(data)) <= 1:  # if trace is event probability or min-max normed
+                # the high number of 0 values are a problem for derivative estimation
+                # data = data * 60
+                amp = np.percentile(data, 90)
+            # diff_data = np.diff(data)
+            # diff_data_nonan = diff_data[~np.isnan(diff_data)]
+            # MAD = robust.mad(diff_data_nonan)
+            # if MAD == 0: #when it's very flat and some peaks - IMPROVE
+            #     deriv_std = np.percentile(data,99)
+            # else:
+            # norm_data = np.abs(diff_data_nonan - np.median(diff_data_nonan)) / MAD #this is a change, slope is done on data not on norm_data
+            # deriv_mean, deriv_std = stats.norm.fit(norm_data)
+            # True_std = np.sqrt((deriv_std ** 2) / 2)
+            # FiltWin = 3
+            # denoised_data = signal.wiener(data, mysize=FiltWin, noise=noise_std**2)
+            # [JoinedPosSet_all, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(denoised_data, True_std, timeT,
+            #                                                                        CollapSeq=True, acausal=False,
+            #                                                                        verbose=0, graph=None)
+            [JoinedPosSet_all, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(data, amp, timeT,
                                                                                    CollapSeq=True, acausal=False,
                                                                                    verbose=0, graph=None)
             if len(JoinedPosSet_all) == 0:
-                print('No events for trial' + str(t) + ' and ' + r)
+                print('No events for index ' + str(r))
             else:
                 events_mat[ST.event_detection_calcium_trace(data, JoinedPosSet_all, timeT)] = 1
-            df_events[r] = events_mat
-        df_events.to_csv(self.path + '\\processed files\\' + csv_name + '.csv', sep=',', index=False)
-        return df_events
+            events_traces[:, r] = events_mat
+        return events_traces
+
+    def event_differences(self, df_fiji, roi, timeT):
+        """Function to compare the several thresholds for event direction (derivative-based algorithm)
+        Input:
+            df_fiji: (dataframe)
+            roi: (int) roi to plot
+            timeT: (int) interval of calcium transient in frames"""
+        r = 'ROI'+str(roi)
+        df_dFF_fiji = self.compute_dFF(df_fiji)
+        df_dFF_fiji_norm = self.norm_traces(df_dFF_fiji, 'zscore')
+        data = np.array(df_dFF_fiji_norm.loc[df_dFF_fiji_norm['trial'] == 2, r])
+        # Find outliers using MAD and neutralize them:
+        MAD = robust.mad(np.diff(data))
+        deriv_mean, deriv_std = stats.norm.fit(np.abs(np.diff(data) - np.median(np.diff(data))) / MAD)
+        # noise is gaussian, stationary and independently distributed
+        # two independent normal distributions - noise and signal????
+        # variance the sum of two independent gaussian distributions
+        # var(z) = var(n) + var (s), so std(n) = sqrt(var(z)/2)
+        # variance of the product of independent gaussian distributions
+        # var(z) = (var(n)+mean(n))*(var(s)+mean(s))-(mean(n)**2mean(s)**2)
+        noise_std = np.sqrt((deriv_std ** 2) / 2)  # Based on the product of two equal gaussians
+        FiltWin = 5
+        denoised_data = signal.wiener(data, mysize=FiltWin, noise=deriv_std ** 2)
+        MAD_denoised = robust.mad(np.diff(denoised_data))
+        deriv_mean_denoised, deriv_std_denoised = stats.norm.fit(
+            np.abs(np.diff(denoised_data) - np.median(np.diff(denoised_data))) / MAD_denoised)
+        events_raw_mad = np.zeros(len(data))
+        [JoinedPosSet_all_raw_mad, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(data, MAD, timeT,
+                                                                                       CollapSeq=True, acausal=False,
+                                                                                       verbose=0, graph=None)
+        if len(JoinedPosSet_all_raw_mad) == 0:
+            print('No events')
+        else:
+            events_raw_mad[ST.event_detection_calcium_trace(data, JoinedPosSet_all_raw_mad, timeT)] = 1
+        events_raw_std = np.zeros(len(data))
+        [JoinedPosSet_all_raw_std, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(data, deriv_std, timeT,
+                                                                                       CollapSeq=True, acausal=False,
+                                                                                       verbose=0, graph=None)
+        if len(JoinedPosSet_all_raw_std) == 0:
+            print('No events')
+        else:
+            events_raw_std[ST.event_detection_calcium_trace(data, JoinedPosSet_all_raw_std, timeT)] = 1
+        events_denoised_mad = np.zeros(len(denoised_data))
+        [JoinedPosSet_all_denoised_mad, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(denoised_data, MAD_denoised,
+                                                                                            timeT,
+                                                                                            CollapSeq=True,
+                                                                                            acausal=False,
+                                                                                            verbose=0, graph=None)
+        if len(JoinedPosSet_all_denoised_mad) == 0:
+            print('No events')
+        else:
+            events_denoised_mad[
+                ST.event_detection_calcium_trace(denoised_data, JoinedPosSet_all_denoised_mad, timeT)] = 1
+        events_denoised_std = np.zeros(len(denoised_data))
+        [JoinedPosSet_all_denoised_std, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(denoised_data,
+                                                                                            deriv_std_denoised, timeT,
+                                                                                            CollapSeq=True,
+                                                                                            acausal=False,
+                                                                                            verbose=0, graph=None)
+        if len(JoinedPosSet_all_denoised_std) == 0:
+            print('No events')
+        else:
+            events_denoised_std[
+                ST.event_detection_calcium_trace(denoised_data, JoinedPosSet_all_denoised_std, timeT)] = 1
+        fig, ax = plt.subplots(2, 2, figsize=(20, 8), tight_layout=True)
+        ax = ax.ravel()
+        ax[0].plot(data, linewidth=2, color='black')
+        ax[0].plot(np.repeat(np.median(data) + MAD, len(data)), linestyle='dashed', color='red')
+        ax[0].plot(np.repeat(np.median(data) - MAD, len(data)), linestyle='dashed', color='red')
+        ax[0].scatter(np.where(events_raw_mad)[0], data[np.where(events_raw_mad)[0]], s=20, color='red')
+        ax[0].set_title('MAD diff envelope raw data')
+        ax[0].spines['right'].set_visible(False)
+        ax[0].spines['top'].set_visible(False)
+        ax[1].plot(data, linewidth=2, color='black')
+        ax[1].plot(np.repeat(np.median(data) + deriv_std, len(data)), linestyle='dashed', color='red')
+        ax[1].plot(np.repeat(np.median(data) - deriv_std, len(data)), linestyle='dashed', color='red')
+        ax[1].scatter(np.where(events_raw_std)[0], data[np.where(events_raw_std)[0]], s=20, color='red')
+        ax[1].set_title('True std envelope raw data')
+        ax[1].spines['right'].set_visible(False)
+        ax[1].spines['top'].set_visible(False)
+        ax[2].plot(denoised_data, linewidth=2, color='black')
+        ax[2].plot(np.repeat(np.median(denoised_data) + MAD, len(denoised_data)), linestyle='dashed', color='red')
+        ax[2].plot(np.repeat(np.median(denoised_data) - MAD, len(denoised_data)), linestyle='dashed', color='red')
+        ax[2].scatter(np.where(events_denoised_mad)[0], denoised_data[np.where(events_denoised_mad)[0]], s=20,
+                      color='red')
+        ax[2].set_title('MAD diff envelope denoised data')
+        ax[2].spines['right'].set_visible(False)
+        ax[2].spines['top'].set_visible(False)
+        ax[3].plot(denoised_data, linewidth=2, color='black')
+        ax[3].plot(np.repeat(np.median(denoised_data) + deriv_std, len(denoised_data)), linestyle='dashed', color='red')
+        ax[3].plot(np.repeat(np.median(denoised_data) - deriv_std, len(denoised_data)), linestyle='dashed', color='red')
+        ax[3].scatter(np.where(events_denoised_std)[0], denoised_data[np.where(events_denoised_std)[0]], s=20,
+                      color='red')
+        ax[3].set_title('True std envelope denoised data')
+        ax[3].spines['right'].set_visible(False)
+        ax[3].spines['top'].set_visible(False)
+        fig, ax = plt.subplots(2, 1, figsize=(15, 5), tight_layout=True)
+        ax = ax.ravel()
+        ax[0].scatter(np.where(events_raw_mad)[0], np.ones(len(np.where(events_raw_mad)[0])), s=20, color='red')
+        ax[0].scatter(np.where(events_denoised_mad)[0], np.ones(len(np.where(events_denoised_mad)[0])), s=20,
+                      color='blue')
+        ax[0].set_title('MAD raw data (red) denoised data (blue)')
+        ax[0].spines['right'].set_visible(False)
+        ax[0].spines['top'].set_visible(False)
+        ax[1].scatter(np.where(events_raw_std)[0], np.ones(len(np.where(events_raw_std)[0])), s=20, color='red')
+        ax[1].scatter(np.where(events_denoised_std)[0], np.ones(len(np.where(events_denoised_std)[0])), s=20,
+                      color='blue')
+        ax[1].set_title('True std raw data (red) denoised data (blue)')
+        ax[1].spines['right'].set_visible(False)
+        ax[1].spines['top'].set_visible(False)
+        return
 
     def compute_isi(self, df_events, csv_name):
         """Function to compute the inter-spike interval of the dataframe with spikes. Outputs a similiar dataframe
@@ -1810,7 +1834,7 @@ class miniscope_session:
         trial_all = []
         for r in df_events.columns[2:]:
             for t in df_events['trial'].unique():
-                isi = df_events.loc[(df_events[r] == 1) & (df_events['trial'] == t), 'time'].diff()
+                isi = df_events.loc[(df_events[r] > 0) & (df_events['trial'] == t), 'time'].diff()
                 isi_all.extend(np.array(isi))
                 trial_all.extend(np.repeat(t, len(isi)))
                 roi_all.extend(np.repeat(r, len(isi)))
@@ -1820,36 +1844,45 @@ class miniscope_session:
         return isi_df
 
     @staticmethod
-    def compute_isi_cv(isi_df):
+    def compute_isi_cv(isi_df, trials):
         """Function to compute coefficient of variation and coefficient of variation for adjacent spikes (Isope, JNeurosci)
         Inputs:
-            isi_df: (dataframe) with isi values"""
-        trials = np.unique(isi_df['trial'])
-        isi_cv = np.zeros((len(np.unique(isi_df.roi)),len(trials)))
-        isi_cv2 = np.zeros((len(np.unique(isi_df.roi)),len(trials)))
+            isi_df: (dataframe) with isi values
+            trials: list of trials"""
+        isi_cv_all = []
+        isi_cv2_all = []
+        roi_all = []
+        trial_all = []
         for t in trials:
-            count_r = 0
             for r in np.unique(isi_df.roi):
                 data = np.array(isi_df.loc[(isi_df['trial']==t) & (isi_df['roi']==r),'isi'])
                 diff_data = np.abs(np.diff(data))
                 sum_data = data[:-1]+data[1:]
-                isi_cv[count_r,t-1] = np.nanstd(data)/np.nanmean(data)
-                isi_cv2[count_r,t-1] = np.nanmean(diff_data/sum_data)
-                count_r += 1
-        return isi_cv, isi_cv2
+                isi_cv_value = np.nanstd(data)/np.nanmean(data)
+                isi_cv2_value = np.nanmean(diff_data/sum_data)
+                isi_cv2_all.append(np.float64(isi_cv_value))
+                isi_cv_all.append(np.float64(isi_cv2_value))
+                trial_all.append(t)
+                roi_all.append(r)
+        dict_isi_cv = {'isi_cv': isi_cv_all, 'roi': roi_all, 'trial': trial_all}
+        isi_cv_df = pd.DataFrame(dict_isi_cv)  # create dataframe with isi, roi id and trial id
+        dict_isi_cv2 = {'isi_cv': isi_cv2_all, 'roi': roi_all, 'trial': trial_all}
+        isi_cv2_df = pd.DataFrame(dict_isi_cv2)  # create dataframe with isi, roi id and trial id
+        return isi_cv_df, isi_cv2_df
 
     @staticmethod
-    def compute_isi_ratio(isi_df,isi_interval):
+    def compute_isi_ratio(isi_df,isi_interval,trials):
         """Function to compute the ratio between two windows of the ISI histogram
         Inputs: 
             isi_df: dataframe of inter-spike intervals per roi and trial
             isi_interval: list with range of the two windows in sec
-            e.g.: [[0,0.5],[0.8,1.5]]"""
+            e.g.: [[0,0.5],[0.8,1.5]]
+            trials: list of trials"""
         isi_ratio = []
         roi_all = []
         trial_all = []
         for r in isi_df.roi.unique():
-            for t in isi_df.trial.unique():
+            for t in trials:
                 isi = np.array(isi_df.loc[(isi_df.roi==r) & (isi_df.trial==t), 'isi'])
                 hist, bin_edges = np.histogram(isi, bins = 30, range=(0,3))
                 ratio = np.nansum(hist[np.where(bin_edges==isi_interval[1][0])[0][0]:np.where(bin_edges==isi_interval[1][1])[0][0]])/np.nansum(hist[np.where(bin_edges==isi_interval[0][0])[0][0]:np.where(bin_edges==isi_interval[0][1])[0][0]])
@@ -1880,16 +1913,17 @@ class miniscope_session:
         plt.xlabel('Inter-event interval (s)', fontsize=self.fsize)  # Add xticks on the middle of the group bars
         plt.ylabel('Event count', fontsize=self.fsize)  # Add xticks on the middle of the group bars
         plt.title('ISI distribution of trial '+ str(trial) + ' ROI '+str(roi), fontsize=self.fsize)
-        plt.legend(fontsize=self.fsize - 4, frameon=False)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if plot_data:
+            if not os.path.exists(self.path + '\\images\\events\\ROI'+str(roi)):
+                os.mkdir(self.path + '\\images\\events\\ROI'+str(roi))
             if self.delim == '/':
-                plt.savefig(self.path+'/images/events/'+ 'isi_hist_roi_'+str(roi)+'_trial_'+str(trial), dpi=self.my_dpi)
+                plt.savefig(self.path+'/images/events/ROI'+str(roi)+'/'+ 'isi_hist_roi_'+str(roi)+'_trial_'+str(trial), dpi=self.my_dpi)
             else:
-                plt.savefig(self.path+'\\images\\events\\'+ 'isi_hist_roi_'+str(roi)+'_trial_'+str(trial), dpi=self.my_dpi)
+                plt.savefig(self.path+ '\\images\\events\\ROI'+str(roi)+'\\'+ 'isi_hist_roi_'+str(roi)+'_trial_'+str(trial), dpi=self.my_dpi)
         return
 
     def plot_isi_session(self, roi, isi_df, animal, session_type, trials, trials_ses, plot_data):
@@ -1930,16 +1964,17 @@ class miniscope_session:
             plt.xlabel('Inter-event interval (s)', fontsize=self.fsize)  # Add xticks on the middle of the group bars
             plt.ylabel('Event count', fontsize=self.fsize)  # Add xticks on the middle of the group bars
             plt.title('ISI distribution for ROI ' + str(roi), fontsize=self.fsize)
-            plt.legend(fontsize=self.fsize - 4, frameon=False)
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             plt.xticks(fontsize=self.fsize - 4)
             plt.yticks(fontsize=self.fsize - 4)
             if plot_data:
+                if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi)):
+                    os.mkdir(self.path + '\\images\\events\\ROI' + str(roi))
                 if self.delim == '/':
-                    plt.savefig(self.path + '/images/events/' + 'isi_hist_roi_' + str(roi),dpi=self.my_dpi)
+                    plt.savefig(self.path + '/images/events/ROI' + str(roi) + '/' + 'isi_hist_roi_' + str(roi),dpi=self.my_dpi)
                 else:
-                    plt.savefig(self.path + '\\images\\events\\' + 'isi_hist_roi_' + str(roi), dpi=self.my_dpi)
+                    plt.savefig(self.path + '\\images\\events\\ROI' + str(roi) + '\\' + 'isi_hist_roi_' + str(roi), dpi=self.my_dpi)
         if session_type == 'tied' and animal == 'MC8855':
             isi_data_sp1 = np.array(isi_df.loc[(isi_df['trial'] > 0) & (
                         isi_df['trial'] < trials_ses[0] + 1) & (isi_df['roi'] == 'ROI' + str(roi)), 'isi'])
@@ -1955,21 +1990,22 @@ class miniscope_session:
             r1 = binedges[:-1]
             r2 = [x + barWidth for x in r1]
             fig, ax = plt.subplots(figsize=(15, 7), tight_layout=True)
-            plt.bar(r1, hist_norm[:, 0], color='darkgrey', width=barWidth, edgecolor='white', label='baseine speed')
+            plt.bar(r1, hist_norm[:, 0], color='darkgrey', width=barWidth, edgecolor='white', label='baseline speed')
             plt.bar(r2, hist_norm[:, 1], color='crimson', width=barWidth, edgecolor='white', label='fast speed')
             plt.xlabel('Inter-event interval (s)', fontsize=self.fsize)  # Add xticks on the middle of the group bars
             plt.ylabel('Event count', fontsize=self.fsize)  # Add xticks on the middle of the group bars
             plt.title('ISI distribution for ROI ' + str(roi), fontsize=self.fsize)
-            plt.legend(fontsize=self.fsize - 4, frameon=False)
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             plt.xticks(fontsize=self.fsize - 4)
             plt.yticks(fontsize=self.fsize - 4)
             if plot_data:
+                if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi)):
+                    os.mkdir(self.path + '\\images\\events\\ROI' + str(roi))
                 if self.delim == '/':
-                    plt.savefig(self.path + '/images/events/' + 'isi_hist_roi_' + str(roi), dpi=self.my_dpi)
+                    plt.savefig(self.path + '/images/events/ROI' + str(roi) + '/' + 'isi_hist_roi_' + str(roi),dpi=self.my_dpi)
                 else:
-                    plt.savefig(self.path + '\\images\\events\\' + 'isi_hist_roi_' + str(roi), dpi=self.my_dpi)
+                    plt.savefig(self.path + '\\images\\events\\ROI' + str(roi) + '\\' + 'isi_hist_roi_' + str(roi), dpi=self.my_dpi)
         if session_type == 'tied' and animal != 'MC8855':
             isi_data_sp1 = np.array(isi_df.loc[(isi_all_events['trial'] > 0) & (
                         isi_df['trial'] < trials_ses[0] + 1) & (isi_df['roi'] == 'ROI' + str(roi)), 'isi'])
@@ -1996,24 +2032,26 @@ class miniscope_session:
             plt.xlabel('Inter-event interval (s)', fontsize=self.fsize)  # Add xticks on the middle of the group bars
             plt.ylabel('Event count', fontsize=self.fsize)  # Add xticks on the middle of the group bars
             plt.title('ISI distribution for ROI ' + str(roi), fontsize=self.fsize)
-            plt.legend(fontsize=self.fsize - 4, frameon=False)
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             plt.xticks(fontsize=self.fsize - 4)
             plt.yticks(fontsize=self.fsize - 4)
             if plot_data:
+                if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi)):
+                    os.mkdir(self.path + '\\images\\events\\ROI' + str(roi))
                 if self.delim == '/':
-                    plt.savefig(self.path + '/images/events/' + 'isi_hist_roi_' + str(roi),dpi=self.my_dpi)
+                    plt.savefig(self.path + '/images/events/ROI' + str(roi) + '/' + 'isi_hist_roi_' + str(roi),dpi=self.my_dpi)
                 else:
-                    plt.savefig(self.path + '\\images\\events\\' + 'isi_hist_roi_' + str(roi), dpi=self.my_dpi)
+                    plt.savefig(self.path + '\\images\\events\\ROI' + str(roi) + '\\' + 'isi_hist_roi_' + str(roi), dpi=self.my_dpi)
         return
 
-    def plot_cv_session(self, roi, isi_cv, trials, plot_data):
+    def plot_cv_session(self, roi, isi_cv, trials, plot_name, plot_data):
         """Function to plot the ISI distribution across the session for a certain ROI
         Inputs:
             roi: (int) ROI id
             isi_cv: (array) with CV values
             trials: list of trials
+            plot_name: such as 'cv' or 'cv2'
             plot_data: boolean"""
         if len(trials) == 23:
             colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
@@ -2031,7 +2069,7 @@ class miniscope_session:
                            'orange', 'orange', 'orange', 'orange', 'orange', 'orange']
         fig, ax = plt.subplots(figsize=(15, 5), tight_layout=True)
         for t in trials:
-            plt.bar(t - 0.5, isi_cv[roi - 1, t - 1], width=1, color=colors_bars[t - 1], edgecolor='white')
+            plt.bar(t - 0.5, isi_cv.loc[(isi_cv['roi']=='ROI'+str(roi))&(isi_cv['trial']==t),'isi_cv'], width=1, color=colors_bars[t - 1], edgecolor='white')
         ax.set_xticks(np.arange(0.5, len(trials) + 0.5))
         ax.set_xticklabels(list(map(str, trials)))
         plt.xlim([0, len(trials) + 1])
@@ -2043,10 +2081,12 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if plot_data:
+            if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi)):
+                os.mkdir(self.path + '\\images\\events\\ROI' + str(roi))
             if self.delim == '/':
-                plt.savefig(self.path + '/images/events/' + 'cv_roi_' + str(roi), dpi=self.my_dpi)
+                plt.savefig(self.path + '/images/events/ROI' + str(roi) + '/' + plot_name + '_roi_' + str(roi), dpi=self.my_dpi)
             else:
-                plt.savefig(self.path + '\\images\\events\\' + 'cv_roi_' + str(roi), dpi=self.my_dpi)
+                plt.savefig(self.path + '\\images\\events\\ROI' + str(roi) + '\\' + plot_name + '_roi_' + str(roi), dpi=self.my_dpi)
         return
 
     def plot_isi_ratio_session(self, roi, isi_ratio, range_isiratio, trials, plot_data):
@@ -2090,10 +2130,12 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if plot_data:
+            if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi)):
+                os.mkdir(self.path + '\\images\\events\\ROI' + str(roi))
             if self.delim == '/':
-                plt.savefig(self.path + '/images/events/' + 'isi_ratio_roi_' + str(roi), dpi=self.my_dpi)
+                plt.savefig(self.path + '/images/events/ROI' + str(roi) + '/' + 'isi_ratio_roi_' + str(roi), dpi=self.my_dpi)
             else:
-                plt.savefig(self.path + '\\images\\events\\' + 'isi_ratio_cv_roi_' + str(roi), dpi=self.my_dpi)
+                plt.savefig(self.path + '\\images\\events\\ROI' + str(roi) + '\\' + 'isi_ratio_roi_' + str(roi), dpi=self.my_dpi)
         return
 
     def compute_event_waveform(self, df_fiji, df_events, roi_plot, animal, session_type, trials_ses, trials, plot_data):
@@ -2149,10 +2191,12 @@ class miniscope_session:
             ax[i].tick_params(axis='both', which='major', labelsize=self.fsize - 4)
         plt.suptitle('ROI' + str(roi_plot), fontsize=self.fsize - 2)
         if plot_data:
+            if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi_plot)):
+                os.mkdir(self.path + '\\images\\events\\ROI' + str(roi_plot))
             if self.delim == '/':
-                plt.savefig(self.path + '/images/events/' + 'event_waveform_roi_' + str(roi_plot), dpi=self.my_dpi)
+                plt.savefig(self.path + '/images/events/ROI' + str(roi_plot) + '/' + 'event_waveform_roi_' + str(roi_plot), dpi=self.my_dpi)
             else:
-                plt.savefig(self.path + '\\images\\events\\' + 'event_waveform_roi_' + str(roi_plot), dpi=self.my_dpi)
+                plt.savefig(self.path + '\\images\\events\\ROI' + str(roi_plot) + '\\' + 'event_waveform_roi_' + str(roi_plot), dpi=self.my_dpi)
         return [cs_waveforms_mean_all, cs_waveforms_sem_all]
     
     def get_event_count_wholetrial(self, df_events, trials, roi_plot, plot_data):
@@ -2192,10 +2236,12 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if plot_data:
+            if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi_plot)):
+                os.mkdir(self.path + '\\images\\events\\ROI' + str(roi_plot))
             if self.delim == '/':
-                plt.savefig(self.path + '/images/events/' + 'event_count_roi_' + str(roi_plot), dpi=self.my_dpi)
+                plt.savefig(self.path + '/images/events/ROI' + str(roi_plot) + '/' + 'event_count_roi_' + str(roi_plot), dpi=self.my_dpi)
             else:
-                plt.savefig(self.path + '\\images\\events\\' + 'event_count_roi_' + str(roi_plot), dpi=self.my_dpi)
+                plt.savefig(self.path + '\\images\\events\\ROI' + str(roi_plot) + '\\' + 'event_count_roi_' + str(roi_plot), dpi=self.my_dpi)
         return
 
     def get_event_count_locomotion(self, df_events, trials, bcam_time, st_strides_trials, roi_plot, plot_data):
@@ -2252,10 +2298,12 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if plot_data:
+            if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi_plot)):
+                os.mkdir(self.path + '\\images\\events\\ROI' + str(roi_plot))
             if self.delim == '/':
-                plt.savefig(self.path + '/images/events/' + 'event_count_roi_' + str(roi_plot), dpi=self.my_dpi)
+                plt.savefig(self.path + '/images/events/ROI' + str(roi_plot) + '/' + 'event_count_loco_roi_' + str(roi_plot), dpi=self.my_dpi)
             else:
-                plt.savefig(self.path + '\\images\\events\\' + 'event_count_roi_' + str(roi_plot), dpi=self.my_dpi)
+                plt.savefig(self.path + '\\images\\events\\ROI' + str(roi_plot) + '\\' + 'event_count_loco_roi_' + str(roi_plot), dpi=self.my_dpi)
         return
 
     def events_stride(self, df_events, st_strides_trials, sw_pts_trials, paw, roi_plot, align):
@@ -2328,9 +2376,13 @@ class miniscope_session:
                            'lightblue', 'lightblue', 'lightblue', 'lightblue',
                            'orange', 'orange', 'orange', 'orange', 'orange', 'orange']
         fig, ax = plt.subplots(figsize=(15, 5), tight_layout=True)
+        count_t = 0
+        event_proportion = np.zeros(len(trials))
         for t in trials:
             plt.bar(t - 0.5, np.count_nonzero(df_cs_stride[t] > 0) / np.count_nonzero(~np.isnan(df_cs_stride[t])),
                     width=1, color=colors_bars[t - 1], edgecolor='white')
+            event_proportion[count_t] = np.count_nonzero(df_cs_stride[t] > 0) / np.count_nonzero(~np.isnan(df_cs_stride[t]))
+            count_t += 1
         ax.set_xticks(np.arange(0.5, len(trials) + 0.5))
         ax.set_xticklabels(list(map(str, trials)))
         plt.xlim([0, len(trials) + 1])
@@ -2342,11 +2394,13 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if plot_data:
+            if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi_plot)):
+                os.mkdir(self.path + '\\images\\events\\ROI' + str(roi_plot))
             if self.delim == '/':
-                plt.savefig(self.path + '/images/events/' + 'event_count_roi_' + str(roi_plot), dpi=self.my_dpi)
+                plt.savefig(self.path + '/images/events/ROI' + str(roi_plot) + '/' + 'event_prob_roi_' + str(roi_plot), dpi=self.my_dpi)
             else:
-                plt.savefig(self.path + '\\images\\events\\' + 'event_count_roi_' + str(roi_plot), dpi=self.my_dpi)
-        return
+                plt.savefig(self.path + '\\images\\events\\ROI' + str(roi_plot) + '\\' + 'event_prob_roi_' + str(roi_plot), dpi=self.my_dpi)
+        return event_proportion
 
     def events_align_st_sw(self, df_events, st_strides_trials, sw_strides_trials, time_window, bin_size, paw, roi_plot, align, session_type, trials_ses, plot_data):
         """Align events to stance, swing or stride period. It outputs the CS indexes for each
@@ -2363,6 +2417,10 @@ class miniscope_session:
             session_type. (str) split or tied
             trials_ses: relevant trials for the session to compute transition lines
             plot_data: boolean"""
+        if align == 'stance':
+            align_str = 'st'
+        if align == 'swing':
+            align_str = 'sw'
         if paw == 'FR':
             p = 0  # paw of tracking
         if paw == 'HR':
@@ -2392,57 +2450,42 @@ class miniscope_session:
             event_stride_list.append(event_stride_arr)
         event_stride_all = np.vstack(event_stride_list)
         trial_length_strides_cumsum = np.cumsum(trial_length_strides)
-        fig, ax = plt.subplots(figsize=(7, 7), tight_layout=True)
-        sns.heatmap(event_stride_all, cmap='viridis', cbar=False)
-        ax.vlines(bin_size / 2, *ax.get_ylim(), color='white', linestyle='dashed')
+        fig, ax = plt.subplots(2,1,figsize=(7, 15), tight_layout=True)
+        ax = ax.ravel()
+        sns.heatmap(event_stride_all, cmap='viridis', cbar=False, ax = ax[0])
+        ax[0].vlines(bin_size / 2, *ax[0].get_ylim(), color='white', linestyle='dashed')
         if session_type == 'split':
-            ax.hlines([trial_length_strides_cumsum[trials_ses[0]], trial_length_strides_cumsum[trials_ses[2]]],
-                      *ax.get_xlim(), color='white', linewidth=0.5)
+            ax[0].hlines([trial_length_strides_cumsum[trials_ses[0]], trial_length_strides_cumsum[trials_ses[2]]],
+                      *ax[0].get_xlim(), color='white', linewidth=0.5)
         if session_type == 'tied':
             for t in trials_ses[:-1]:
-                ax.hlines([trial_length_strides_cumsum[t]], *ax.get_xlim(), color='white', linewidth=0.5)
-        ax.set_yticks(np.arange(0, np.shape(event_stride_all)[0], 250))
-        ax.set_yticklabels(list(map(str, np.arange(0, np.shape(event_stride_all)[0], 250))))
-        ax.set_xticklabels(list(map(str, np.round(np.arange(-time_window, time_window, 0.02), 2))), rotation=45)
-        ax.set_xlabel('Time (s)', fontsize=self.fsize - 4)
-        ax.set_ylabel('Stride number', fontsize=self.fsize - 4)
-        ax.set_title(paw + ' st events', fontsize=self.fsize - 4)
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
+                ax[0].hlines([trial_length_strides_cumsum[t-1]], *ax[0].get_xlim(), color='white', linewidth=0.5)
+        ax[0].set_yticks(np.arange(0, np.shape(event_stride_all)[0], 250))
+        ax[0].set_yticklabels(list(map(str, np.arange(0, np.shape(event_stride_all)[0], 250))))
+        ax[0].set_xticklabels(list(map(str, np.round(np.arange(-time_window, time_window, 0.02), 2))), rotation=45)
+        ax[0].set_xlabel('Time (s)', fontsize=self.fsize - 4)
+        ax[0].set_ylabel('Stride number', fontsize=self.fsize - 4)
+        ax[0].set_title(paw + ' '+ align_str + ' events', fontsize=self.fsize - 4)
+        ax[0].spines['right'].set_visible(False)
+        ax[0].spines['top'].set_visible(False)
         plt.xticks(fontsize=self.fsize - 12)
         plt.yticks(fontsize=self.fsize - 12)
+        ax[1].bar(np.round(np.arange(-time_window, time_window, 0.02), 2),np.sum(event_stride_all,axis=0), width=0.01, color='gray')
+        ax[1].spines['right'].set_visible(False)
+        ax[1].spines['top'].set_visible(False)
+        ax[1].spines['left'].set_visible(False)
         if plot_data:
+            if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi_plot)):
+                os.mkdir(self.path + '\\images\\events\\ROI' + str(roi_plot))
             if self.delim == '/':
-                plt.savefig(self.path + '/images/events/' + 'event_' + align + '_' + paw + '_binsize_' + str(
+                plt.savefig(self.path + '/images/events/ROI' + str(roi_plot) + '/' + 'event_' + align + '_' + paw + '_binsize_' + str(
                     bin_size) + '_window_' + str(time_window).replace('.', ',') + '_roi_' + str(roi_plot),
                             dpi=self.my_dpi)
             else:
-                plt.savefig(self.path + '\\images\\events\\' + 'event_' + align + '_' + paw + '_binsize_' + str(
+                plt.savefig(self.path + '\\images\\events\\ROI' + str(roi_plot) + '\\' + 'event_' + align + '_' + paw + '_binsize_' + str(
                     bin_size) + '_window_' + str(time_window).replace('.', ',') + '_roi_' + str(roi_plot),
                             dpi=self.my_dpi)
         return event_stride_all
-
-    def sort_HF_files_by_days(self,animal_name):
-        """Function to sort mat files from injections experiment across days
-        Inputs: 
-            animal_name: string with the animal name to sort"""
-        matfiles = glob.glob(self.path+'*.mat')
-        delim = self.path[-1]
-        matfiles_animal = []
-        days_animal = []
-        for f in matfiles:
-            path_split = f.split(delim)
-            filename = path_split[-1][:-4]
-            filename_split = filename.split('_')
-            if filename_split[0] == animal_name:
-                matfiles_animal.append(f)
-                days_animal.append(int(filename_split[1][:-4]))
-        days_ordered = np.sort(np.array(days_animal)) #reorder days
-        files_ordered = [] #order mat filenames by file order
-        for f in range(len(matfiles_animal)):
-            tr_ind = np.where(days_ordered[f] == days_animal)[0][0]
-            files_ordered.append(matfiles_animal[tr_ind])
-        return files_ordered
 
     def create_registered_tiffs(self, frame_time, trials):
         """Function to create tiffs from the registered stacks that are suite2p output. Each tiff has the same length as the trials.
@@ -2472,6 +2515,7 @@ class miniscope_session:
         df_fiji: dataframe with the ROIs traces
         coord_fiji: list with the ROIs coordinates"""
         reg_path_tiff = self.path + 'Registered video\\'
+        os.mkdir(self.path + '\\Residuals\\')
         tiflist_reg = glob.glob(reg_path_tiff + '*.tif')
         roi_list = df_fiji.columns[2:]
         for tifff in tiflist_reg:
@@ -2484,8 +2528,8 @@ class miniscope_session:
                 for f in range(len(trace)):
                     residuals_stack[f, coord_fiji_pixel[:, 1], coord_fiji_pixel[:, 0]] = image_stack[f, coord_fiji_pixel[:,1], coord_fiji_pixel[:,0]] - trace[f]
             plt.imshow(np.mean(residuals_stack, axis=0))
-            tiff.imsave(self.path + path_bgsub + 'T' + tiff_name.split('_')[0][1:] + '_reg_bgsub.tif',
-                        image_stack_bgsub, bigtiff=True)
+            tiff.imsave(self.path + '\\Residuals\\' + 'T' + tiff_name.split('_')[0][1:] + '_reg_residuals.tif',
+                        residuals_stack, bigtiff=True)
         return
 
     def create_contrast_tiffs(self):
@@ -2509,6 +2553,610 @@ class miniscope_session:
             image_stack_bgsub = image_stack - perc_pixel_tile
             tiff.imsave(self.path + path_bgsub + 'T' + tiff_name.split('_')[0][1:] + '_reg_bgsub.tif', image_stack_bgsub, bigtiff=True)
         return
+
+    def events_align_trajectory(self, df_events, bcam_time, final_tracks_trials, trial, roi, plot_data):
+        """Function to plot average trajectories aligned to calcium event for a certain ROI and trial.
+        Input:
+            df_events: dataframe with events
+            bcam_time: behavioral camera timestamps for all trials
+            final_tracks_trials: final_tracks list for all trials
+            trial: (int) trial to plot
+            roi: (int) roi to plot
+            plot_data: boolean"""
+        time = 0.2
+        data_events = np.array(
+            df_events.loc[(df_events['trial'] == trial) & (df_events['ROI' + str(roi)]), 'time'])
+        bcam_time_trial = bcam_time[trial - 1]
+        bcam_idx_events = []
+        for e in data_events:
+            bcam_idx_events.append(np.argmin(np.abs(e - bcam_time_trial)))
+        traj_list = []
+        for i in bcam_idx_events:
+            if (i > (time * 330)) and (i < (np.shape(final_tracks_trials[trial - 1])[2] - (time * 330))):
+                traj_list.append(
+                    np.array(final_tracks_trials[trial - 1][0, :4, np.int64(i - (time * 330)):np.int64(i + (time * 330))]))
+        traj_arr = np.dstack(traj_list)
+        traj_ave = np.nanmean(traj_arr, axis=2)
+        traj_sem = np.nanstd(traj_arr, axis=2) / np.sqrt(np.shape(traj_arr)[2])
+        colors_paws = ['red', 'magenta', 'blue', 'cyan']
+        fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+        for p in range(4):
+            ax.plot(np.arange(0, np.shape(traj_ave)[1]), traj_ave[p, :], linewidth=2, color=colors_paws[p])
+            ax.fill_between(np.arange(0, np.shape(traj_ave)[1]), traj_ave[p, :] - traj_sem[p, :],
+                            traj_ave[p, :] + traj_sem[p, :], color=colors_paws[p], alpha=0.3)
+        ax.set_xticks(np.linspace(0, np.shape(traj_ave)[1], 10))
+        ax.set_xticklabels(list(map(str, np.round(np.linspace(-time, time, 10), 2))), rotation=45)
+        ax.axvline(x=np.shape(traj_ave)[1] / 2, linestyle='dashed', color='black')
+        ax.set_xlabel('Time (s)', fontsize=self.fsize - 4)
+        ax.set_ylabel('Paw trajectory (mm)', fontsize=self.fsize - 4)
+        ax.set_title('Events ROI' + str(roi) + ' for trial ' + str(trial), fontsize=self.fsize - 4)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        plt.xticks(fontsize=self.fsize - 12)
+        plt.yticks(fontsize=self.fsize - 12)
+        if plot_data:
+            if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi)):
+                os.mkdir(self.path + '\\images\\events\\ROI' + str(roi))
+            if self.delim == '/':
+                plt.savefig(self.path + '/images/events/ROI' + str(roi) + '/'  + 'event_paw_trajectory_' + '_roi_' + str(roi) + '_trial_' + str(trial),
+                            dpi=self.my_dpi)
+            else:
+                plt.savefig(self.path + '\\images\\events\\ROI' + str(roi) + '\\'  + 'event_paw_trajectory_' + '_roi_' + str(roi) + '_trial_' + str(trial),
+                            dpi=self.my_dpi)
+        return
+
+    def get_nearest_rois_manual_roi(self, rois_df, centroid_cell, rfiji):
+        """Get the nearest ROIs (from EXTRACT or others) to a certain manual
+        ROI drawn with Fiji
+        Input:
+        rois_df: dataframe with ROIs coordinates from Fiji
+        centroid_cell (list of ROI centroids from EXTRACT or others)
+        rfiji: int with the id of ROI to compare
+        """
+        cent_fiji = [
+            np.nanmean(np.arange(rois_df.iloc[rfiji, 0] / self.pixel_to_um, rois_df.iloc[rfiji, 1] / self.pixel_to_um)),
+            np.nanmean(np.arange(rois_df.iloc[rfiji, 2] / self.pixel_to_um, rois_df.iloc[rfiji, 3] / self.pixel_to_um))]
+        rois_ext_near_fiji = []
+        for c in range(np.shape(centroid_cell)[0]):
+            if (np.abs(centroid_cell[c][0] - cent_fiji[0]) < 75) and (np.abs(centroid_cell[c][1] - cent_fiji[1]) < 75):
+                rois_ext_near_fiji.append(c)
+        return rois_ext_near_fiji
+
+    def plot_overlap_extract_manual_rois(self, rfiji, rext, ref_image, rois_df, coord_cell, roi_trace_minmax_bgsub,
+                                         trace):
+        """Plot overlap of EXTRACT (or others) with corresponding manual ROI from Fiji. Plots also calcium trace.
+        Input:
+        rois_df: dataframe with ROIs coordinates from Fiji
+        coord_cell (list of ROI cooridnates from EXTRACT or others)
+        roi_trace_minmax_bgsub: array with Fiji calcium trace normalized (0-1)
+        trace: array with EXTRACT activity probabilities
+        ref_image: aray with a reference image
+        rfiji: int with the id of ROI Fiji to compare
+        rext: int with the id of ROI EXTRACT to compare
+        """
+        cent_fiji = [np.nanmean(
+            np.arange(rois_df.iloc[rfiji, 0] / self.pixel_to_um, rois_df.iloc[rfiji, 1] / self.pixel_to_um)),
+            np.nanmean(np.arange(rois_df.iloc[rfiji, 2] / self.pixel_to_um,
+                                 rois_df.iloc[rfiji, 3] / self.pixel_to_um))]
+        fig = plt.figure(figsize=(25, 12), tight_layout=True)
+        gs = fig.add_gridspec(2, 2)
+        ax1 = fig.add_subplot(gs[0, 0])
+        for r in range(np.shape(rois_df)[0]):
+            ax1.plot([rois_df.iloc[r, 0] / self.pixel_to_um, rois_df.iloc[r, 1] / self.pixel_to_um],
+                     [rois_df.iloc[r, 2] / self.pixel_to_um, rois_df.iloc[r, 3] / self.pixel_to_um])
+        ax1.set_title('Manual ROIs', fontsize=self.fsize)
+        ax1.imshow(ref_image,
+                   extent=[0, np.shape(ref_image)[1] / self.pixel_to_um, np.shape(ref_image)[0] / self.pixel_to_um,
+                           0], cmap=plt.get_cmap('gray'))
+        ax1.set_xlim([cent_fiji[0] - 100, cent_fiji[0] + 100])
+        ax1.set_ylim([cent_fiji[1] - 100, cent_fiji[1] + 100])
+        ax1.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
+        ax1.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
+        ax1.tick_params(axis='x', labelsize=self.fsize - 4)
+        ax1.tick_params(axis='y', labelsize=self.fsize - 4)
+        ax2 = fig.add_subplot(gs[0, 1])
+        ax2.plot([rois_df.iloc[rfiji, 0] / self.pixel_to_um, rois_df.iloc[rfiji, 1] / self.pixel_to_um],
+                 [rois_df.iloc[rfiji, 2] / self.pixel_to_um, rois_df.iloc[rfiji, 3] / self.pixel_to_um],
+                 color='blue')
+        ax2.scatter(coord_cell[rext][:, 0], coord_cell[rext][:, 1], s=1, color='red')
+        ax2.set_title('Manual ' + str(rfiji + 1) + ' and corresponding EXTRACT ROI ' + str(rext), fontsize=self.fsize)
+        ax2.imshow(ref_image,
+                   extent=[0, np.shape(ref_image)[1] / self.pixel_to_um, np.shape(ref_image)[0] / self.pixel_to_um,
+                           0], cmap=plt.get_cmap('gray'))
+        ax2.set_xlim([cent_fiji[0] - 100, cent_fiji[0] + 100])
+        ax2.set_ylim([cent_fiji[1] - 100, cent_fiji[1] + 100])
+        ax2.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
+        ax2.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
+        ax2.tick_params(axis='x', labelsize=self.fsize - 4)
+        ax2.tick_params(axis='y', labelsize=self.fsize - 4)
+        ax3 = fig.add_subplot(gs[1, :])
+        ax3.plot(np.linspace(0, np.shape(roi_trace_minmax_bgsub)[0] / self.sr, len(roi_trace_minmax_bgsub[:, rfiji])),
+                 roi_trace_minmax_bgsub[:, rfiji], color='blue')
+        ax3.plot(np.linspace(0, np.shape(roi_trace_minmax_bgsub)[0] / self.sr, len(roi_trace_minmax_bgsub[:, rfiji])),
+                 trace[rext, :], color='red')
+        ax3.set_xlabel('Time (s)', fontsize=self.fsize - 4)
+        ax3.set_ylabel('Amplitude of F values', fontsize=self.fsize - 4)
+        ax3.tick_params(axis='x', labelsize=self.fsize - 4)
+        ax3.tick_params(axis='y', labelsize=self.fsize - 4)
+        ax3.spines['right'].set_visible(False)
+        ax3.spines['top'].set_visible(False)
+        return
+
+    def compare_extract_extract_rois(self, r1, r2, coord_cell1, coord_cell2, trace1, trace2, ref_image, comparison):
+        """Function to compare between two EXTRACT ROIs computed with different parameters.
+        Input:
+        r1: (int) roi 1
+        r2: (int) roi 2
+        coord_cell1: (list)
+        coord_cell2: (list)
+        trace1: (array)
+        trace2: (array)
+        comparison: (str) with the comparison name"""
+        centroid_cell = np.array([np.nanmean(coord_cell1[r1][:, 0]), np.nanmean(coord_cell1[r1][:, 1])])
+        fig = plt.figure(figsize=(25, 12), tight_layout=True)
+        gs = fig.add_gridspec(2, 2)
+        ax1 = fig.add_subplot(gs[0, 0])
+        ax1.scatter(coord_cell1[r1][:, 0], coord_cell1[r1][:, 1], s=1, color='orange')
+        ax1.scatter(coord_cell2[r2][:, 0], coord_cell2[r2][:, 1], s=1, color='blue', alpha=0.5)
+        ax1.set_title('ROIs', fontsize=self.fsize)
+        ax1.imshow(ref_image,
+                   extent=[0, np.shape(ref_image)[1] / self.pixel_to_um, np.shape(ref_image)[0] / self.pixel_to_um,
+                           0], cmap=plt.get_cmap('gray'))
+        ax1.set_xlim([centroid_cell[0] - 200, centroid_cell[0] + 200])
+        ax1.set_ylim([centroid_cell[1] - 200, centroid_cell[1] + 200])
+        ax1.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
+        ax1.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
+        ax1.tick_params(axis='x', labelsize=self.fsize - 4)
+        ax1.tick_params(axis='y', labelsize=self.fsize - 4)
+        ax2 = fig.add_subplot(gs[1, :])
+        ax2.plot(np.linspace(0, np.shape(trace1)[1] / self.sr, len(trace1[r1, :])),
+                 trace1[r1, :], color='orange', label='no ' + comparison)
+        ax2.plot(np.linspace(0, np.shape(trace2)[1] / self.sr, len(trace2[r2, :])),
+                 trace2[r2, :], color='blue', label=comparison)
+        ax2.set_xlabel('Time (s)', fontsize=self.fsize - 4)
+        ax2.set_ylabel('Amplitude of F values', fontsize=self.fsize - 4)
+        ax2.tick_params(axis='x', labelsize=self.fsize - 4)
+        ax2.tick_params(axis='y', labelsize=self.fsize - 4)
+        ax2.spines['right'].set_visible(False)
+        ax2.spines['top'].set_visible(False)
+        return
+
+    def compute_bg_roi_fiji_example(self, trial, ref_image, rois_df, rfiji):
+        """Function to compute a donut background around one FIJI ROI and compute its background subtracted signal.
+        Plot all steps.
+        Input:
+            trial: int
+            ref_image: array with reference image from Suite2p
+            rois_df: dataframe with ROIs from FIJI
+            rfiji: int"""
+        tiff_stack = tiff.imread(self.path + '\\Registered video\\T' + str(trial) + '_reg.tif')  ##read tiffs
+        coord_fiji = []
+        height_fiji = []
+        xlength_fiji = []
+        ylength_fiji = []
+        for r in range(np.shape(rois_df)[0]):
+            coord_r = np.transpose(np.vstack(
+                (np.linspace(rois_df.iloc[r, 0] / self.pixel_to_um, rois_df.iloc[r, 1] / self.pixel_to_um, 100),
+                 np.linspace(rois_df.iloc[r, 2] / self.pixel_to_um, rois_df.iloc[r, 3] / self.pixel_to_um, 100))))
+            x_length = np.abs(coord_r[-1, 0] - coord_r[0, 0])
+            y_length = np.abs(coord_r[-1, 1] - coord_r[0, 1])
+            xlength_fiji.append(x_length)
+            ylength_fiji.append(y_length)
+            coord_fiji.append(coord_r)
+            height_fiji.append(np.sqrt(np.square(x_length) + np.square(y_length)))
+        cent_fiji = np.nanmean(coord_fiji[rfiji - 1], axis=0)
+        ell = mp_patch.Ellipse((cent_fiji[0], cent_fiji[1]), 30, height_fiji[rfiji - 1] + 15,
+                         -(90 - np.degrees(np.arctan(ylength_fiji[rfiji - 1] / xlength_fiji[rfiji - 1]))))
+        ell2 = mp_patch.Ellipse((cent_fiji[0], cent_fiji[1]), 50, height_fiji[rfiji - 1] + 30,
+                          -(90 - np.degrees(np.arctan(ylength_fiji[rfiji - 1] / xlength_fiji[rfiji - 1]))))
+        ellpath = ell.get_path()
+        vertices = ellpath.vertices.copy()
+        coord_ell_inner = ell.get_patch_transform().transform(vertices)
+        ellpath2 = ell2.get_path()
+        vertices2 = ellpath2.vertices.copy()
+        coord_ell_outer = ell2.get_patch_transform().transform(vertices2)
+        ROIinner_fill_x, ROIinner_fill_y = zip(*self.render(np.int64(coord_ell_inner * self.pixel_to_um)))
+        ROIouter_fill_x, ROIouter_fill_y = zip(*self.render(np.int64(coord_ell_outer * self.pixel_to_um)))
+        ROIinner_fill_coord = np.transpose(np.vstack((ROIinner_fill_x, ROIinner_fill_y)))
+        ROIouter_fill_coord = np.transpose(np.vstack((ROIouter_fill_x, ROIouter_fill_y)))
+        idx_overlap_outer = []
+        for x in range(np.shape(ROIinner_fill_coord)[0]):
+            if ROIinner_fill_coord[x, 0] in ROIouter_fill_coord[:, 0]:
+                idx_overlap = np.where((ROIouter_fill_coord[:, 0] == ROIinner_fill_coord[x, 0]) & (
+                        ROIouter_fill_coord[:, 1] == ROIinner_fill_coord[x, 1]))[0]
+                if len(idx_overlap) > 0:
+                    idx_overlap_outer.append(idx_overlap[0])
+        idx_nonoverlap = np.setdiff1d(range(np.shape(ROIouter_fill_coord)[0]), idx_overlap_outer)
+        ROIdonut_coord = np.transpose(
+            np.vstack((ROIouter_fill_coord[idx_nonoverlap, 0], ROIouter_fill_coord[idx_nonoverlap, 1])))
+        ROI_donut_trace = np.zeros(np.shape(tiff_stack)[0])
+        for f in range(np.shape(tiff_stack)[0]):
+            ROI_donut_trace[f] = np.nansum(tiff_stack[f, ROIdonut_coord[:, 1], ROIdonut_coord[:, 0]])
+        coeff_sub = 1
+        roi_trace_tiffmean = np.zeros((np.shape(tiff_stack)[0]))
+        for f in range(np.shape(tiff_stack)[0]):
+            roi_trace_tiffmean[f] = np.nansum(tiff_stack[f, np.int64(
+                coord_fiji[rfiji - 1][:, 1] * self.pixel_to_um), np.int64(
+                coord_fiji[rfiji - 1][:, 0] * self.pixel_to_um)])
+        roi_trace_arr = roi_trace_tiffmean / len(coord_fiji[rfiji - 1][:, 1])
+        donut_trace_arr = ROI_donut_trace / len(ROIdonut_coord[:, 1])
+        roi_trace_bgsub_arr = roi_trace_arr - (coeff_sub * donut_trace_arr)
+        idx_neg = np.where(roi_trace_bgsub_arr < 0)[0]
+        roi_trace_bgsub_arr[idx_neg] = 0
+        roi_trace_bgsub_minmax = (roi_trace_bgsub_arr - np.min(roi_trace_bgsub_arr)) / (
+                    np.max(roi_trace_bgsub_arr) - np.min(roi_trace_bgsub_arr))
+        fig = plt.figure(figsize=(30, 20), tight_layout=True)
+        gs = fig.add_gridspec(4, 3)
+        ax2 = fig.add_subplot(gs[0, 1])
+        ax2.plot(coord_fiji[rfiji - 1][:, 0], coord_fiji[rfiji - 1][:, 1], linewidth=2, color='blue')
+        ax2.scatter(ROIdonut_coord[:, 0] / self.pixel_to_um, ROIdonut_coord[:, 1] / self.pixel_to_um, s=10,
+                    color='green')
+        ax2.imshow(ref_image,
+                   extent=[0, np.shape(ref_image)[1] / self.pixel_to_um, np.shape(ref_image)[0] / self.pixel_to_um,
+                           0], cmap=plt.get_cmap('gray'))
+        ax2.set_title('Fiji ROI ' + str(rfiji - 1) + ' and respective background', fontsize=self.fsize - 4)
+        ax2.set_xlim([cent_fiji[0] - 100, cent_fiji[0] + 100])
+        ax2.set_ylim([cent_fiji[1] - 100, cent_fiji[1] + 100])
+        ax2.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
+        ax2.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
+        ax2.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
+        ax2.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
+        ax2.tick_params(axis='x', labelsize=self.fsize - 4)
+        ax2.tick_params(axis='y', labelsize=self.fsize - 4)
+        ax3 = fig.add_subplot(gs[1, :])
+        ax3.plot(np.linspace(0, np.shape(tiff_stack)[0] / self.sr, np.shape(tiff_stack)[0]), roi_trace_bgsub_minmax,
+                 color='black', label='background subtracted Fiji signal')
+        ax3.legend(frameon=False, fontsize=self.fsize - 8)
+        ax3.set_ylabel('Signal amplitude', fontsize=self.fsize - 4)
+        ax3.set_ylabel('Time (s)', fontsize=self.fsize - 4)
+        ax3.spines['right'].set_visible(False)
+        ax3.spines['top'].set_visible(False)
+        plt.xticks(fontsize=self.fsize - 4)
+        plt.yticks(fontsize=self.fsize - 4)
+        ax4 = fig.add_subplot(gs[2, :])
+        ax4.plot(np.linspace(0, np.shape(tiff_stack)[0] / self.sr, np.shape(tiff_stack)[0]), donut_trace_arr,
+                 color='green', label='background signal')
+        ax4.legend(frameon=False, fontsize=self.fsize - 8)
+        ax4.set_ylabel('Signal amplitude', fontsize=self.fsize - 4)
+        ax4.set_ylabel('Time (s)', fontsize=self.fsize - 4)
+        ax4.spines['right'].set_visible(False)
+        ax4.spines['top'].set_visible(False)
+        plt.xticks(fontsize=self.fsize - 4)
+        plt.yticks(fontsize=self.fsize - 4)
+        ax5 = fig.add_subplot(gs[3, :])
+        ax5.plot(np.linspace(0, np.shape(tiff_stack)[0] / self.sr, np.shape(tiff_stack)[0]), roi_trace_arr,
+                 color='blue', label='roi signal')
+        ax5.legend(frameon=False, fontsize=self.fsize - 8)
+        ax5.set_ylabel('Signal amplitude', fontsize=self.fsize - 4)
+        ax5.set_ylabel('Time (s)', fontsize=self.fsize - 4)
+        ax5.spines['right'].set_visible(False)
+        ax5.spines['top'].set_visible(False)
+        plt.xticks(fontsize=self.fsize - 4)
+        plt.yticks(fontsize=self.fsize - 4)
+        if not os.path.exists(self.path + 'EXTRACT\\Fiji ROI bgsub'):
+            os.mkdir(self.path + 'EXTRACT\\Fiji ROI bgsub')
+        if self.delim == '/':
+            plt.savefig(self.path + 'EXTRACT/Fiji ROI bgsub/' + 'fiji_bgsub_' + str(rfiji) + '_T' + str(trial),
+                        dpi=self.my_dpi)
+        else:
+            plt.savefig(self.path + 'EXTRACT\\Fiji ROI bgsub\\' + 'fiji_bgsub_' + str(rfiji) + '_T' + str(trial),
+                        dpi=self.my_dpi)
+        return
+
+    def compute_bg_roi_fiji_extract(self, trial, ref_image, rois_df, coord_cell, trace, rfiji, rext, amp_fiji, amp_ext,
+                                    plot_data):
+        """Function to compute a donut background around a determined FIJI ROI and compute its background subtracted signal.
+        The plot compares with a determined ROI from EXTRACT. ROIs from Fiji start at 1 and from EXTRACT start at 0
+        Input:
+            trial: int
+            ref_image: array with reference image from Suite2p
+            rois_df: dataframe with ROIs from FIJI
+            coord_cell: list ROIs from EXTRACT
+            trace: array signal from EXTRACT
+            rfiji: int
+            rext: int
+            plot_data: boolean"""
+        tiff_stack = tiff.imread(self.path + 'Registered video\\T' + str(trial) + '_reg.tif')  ##read tiffs
+        coord_fiji = []
+        height_fiji = []
+        xlength_fiji = []
+        ylength_fiji = []
+        for r in range(np.shape(rois_df)[0]):
+            coord_r = np.transpose(np.vstack(
+                (np.linspace(rois_df.iloc[r, 0] / self.pixel_to_um, rois_df.iloc[r, 1] / self.pixel_to_um, 100),
+                 np.linspace(rois_df.iloc[r, 2] / self.pixel_to_um, rois_df.iloc[r, 3] / self.pixel_to_um, 100))))
+            x_length = np.abs(coord_r[-1, 0] - coord_r[0, 0])
+            y_length = np.abs(coord_r[-1, 1] - coord_r[0, 1])
+            xlength_fiji.append(x_length)
+            ylength_fiji.append(y_length)
+            coord_fiji.append(coord_r)
+            height_fiji.append(np.sqrt(np.square(x_length) + np.square(y_length)))
+        cent_fiji = np.nanmean(coord_fiji[rfiji - 1], axis=0)
+        ell = mp_patch.Ellipse((cent_fiji[0], cent_fiji[1]), 30, height_fiji[rfiji - 1] + 15,
+                         -(90 - np.degrees(np.arctan(ylength_fiji[rfiji - 1] / xlength_fiji[rfiji - 1]))))
+        ell2 = mp_patch.Ellipse((cent_fiji[0], cent_fiji[1]), 50, height_fiji[rfiji - 1] + 30,
+                          -(90 - np.degrees(np.arctan(ylength_fiji[rfiji - 1] / xlength_fiji[rfiji - 1]))))
+        ellpath = ell.get_path()
+        vertices = ellpath.vertices.copy()
+        coord_ell_inner = ell.get_patch_transform().transform(vertices)
+        ellpath2 = ell2.get_path()
+        vertices2 = ellpath2.vertices.copy()
+        coord_ell_outer = ell2.get_patch_transform().transform(vertices2)
+        ROIinner_fill_x, ROIinner_fill_y = zip(*self.render(np.int64(coord_ell_inner * self.pixel_to_um)))
+        ROIouter_fill_x, ROIouter_fill_y = zip(*self.render(np.int64(coord_ell_outer * self.pixel_to_um)))
+        ROIinner_fill_coord = np.transpose(np.vstack((ROIinner_fill_x, ROIinner_fill_y)))
+        ROIouter_fill_coord = np.transpose(np.vstack((ROIouter_fill_x, ROIouter_fill_y)))
+        idx_overlap_outer = []
+        for x in range(np.shape(ROIinner_fill_coord)[0]):
+            if ROIinner_fill_coord[x, 0] in ROIouter_fill_coord[:, 0]:
+                idx_overlap = np.where((ROIouter_fill_coord[:, 0] == ROIinner_fill_coord[x, 0]) & (
+                        ROIouter_fill_coord[:, 1] == ROIinner_fill_coord[x, 1]))[0]
+                if len(idx_overlap) > 0:
+                    idx_overlap_outer.append(idx_overlap[0])
+        idx_nonoverlap = np.setdiff1d(range(np.shape(ROIouter_fill_coord)[0]), idx_overlap_outer)
+        ROIdonut_coord = np.transpose(
+            np.vstack((ROIouter_fill_coord[idx_nonoverlap, 0], ROIouter_fill_coord[idx_nonoverlap, 1])))
+        ROI_donut_trace = np.zeros(np.shape(tiff_stack)[0])
+        for f in range(np.shape(tiff_stack)[0]):
+            ROI_donut_trace[f] = np.nansum(tiff_stack[f, ROIdonut_coord[:, 1], ROIdonut_coord[:, 0]])
+        coeff_sub = 1
+        roi_trace_tiffmean = np.zeros((np.shape(tiff_stack)[0]))
+        for f in range(np.shape(tiff_stack)[0]):
+            roi_trace_tiffmean[f] = np.nansum(tiff_stack[f, np.int64(
+                coord_fiji[rfiji - 1][:, 1] * self.pixel_to_um), np.int64(
+                coord_fiji[rfiji - 1][:, 0] * self.pixel_to_um)])
+        roi_trace_arr = roi_trace_tiffmean / len(coord_fiji[rfiji - 1][:, 1])
+        donut_trace_arr = ROI_donut_trace / len(ROIdonut_coord[:, 1])
+        roi_trace_bgsub_arr = roi_trace_arr - (coeff_sub * donut_trace_arr)
+        idx_neg = np.where(roi_trace_bgsub_arr < 0)[0]
+        roi_trace_bgsub_arr[idx_neg] = 0
+        roi_trace_bgsub_minmax = (roi_trace_bgsub_arr - np.min(roi_trace_bgsub_arr)) / (
+                np.max(roi_trace_bgsub_arr) - np.min(roi_trace_bgsub_arr))
+        trace_roi = trace[rext, :]
+        # compute events in fiji bgsub and extract trace
+        timeT = 10
+        [JoinedPosSet_fiji, JoinedNegSet_fiji, F_Values_fiji] = ST.SlopeThreshold(roi_trace_bgsub_minmax,
+                                                                                  amp_fiji, timeT,
+                                                                                  CollapSeq=True, acausal=False,
+                                                                                  verbose=0, graph=None)
+        events_fiji = ST.event_detection_calcium_trace(roi_trace_bgsub_minmax, JoinedPosSet_fiji, timeT)
+        [JoinedPosSet_ext, JoinedNegSet_ext, F_Values_ext] = ST.SlopeThreshold(trace_roi, amp_ext,
+                                                                               timeT, CollapSeq=True, acausal=False,
+                                                                               verbose=0, graph=None)
+        events_ext = ST.event_detection_calcium_trace(trace_roi, JoinedPosSet_ext, timeT)
+        if plot_data:
+            fig = plt.figure(figsize=(20, 10), tight_layout=True)
+            gs = fig.add_gridspec(2, 4)
+            ax1 = fig.add_subplot(gs[0, 0])
+            tiff_stack_ave = np.mean(tiff_stack, axis=0)
+            ax1.plot(coord_fiji[rfiji - 1][:, 0], coord_fiji[rfiji - 1][:, 1], linewidth=2, color='blue')
+            ax1.scatter(coord_cell[rext][:, 0], coord_cell[rext][:, 1], color='red')
+            ax1.imshow(ref_image,
+                       extent=[0, np.shape(ref_image)[1] / self.pixel_to_um, np.shape(ref_image)[0] / self.pixel_to_um,
+                               0], cmap=plt.get_cmap('gray'))
+            ax1.set_title('Fiji ROI ' + str(rfiji) + ' EXTRACT ROI ' + str(rext), fontsize=self.fsize)
+            ax1.set_xlim([cent_fiji[0] - 100, cent_fiji[0] + 100])
+            ax1.set_ylim([cent_fiji[1] - 100, cent_fiji[1] + 100])
+            ax1.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
+            ax1.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
+            ax1.tick_params(axis='x', labelsize=self.fsize - 4)
+            ax1.tick_params(axis='y', labelsize=self.fsize - 4)
+            ax2 = fig.add_subplot(gs[0, 1])
+            ax2.plot(coord_fiji[rfiji - 1][:, 0], coord_fiji[rfiji - 1][:, 1], linewidth=2, color='blue')
+            ax2.scatter(ROIdonut_coord[:, 0] / self.pixel_to_um, ROIdonut_coord[:, 1] / self.pixel_to_um, s=10,
+                        color='green')
+            ax2.imshow(ref_image,
+                       extent=[0, np.shape(ref_image)[1] / self.pixel_to_um, np.shape(ref_image)[0] / self.pixel_to_um,
+                               0], cmap=plt.get_cmap('gray'))
+            ax2.set_title('Fiji ROI ' + str(rfiji - 1) + ' and respective background', fontsize=self.fsize - 4)
+            ax2.set_xlim([cent_fiji[0] - 100, cent_fiji[0] + 100])
+            ax2.set_ylim([cent_fiji[1] - 100, cent_fiji[1] + 100])
+            ax2.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
+            ax2.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
+            ax2.set_xlabel('FOV in micrometers', fontsize=self.fsize - 4)
+            ax2.set_ylabel('FOV in micrometers', fontsize=self.fsize - 4)
+            ax2.tick_params(axis='x', labelsize=self.fsize - 4)
+            ax2.tick_params(axis='y', labelsize=self.fsize - 4)
+            ax3 = fig.add_subplot(gs[1, :])
+            ax3.plot(np.linspace(0, np.shape(tiff_stack)[0] / self.sr, np.shape(tiff_stack)[0]), trace_roi, color='red',
+                     label='EXTRACT signal')
+            ax3.scatter(events_ext / self.sr, trace_roi[events_ext], s=20, color='red')
+            ax3.plot(np.linspace(0, np.shape(tiff_stack)[0] / self.sr, np.shape(tiff_stack)[0]), roi_trace_bgsub_minmax,
+                     color='blue', label='background subtracted Fiji signal')
+            ax3.scatter(events_fiji / self.sr, roi_trace_bgsub_minmax[events_fiji], s=20, color='blue')
+            ax3.legend(frameon=False, fontsize=self.fsize - 8)
+            ax3.set_ylabel('Signal amplitude', fontsize=self.fsize - 4)
+            ax3.set_ylabel('Time (s)', fontsize=self.fsize - 4)
+            ax3.spines['right'].set_visible(False)
+            ax3.spines['top'].set_visible(False)
+            plt.xticks(fontsize=self.fsize - 4)
+            plt.yticks(fontsize=self.fsize - 4)
+            ax4 = fig.add_subplot(gs[0, 2:])
+            ax4.scatter(events_fiji / self.sr, np.ones(len(events_fiji)), s=20, color='blue')
+            ax4.scatter(events_ext / self.sr, np.ones(len(events_ext)) * 1.2, s=20, color='red')
+            ax4.set_xticks(np.arange(0, np.shape(tiff_stack)[0], 250) / self.sr)
+            ax4.set_xticklabels(map(str, np.round(np.arange(0, np.shape(tiff_stack)[0], 250) / self.sr, 2)),
+                                rotation=45)
+            ax4.set_yticks([1, 1.2])
+            ax4.set_ylim([0.9, 1.3])
+            ax4.set_ylabel('Event frame Fiji', fontsize=self.fsize - 4)
+            ax4.set_ylabel('Event frame EXTRACT', fontsize=self.fsize - 4)
+            ax4.spines['right'].set_visible(False)
+            ax4.spines['top'].set_visible(False)
+            plt.xticks(fontsize=self.fsize - 4)
+            plt.yticks(fontsize=self.fsize - 4)
+            if not os.path.exists(self.path + 'EXTRACT\\EXTRACT comparisons'):
+                os.mkdir(self.path + 'EXTRACT\\EXTRACT comparisons')
+            if self.delim == '/':
+                plt.savefig(self.path + 'EXTRACT/EXTRACT comparisons/' + 'fiji_bgsub_' + str(rfiji) + '_ext_' + str(
+                    rext) + '_T' + str(trial), dpi=self.my_dpi)
+            else:
+                plt.savefig(self.path + 'EXTRACT\\EXTRACT comparisons\\' + 'fiji_bgsub_' + str(rfiji) + '_ext_' + str(
+                    rext) + '_T' + str(trial), dpi=self.my_dpi)
+        return coord_fiji, roi_trace_bgsub_minmax, trace_roi
+
+    def plot_events_roi_examples_bgsub(self, trial_plot, roi_plot, frame_time, df_fiji_norm, df_fiji_bgsub_norm,
+                                       df_events_all, df_events_unsync, plot_data):
+        """Function to plot events on top of traces with and without background subtraction for an example.
+        Input:
+        trial_plot: (str)
+        roi_plot: (str)
+        frame_time: list with mscope timestamps
+        df_fiji_norm: dataframe with traces raw
+        df_fiji_bgsub_norm: dataframe with traces background subtracted
+        df_events_all: dataframe with all the events
+        df_events_unsync: dataframe with unsynchronous the events
+        plot_data: boolean"""
+        fig, ax = plt.subplots(figsize=(20, 7), tight_layout=True)
+        ax.plot(frame_time[trial_plot - 1],
+                df_fiji_norm.loc[df_fiji_norm['trial'] == trial_plot, 'ROI' + str(roi_plot)],
+                color='black')
+        events_plot = np.where(df_events_all.loc[df_fiji_norm['trial'] == trial_plot, 'ROI' + str(roi_plot)])[0]
+        for e in events_plot:
+            ax.scatter(frame_time[trial_plot - 1][e],
+                       np.array(df_fiji_norm.loc[df_fiji_norm['trial'] == trial_plot, 'ROI' + str(roi_plot)])[e], s=60,
+                       color='orange')
+        ax.plot(frame_time[trial_plot - 1],
+                df_fiji_bgsub_norm.loc[df_fiji_bgsub_norm['trial'] == trial_plot, 'ROI' + str(roi_plot)] + 5,
+                color='grey')
+        events_unsync_plot = \
+        np.where(df_events_unsync.loc[df_fiji_bgsub_norm['trial'] == trial_plot, 'ROI' + str(roi_plot)])[0]
+        for e in events_unsync_plot:
+            ax.scatter(frame_time[trial_plot - 1][e],
+                       np.array(
+                           df_fiji_bgsub_norm.loc[df_fiji_bgsub_norm['trial'] == trial_plot, 'ROI' + str(roi_plot)])[
+                           e] + 5, s=20, color='red')
+        if plot_data:
+            if self.delim == '/':
+                plt.savefig(
+                    self.path + 'images/events/' + 'event_example_trial' + str(trial_plot) + '_roi' + str(roi_plot),
+                    dpi=self.my_dpi)
+            else:
+                plt.savefig(
+                    self.path + 'images\\events\\' + 'event_example_trial' + str(trial_plot) + '_roi' + str(roi_plot),
+                    dpi=self.my_dpi)
+
+    def plot_events_roi_trial_bgsub(self, trial_plot, frame_time, df_fiji_norm, df_fiji_bgsub_norm, df_events_all,
+                                    df_events_unsync, plot_data):
+        """Function to plot events on top of traces with and without background subtraction for all ROIs and one trial.
+        Input:
+        trial_plot: (str)
+        roi_plot: (str)
+        frame_time: list with mscope timestamps
+        df_fiji_norm: dataframe with traces raw
+        df_fiji_bgsub_norm: dataframe with traces background subtracted
+        df_events_all: dataframe with all the events
+        df_events_unsync: dataframe with unsynchronous the events
+        plot_data: boolean"""
+        df_fiji_trial_norm = df_fiji_norm.loc[df_fiji_norm['trial'] == trial_plot]  # get dFF for the desired trial
+        df_fiji_bgsub_trial_norm = df_fiji_bgsub_norm.loc[
+            df_fiji_bgsub_norm['trial'] == trial_plot]  # get dFF for the desired trial
+        fig, ax = plt.subplots(1, 2, figsize=(20, 20), tight_layout=True)
+        ax = ax.ravel()
+        for r in range(df_fiji_trial_norm.shape[1] - 2):
+            ax[0].plot(frame_time[trial_plot - 1], df_fiji_trial_norm['ROI' + str(r + 1)] + (r * 10), color='black')
+            events_plot = np.where(df_events_all.loc[df_fiji_norm['trial'] == trial_plot, 'ROI' + str(r + 1)])[0]
+            for e in events_plot:
+                ax[0].scatter(frame_time[trial_plot - 1][e], df_fiji_trial_norm.iloc[e, r + 2] + (r * 10), s=20,
+                              color='gray')
+            events_unsync_plot = \
+                np.where(df_events_unsync.loc[df_fiji_bgsub_norm['trial'] == trial_plot, 'ROI' + str(r + 1)])[0]
+            for e in events_unsync_plot:
+                ax[0].scatter(frame_time[trial_plot - 1][e], df_fiji_bgsub_trial_norm.iloc[e, r + 2] + (r * 10), s=20,
+                              color='orange')
+        ax[0].set_xlabel('Time (s)', fontsize=self.fsize - 4)
+        ax[0].set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=self.fsize - 4)
+        plt.xticks(fontsize=self.fsize - 4)
+        plt.yticks(fontsize=self.fsize - 4)
+        plt.setp(ax[0].get_yticklabels(), visible=False)
+        ax[0].tick_params(axis='y', which='y', length=0)
+        ax[0].spines['right'].set_visible(False)
+        ax[0].spines['top'].set_visible(False)
+        ax[0].spines['left'].set_visible(False)
+        plt.tick_params(axis='y', labelsize=0, length=0)
+        for r in range(df_fiji_bgsub_trial_norm.shape[1] - 2):
+            ax[1].plot(frame_time[trial_plot - 1], df_fiji_bgsub_trial_norm['ROI' + str(r + 1)] + (r * 10),
+                       color='black')
+            events_unsync_plot = \
+                np.where(df_events_unsync.loc[df_fiji_bgsub_norm['trial'] == trial_plot, 'ROI' + str(r + 1)])[0]
+            for e in events_unsync_plot:
+                ax[1].scatter(frame_time[trial_plot - 1][e], df_fiji_bgsub_trial_norm.iloc[e, r + 2] + (r * 10), s=20,
+                              color='gray')
+        ax[1].set_xlabel('Time (s)', fontsize=self.fsize - 4)
+        ax[1].set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=self.fsize - 4)
+        plt.xticks(fontsize=self.fsize - 4)
+        plt.yticks(fontsize=self.fsize - 4)
+        plt.setp(ax[1].get_yticklabels(), visible=False)
+        ax[1].tick_params(axis='y', which='y', length=0)
+        ax[1].spines['right'].set_visible(False)
+        ax[1].spines['top'].set_visible(False)
+        ax[1].spines['left'].set_visible(False)
+        plt.tick_params(axis='y', labelsize=0, length=0)
+        if plot_data:
+            if self.delim == '/':
+                plt.savefig(self.path + 'images/events/' + 'events_trial' + str(trial_plot),
+                            dpi=self.my_dpi)
+            else:
+                plt.savefig(self.path + 'images\\events\\' + 'events_trial' + str(trial_plot),
+                            dpi=self.my_dpi)
+        return
+
+    def plot_events_roi_trial(self, trial_plot, roi_plot, frame_time, df_dff, df_events, plot_data):
+        """Function to plot events on top of traces with and without background subtraction for all ROIs and one trial.
+        Input:
+        trial_plot: (str)
+        roi_plot: (str)
+        frame_time: list with mscope timestamps
+        df_dff: dataframe with traces
+        df_events: dataframe with the events
+        plot_data: boolean"""
+        df_dff_trial = df_dff.loc[df_dff['trial'] == trial_plot, 'ROI' + str(roi_plot)]  # get dFF for the desired trial
+        fig, ax = plt.subplots(figsize=(20, 10), tight_layout=True)
+        ax.plot(frame_time[trial_plot - 1], df_dff_trial, color='black')
+        events_plot = np.where(df_events.loc[df_dff['trial'] == trial_plot, 'ROI' + str(roi_plot)])[0]
+        for e in events_plot:
+            ax.scatter(frame_time[trial_plot - 1][e], df_dff_trial.iloc[e], s=20,
+                       color='gray')
+        ax.set_xlabel('Time (s)', fontsize=self.fsize - 4)
+        ax.set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=self.fsize - 4)
+        plt.xticks(fontsize=self.fsize - 4)
+        plt.yticks(fontsize=self.fsize - 4)
+        plt.setp(ax.get_yticklabels(), visible=False)
+        ax.tick_params(axis='y', which='y', length=0)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        plt.tick_params(axis='y', labelsize=0, length=0)
+        if plot_data:
+            if self.delim == '/':
+                plt.savefig(self.path + 'images/events/' + 'events_trial' + str(trial_plot) + '_roi' + str(roi_plot),
+                            dpi=self.my_dpi)
+            else:
+                plt.savefig(self.path + 'images\\events\\' + 'events_trial' + str(trial_plot) + '_roi' + str(roi_plot),
+                            dpi=self.my_dpi)
+        return
+
+    def sort_HF_files_by_days(self,animal_name):
+        """Function to sort mat files from injections experiment across days
+        Inputs:
+            animal_name: string with the animal name to sort"""
+        matfiles = glob.glob(self.path+'*.mat')
+        delim = self.path[-1]
+        matfiles_animal = []
+        days_animal = []
+        for f in matfiles:
+            path_split = f.split(delim)
+            filename = path_split[-1][:-4]
+            filename_split = filename.split('_')
+            if filename_split[0] == animal_name:
+                matfiles_animal.append(f)
+                days_animal.append(int(filename_split[1][:-4]))
+        days_ordered = np.sort(np.array(days_animal)) #reorder days
+        files_ordered = [] #order mat filenames by file order
+        for f in range(len(matfiles_animal)):
+            tr_ind = np.where(days_ordered[f] == days_animal)[0][0]
+            files_ordered.append(matfiles_animal[tr_ind])
+        return files_ordered
 
     # def check_f0(self):
     #     """Print ROIs from suite2p (1st trial) with respective 10% percentile"""

@@ -9,12 +9,12 @@ from PIL import Image
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 from scipy.spatial.distance import pdist, squareform
 
-# root_path = '/media/careylab/Samsung_T5/TM RAW FILES/split ipsi fast/MC8855/2021_04_05'
-root_path = '/media/careylab/Samsung_T5/TM RAW FILES/tied baseline/MC8855/2021_04_04'
+root_path = '/media/careylab/Samsung_T5/TM RAW FILES/split ipsi fast/MC8855/2021_04_05'
+# root_path = '/media/careylab/Samsung_T5/TM RAW FILES/tied baseline/MC8855/2021_04_04'
 path_video = os.path.join(root_path,'Registered video') 
 path_results = os.path.join(root_path,'Neuropil_analysis')
-# n_trials = 23
-n_trials = 6
+n_trials = 23
+# n_trials = 6
 
 '''************************************ SINGLE TRIAL NEUROPIL SIGNAL ************************************
 for trial in range(1,n_trials+1):
@@ -229,7 +229,7 @@ for trial in range(1,n_trials+1):
     fig.savefig(neuropil.fname_corr_map)
 #  '''
 
-'''************************************************* PCA ************************************************
+# '''************************************************* PCA ************************************************
 cmap = cm.get_cmap('inferno', n_trials+1)
 # tied
 cmap.colors[0]=[0.5,0.5,0.5,0]
@@ -260,9 +260,11 @@ cmap.colors[22]=[0,0,1,0]
 cmap.colors[23]=[0,0,0,1]
 
 neuropil = Neuropil(path_results)
-c = pd.read_csv(os.path.join(path_results,'trials_index.csv'), index_col=0)
-c = c['trial_index'].to_numpy()
+
 neuropil_signal = pd.read_csv(os.path.join(path_results,'neuropil_session_signal.csv'), index_col=0)
+print('computing zscore traces')
+zscored_neuropil_signal = neuropil.norm_traces(neuropil_signal,neuropil_signal.columns)
+zscored_neuropil_signal.to_csv(os.path.join(path_results,'neuropil_session_signal_norm.csv'))
 
 # neuropil_signal = pd.read_csv(os.path.join(path_results,'neuropil_session_signal.csv'), index_col=0)
 # neuropil_signal = neuropil_signal.T
@@ -272,7 +274,10 @@ neuropil_signal = pd.read_csv(os.path.join(path_results,'neuropil_session_signal
 # nr_clusters = len(cluster_idx_list)
 # cmap = cm.get_cmap('inferno', int(nr_clusters)+1)
 
-neuropil.pca_neuropil_signal(neuropil_signal,c=c, cmap=cmap)
+# c = pd.read_csv(os.path.join(path_results,'df_extract_raw_split.csv'), usecols=['trial'])
+# c = c['trial'].to_numpy()
+# print('computing PCA')
+# neuropil.pca_neuropil_signal(zscored_neuropil_signal,c=c, cmap=cmap)
 #  '''
 
 '''*************************************** ROI EXTRACT CLUSTERS *****************************************
@@ -342,7 +347,7 @@ for trial in range(1,n_trials+1):
 rois.to_csv(os.path.join(path_results,'df_rois_raw_split.csv'))
 #  '''
 
-# '''************************************* ROI CLUSTERS FROM RAW VIDEO ************************************
+'''************************************* ROI CLUSTERS FROM RAW VIDEO ************************************
 # compute clusters with raw signals
 rois = pd.read_csv(os.path.join(path_results,'df_rois_raw_split.csv'))
 rois = rois[rois.columns[2:]]

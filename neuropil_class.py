@@ -154,6 +154,23 @@ class Neuropil:
 
         return events_neuropil
         
+    def norm_traces(self, df, cols):
+        """Function to compute the norm traces.
+            Inputs:
+                df: dataframe containing for each column ROI/pixel raw trace
+                cols: the pixels/ROI list contained in df to be normalized
+            Outputs:
+                df_zscored: dataframe with normalized traces"""
+        df_zscored = pd.DataFrame(columns=df.columns, index=df.index.to_list())
+        print('computing mean and std')
+        mean_value = df.mean(axis=1)
+        std_value = df.std(axis=1)
+        print('computing zscored traces')
+        for col in cols:
+            print(col)
+            df_zscored[col] = (df[col] - mean_value)/std_value
+        return df_zscored
+
     @staticmethod       
     def pca_neuropil_signal(neuropil,c,cmap, show_fig=False, save=True):
 
@@ -182,3 +199,4 @@ class Neuropil:
         plt.show()
         # ax.savefig(os.path.join(path,'pca_temporal.png'))    
         return 
+

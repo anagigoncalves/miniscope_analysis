@@ -229,7 +229,7 @@ for trial in range(1,n_trials+1):
     fig.savefig(neuropil.fname_corr_map)
 #  '''
 
-# '''************************************************* PCA ************************************************
+'''************************************************* PCA ************************************************
 cmap = cm.get_cmap('inferno', n_trials+1)
 # tied
 cmap.colors[0]=[0.5,0.5,0.5,0]
@@ -261,10 +261,10 @@ cmap.colors[23]=[0,0,0,1]
 
 neuropil = Neuropil(path_results)
 
-neuropil_signal = pd.read_csv(os.path.join(path_results,'neuropil_session_signal.csv'), index_col=0)
-print('computing zscore traces')
-zscored_neuropil_signal = neuropil.norm_traces(neuropil_signal,neuropil_signal.columns)
-zscored_neuropil_signal.to_csv(os.path.join(path_results,'neuropil_session_signal_norm.csv'))
+# neuropil_signal = pd.read_csv(os.path.join(path_results,'neuropil_session_signal.csv'), index_col=0)
+# print('computing zscore traces')
+# zscored_neuropil_signal = neuropil.norm_traces(neuropil_signal,neuropil_signal.columns)
+# zscored_neuropil_signal.to_csv(os.path.join(path_results,'neuropil_session_signal_norm.csv'))
 
 # neuropil_signal = pd.read_csv(os.path.join(path_results,'neuropil_session_signal.csv'), index_col=0)
 # neuropil_signal = neuropil_signal.T
@@ -274,10 +274,12 @@ zscored_neuropil_signal.to_csv(os.path.join(path_results,'neuropil_session_signa
 # nr_clusters = len(cluster_idx_list)
 # cmap = cm.get_cmap('inferno', int(nr_clusters)+1)
 
-# c = pd.read_csv(os.path.join(path_results,'df_extract_raw_split.csv'), usecols=['trial'])
-# c = c['trial'].to_numpy()
-# print('computing PCA')
-# neuropil.pca_neuropil_signal(zscored_neuropil_signal,c=c, cmap=cmap)
+neuropil_signal_zscored = pd.read_csv(os.path.join(path_results,'neuropil_session_signal_norm.csv'))
+neuropil_signal_zscored=neuropil_signal_zscored.T
+c = pd.read_csv(os.path.join(path_results,'df_extract_raw_split.csv'), usecols=['trial'])
+c = c['trial'].to_numpy()
+print('computing PCA')
+neuropil.pca_neuropil_signal(neuropil_signal_zscored,c=c, cmap=cmap)
 #  '''
 
 '''*************************************** ROI EXTRACT CLUSTERS *****************************************
@@ -385,7 +387,20 @@ fig.savefig(os.path.join(path_results,'roi_RAW_cluster_map.png'), transparent=Tr
 
 '''********************************* ROI CORRELATION WITH CLUSTER SIGNAL ********************************
 
+
 # correlation matrix
 # event detection
 
+
+# neuropil_signal = pd.read_csv(os.path.join(path_results,'neuropil_session_signal.csv'), usecols=['i59_j25'])
+neuropil_signal_zscored = pd.read_csv(os.path.join(path_results,'neuropil_session_signal_norm.csv'), usecols=['i59_j25','i38_j32'])
+
+# neuropil_signal = neuropil_signal['i59_j25'].to_numpy()
+neuropil_signal_zscored_1 = neuropil_signal_zscored['i59_j25'].to_numpy()
+neuropil_signal_zscored_2 = neuropil_signal_zscored['i38_j32'].to_numpy()
+
+
+plt.plot(neuropil_signal_zscored,'blue')
+plt.plot(neuropil_signal_zscored_2,'red')
+plt.show()
 #  '''

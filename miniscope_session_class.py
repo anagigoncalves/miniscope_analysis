@@ -218,12 +218,9 @@ class miniscope_session:
         return centroid_cell
 
     @staticmethod
-    def get_roi_list(coord_cell):
-        """ Get number of ROI names for the session"""
-        roi_list =  []
-        for r in range(len(coord_cell)):
-            roi_list.append('ROI'+str(r+1))
-        return roi_list
+    def get_roi_list(df_data):
+        """Get the list of ROIs"""
+        return list(df_data.columns[2:])
 
     @staticmethod
     def euler_from_quaternion(x, y, z, w):
@@ -805,6 +802,29 @@ class miniscope_session:
             coord_cell_clean.append(coord_ext_aspectratio[r])
         return coord_cell_clean, df_dFF_clean
 
+    def refine_roi_list(self, rois_names, df_dFF, df_dFF_events, coord_cell):
+        """Refine existing data structures for the following chosen ROIs
+        Input:
+        rois_names: list of ROIs numbers
+        df_dFF
+        df_dFF_events
+        coord_cell"""
+        rois_names_ordered = np.sort(rois_names)
+        rois_names_ordered_complete = ['time','trial',]
+        for r in rois_names_ordered:
+            rois_names_ordered_complete.append('ROI'+str(r))
+        df_dFF_new = df_dFF[rois_names_ordered_complete]
+        df_dFF_events_new = df_dFF_events[rois_names_ordered_complete]
+        keep_roi_idx = []
+        for r in df_dFF_new.columns[2:]:
+            if r in df_dFF.columns[2:]:
+                keep_roi_idx.append(np.where(df_dFF.columns[2:] == r)[0][0])
+        coord_cell_new = []
+        for r in np.sort(keep_roi_idx):
+            coord_cell_new.append(coord_cell[r])
+        return df_dFF_new, df_dFF_events_new, coord_cell_new, keep_roi_idx
+
+
     def isolation_distance(self, roi, trial, coord_fiji, plot_data):
         """Isolation distance metric between ROI and neuropil (Stringer, Pachitariu, 2019, Curr.Op.Neurobio.
         Computes the mahalanobis distance between ROI cluster in PCA space and 100th closest neuropil pixel
@@ -1159,7 +1179,7 @@ class miniscope_session:
         trials = np.unique(df_dFF['trial'])
         fig, ax = plt.subplots(2, 3, figsize=(25, 12), tight_layout=True)
         ax = ax.ravel()
-        for t in trials[:7]:
+        for t in trials[:6]:
             sns.heatmap(np.transpose(df_dFF[df_dFF['trial'] == t].iloc[:, 2:]), cmap='coolwarm',
                         ax=ax[t - 1], cbar=False)
             ax[t - 1].set_title('Trial ' + str(t), fontsize=self.fsize - 4)

@@ -26,7 +26,8 @@ path_loco = 'E:\\TM TRACKING FILES\\split ipsi fast\\split ipsi fast S1 050421\\
 os.chdir('C:\\Users\\Ana\\PycharmProjects\\MSCOPEproject\\')
 import miniscope_session_class
 mscope = miniscope_session_class.miniscope_session(path)
-import SlopeThreshold
+import SlopeThreshold as ST
+from statsmodels import robust
 
 class Miniscope_dataviz():
 
@@ -41,7 +42,6 @@ class Miniscope_dataviz():
 
     def GUI_Init(self):        
         self.OutTextElem = sg.Text(self.OutPrintTxt,size=(100,1),relief=sg.RELIEF_SUNKEN)
-                        
         layout = [[self.OutTextElem],
                   [sg.Text('Frame slider',size=(12,1),font=('default', 10, ''),pad=((5,0),(18,0))),
                    sg.Slider(range=(0,1800),size=(60,10),
@@ -50,6 +50,7 @@ class Miniscope_dataviz():
                   [sg.Radio('Suite2p', "Suite2pON", key = 'Suite2pAnalysis', default=False, pad=((700,0),(0,0)))],
                   [sg.Radio('Fiji', "FijiON", key = 'FijiAnalysis',default=False, pad=((700,0),(0,0)))],
                   [sg.Radio('EXTRACT', "EXTRACTON", key = 'EXTRACTAnalysis',default=False, pad=((700,0),(0,0)))],
+                  [sg.Radio('PROCESSED', "PROCESSED", key='ProcessedFilesAnalysis', default=False, pad=((700, 0), (0, 0)))],
                   [sg.Button('Play video imaging and wait',key='VideoImg')],
                   [sg.Button('Stop video imaging',key='StopI')],
                   [sg.Button('Restart video imaging',key='RestartI')],
@@ -61,7 +62,6 @@ class Miniscope_dataviz():
                   [sg.Checkbox('Imaging', default=True, key='Imaging', pad=((700,0),(0,0)))],
                   [sg.Text('ROI'), sg.InputText(size=(30,1),font=('default', 10, ''),key='ROI')],
                   [sg.Text('Trial'), sg.InputText(size=(30,1),font=('default', 10, ''),key='Trial')]]
-
         self.window = sg.Window('Miniscope data visualization', layout, 
             return_keyboard_events=True, finalize=True)        
         self.window['Slider'].bind('<Enter>', '+UNDER CURSOR')
@@ -89,11 +89,21 @@ class Miniscope_dataviz():
         if self.EXTRACT or self.Fiji:
             x_coord_cent = np.int64(np.nanmean(self.coord_cell[self.rois-1][:,0])*mscope.pixel_to_um)
             y_coord_cent = np.int64(np.nanmean(self.coord_cell[self.rois-1][:,1])*mscope.pixel_to_um)
+            x_coord = np.int64(self.coord_cell[self.rois - 1][:, 0] * mscope.pixel_to_um)
+            y_coord = np.int64(self.coord_cell[self.rois - 1][:, 1] * mscope.pixel_to_um)
         if self.S2P:
             x_coord_cent = np.int64(self.centroid_cell[self.rois-1][1]*mscope.pixel_to_um)
             y_coord_cent = np.int64(self.centroid_cell[self.rois-1][0]*mscope.pixel_to_um)
-        x_coord = np.int64(self.coord_cell[self.rois-1][:,0]*mscope.pixel_to_um)
-        y_coord = np.int64(self.coord_cell[self.rois-1][:,1]*mscope.pixel_to_um)
+            x_coord = np.int64(self.coord_cell[self.rois - 1][:, 0] * mscope.pixel_to_um)
+            y_coord = np.int64(self.coord_cell[self.rois - 1][:, 1] * mscope.pixel_to_um)
+        if self.PROCESSED:
+            roi_list = self.dFF_trial.columns[2:]
+            roi_result = [i for i in range(len(roi_list)) if 'ROI'+str(self.rois) in roi_list[i]]
+            roi_idx = roi_result[0]
+            x_coord_cent = np.int64(np.nanmean(self.coord_cell[roi_idx][:,0])*mscope.pixel_to_um)
+            y_coord_cent = np.int64(np.nanmean(self.coord_cell[roi_idx][:,1])*mscope.pixel_to_um)
+            x_coord = np.int64(self.coord_cell[roi_idx][:,0]*mscope.pixel_to_um)
+            y_coord = np.int64(self.coord_cell[roi_idx][:,1]*mscope.pixel_to_um)
         coord_cell_crop_x = x_coord-(x_coord_cent-50)
         coord_cell_crop_y = y_coord-(y_coord_cent-50)
         self.crop_region = np.array([x_coord_cent-50,x_coord_cent+50,y_coord_cent-50,y_coord_cent+50])/mscope.pixel_to_um
@@ -104,8 +114,15 @@ class Miniscope_dataviz():
                     
     def plot_rois_reg_image(self):
         """Plots the desired ROIs on top of reference image"""
-        x_coord = np.int64(self.coord_cell[self.rois-1][:,0]*mscope.pixel_to_um)
-        y_coord = np.int64(self.coord_cell[self.rois-1][:,1]*mscope.pixel_to_um)
+        if self.PROCESSED:
+            roi_list = self.dFF_trial.columns[2:]
+            roi_result = [i for i in range(len(roi_list)) if 'ROI'+str(self.rois) in roi_list[i]]
+            roi_idx = roi_result[0]
+            x_coord = np.int64(self.coord_cell[roi_idx][:,0]*mscope.pixel_to_um)
+            y_coord = np.int64(self.coord_cell[roi_idx][:,1]*mscope.pixel_to_um)
+        if self.EXTRACT or self.Fiji or self.S2P:
+            x_coord = np.int64(self.coord_cell[self.rois-1][:,0]*mscope.pixel_to_um)
+            y_coord = np.int64(self.coord_cell[self.rois-1][:,1]*mscope.pixel_to_um)
         self.axes_lst[0][0].clear()
         rect = patches.Rectangle((self.crop_region[0],self.crop_region[2]),self.width/mscope.pixel_to_um,self.width/mscope.pixel_to_um,linewidth=2,edgecolor='red',facecolor='none')    
         self.axes_lst[0][0].imshow(self.ref_image,cmap='gray', extent=[0,np.shape(self.ref_image)[1]/mscope.pixel_to_um,np.shape(self.ref_image)[0]/mscope.pixel_to_um,0])
@@ -116,17 +133,27 @@ class Miniscope_dataviz():
     def get_calcium_trace_events(self):
         """Get the corresponding calcium trace and events for that trial and ROI"""
         r = 'ROI'+str(self.rois)
-        if self.S2P:
-            self.data_dFF =  np.array(self.dFF_trial.loc[self.dFF_trial['trial']==self.trial,r])
-        if self.Fiji or self.EXTRACT:
-            self.data_dFF = self.dFF_trial[self.rois-1,:]
-        AmpTh = np.nanpercentile(self.data_dFF,90)
-        TimePntTh = 10
-        [JoinedPosSet, JoinedNegSet, F_Values] = SlopeThreshold.SlopeThreshold(self.data_dFF,AmplThres = AmpTh,TimePntThres = TimePntTh,CollapSeq=True, acausal=False, verbose=0, graph=None)
-        eventTime = np.zeros(len(JoinedPosSet))
-        for i in range(len(JoinedPosSet)):
-            eventTime[i] = self.frame_time[self.trial-1][JoinedPosSet[i][0]]
-        self.data_events = eventTime
+        self.data_dFF =  np.array(self.dFF_trial.loc[self.dFF_trial['trial']==self.trial,r])
+        timeT = 7
+        rois_list = self.dFF_trial.columns[2:]
+        count_r = 0
+        for roi in rois_list:
+            if roi == r:
+                idx_roi = count_r
+            count_r += 1
+        amp_arr = np.load(path+'\\processed files\\amplitude_events.npy')
+        if len(np.shape(amp_arr))==2:
+            amp = amp_arr[idx_roi,self.trial-1]
+        if len(np.shape(amp_arr))==1:
+            amp = amp_arr[idx_roi]
+        [JoinedPosSet_all, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(self.data_dFF, amp, timeT,
+                                                                               CollapSeq=True, acausal=False,
+                                                                               verbose=0, graph=None)
+        peaks = []
+        for i in range(len(JoinedPosSet_all)):
+            peak_idx = np.argmax(self.data_dFF[JoinedPosSet_all[i][0]:JoinedPosSet_all[i][0] + timeT * 2])
+            peaks.append(JoinedPosSet_all[i][0] + peak_idx)
+        self.data_events = self.frame_time[self.trial-1][np.array(peaks)]
         return self.data_dFF, self.data_events
     
     def plot_trace_events(self):
@@ -143,11 +170,21 @@ class Miniscope_dataviz():
         if self.EXTRACT or self.Fiji:
             x_coord_cent = np.int64(np.nanmean(self.coord_cell[self.rois-1][:,0])*mscope.pixel_to_um)
             y_coord_cent = np.int64(np.nanmean(self.coord_cell[self.rois-1][:,1])*mscope.pixel_to_um)
+            x_coord = np.int64(self.coord_cell[self.rois - 1][:, 0] * mscope.pixel_to_um)
+            y_coord = np.int64(self.coord_cell[self.rois - 1][:, 1] * mscope.pixel_to_um)
         if self.S2P:
             x_coord_cent = np.int64(self.centroid_cell[self.rois-1][1]*mscope.pixel_to_um)
             y_coord_cent = np.int64(self.centroid_cell[self.rois-1][0]*mscope.pixel_to_um)
-        x_coord = np.int64(self.coord_cell[self.rois-1][:,0]*mscope.pixel_to_um)
-        y_coord = np.int64(self.coord_cell[self.rois-1][:,1]*mscope.pixel_to_um)
+            x_coord = np.int64(self.coord_cell[self.rois - 1][:, 0] * mscope.pixel_to_um)
+            y_coord = np.int64(self.coord_cell[self.rois - 1][:, 1] * mscope.pixel_to_um)
+        if self.PROCESSED:
+            roi_list = self.dFF_trial.columns[2:]
+            roi_result = [i for i in range(len(roi_list)) if 'ROI'+str(self.rois) in roi_list[i]]
+            roi_idx = roi_result[0]
+            x_coord_cent = np.int64(np.nanmean(self.coord_cell[roi_idx][:,0])*mscope.pixel_to_um)
+            y_coord_cent = np.int64(np.nanmean(self.coord_cell[roi_idx][:,1])*mscope.pixel_to_um)
+            x_coord = np.int64(self.coord_cell[roi_idx][:,0]*mscope.pixel_to_um)
+            y_coord = np.int64(self.coord_cell[roi_idx][:,1]*mscope.pixel_to_um)
         coord_cell_crop_x = x_coord-(x_coord_cent-50)
         coord_cell_crop_y = y_coord-(y_coord_cent-50)
         self.coord_cell_crop = np.transpose(np.vstack((coord_cell_crop_x,coord_cell_crop_y)))
@@ -366,6 +403,7 @@ class Miniscope_dataviz():
                 self.S2P = values['Suite2pAnalysis']
                 self.Fiji = values['FijiAnalysis']
                 self.EXTRACT = values['EXTRACTAnalysis']
+                self.PROCESSED = values['ProcessedFilesAnalysis']
                 version_mscope = 'v4'
                 count_overlap = 0
                 trials = mscope.get_trial_id()
@@ -403,7 +441,13 @@ class Miniscope_dataviz():
                     self.dFF_trial = np.transpose(np.array(df_trace_bgsub.iloc[:,1::3]))
                 if self.EXTRACT:
                     thrs_spatial_weights = 0
-                    [self.coord_cell, self.dFF_trial] = mscope.read_extract_output(thrs_spatial_weights)
+                    trials = mscope.get_trial_id()
+                    [self.coord_cell, self.dFF_trial] = mscope.read_extract_output(thrs_spatial_weights, self.frame_time, trials)
+                    self.centroid_cell = mscope.get_roi_centroids(self.coord_cell)
+                if self.PROCESSED:
+                    [self.dFF_trial, df_events_extract, trials, self.coord_cell, reg_th, amp_arr,
+                     reg_bad_frames] = mscope.load_processed_files()
+                    self.centroid_cell = mscope.get_roi_centroids(self.coord_cell)
                 if values['Behavior']:
                     self.get_video_behavior()
                     self.plot_behavior()

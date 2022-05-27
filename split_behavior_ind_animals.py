@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 from scipy.stats import circmean
 
 #path inputs
-path_loco = 'G:\\O meu disco\\BACKUP\\Optogenetic CS experiments\\TM TRACKING FILES\\SplitBeltExp_laser_20Hz_24mW_03_may_2022_Cora\\'
+# path_loco = 'G:\\O meu disco\\BACKUP\\Optogenetic CS experiments\\TM TRACKING FILES\\SplitBeltExp_laser_20Hz_24mW_03_may_2022_Cora\\'
+path_loco = '/media/careylab/Samsung_T5/TM TRACKING FILES/split ipsi fast S1 050421/'
 print_plots  = 1
 frames_dFF = 0 #black frames removed before ROI segmentation
 paw_colors = ['red','magenta','blue','cyan']
@@ -20,10 +21,10 @@ trials_name = ['last baseline', 'early split', 'late split', 'early washout', 'l
 color_trials = ['black','red','salmon','dodgerblue','turquoise']
 
 #import classes
-os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Code\\Miniscope pipeline\\')
+# os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Code\\Miniscope pipeline\\')
 import locomotion_class
 loco = locomotion_class.loco_class(path_loco)
-path_save = path_loco+'grouped output\\'
+path_save = path_loco+'grouped output/'
     
 animal_session_list = loco.animals_within_session()
 animal_list = []
@@ -68,6 +69,9 @@ for animal in animal_list:
     count_trial = 0
     for f in filelist:
         [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f,0.9,frames_dFF)
+        print(f)
+        plt.plot(np.transpose(final_tracks[0,:4,:]))
+        plt.show()
         [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks,1)
         paws_rel = loco.get_paws_rel(final_tracks,bodycenter,'X')
         count_p = 0

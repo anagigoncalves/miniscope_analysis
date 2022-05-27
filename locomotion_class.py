@@ -735,7 +735,7 @@ class loco_class:
             axis_id = 1
         if axis_name == 'Z':
             axis_id = 3
-        return np.nanmean(final_tracks[axis_id,:4,:],axis=0)*loco_class.pixel_to_mm
+        return np.nanmean(final_tracks[axis_id,:4,:],axis=0)*self.pixel_to_mm
 
     def compute_bodyacc(self,bodycenter):
         """Computes body acceleration with a Savitzky-Golay filter"""
@@ -1314,7 +1314,7 @@ class loco_class:
             mscope_align_time_ordered[t] = mscope_align_time[count_t]
             frame_time_bcam_ordered.append(frame_time_bcam[count_t])
             count_t += 1
-        if len(black_frames) == 0:
+        if black_frames == 0:
             frame_rec_start_full = frame_rec_start_ordered
         else:
             frame_rec_start_full = np.zeros(len(triggers))

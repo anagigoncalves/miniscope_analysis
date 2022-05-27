@@ -12,7 +12,7 @@ from scipy.spatial.distance import pdist, squareform
 from skimage.transform import downscale_local_mean
 from wavelet_transform_fun import *
 from sklearn.metrics import davies_bouldin_score as db_score
-from sklearn.decomposition import PCA
+
 
 
 '''The score is defined as the average similarity measure of each cluster with its most similar cluster, where similarity is the ratio of within-cluster distances to between-cluster distances. Thus, clusters which are farther apart and less dispersed will result in a better score.'''
@@ -106,38 +106,6 @@ class Neuropil:
 
         return cluster_image, cluster_idx, z
 
-    def clustered_pixel_trace(self, cmap, cluster_idx, k=1, selected_clusters=None, save_image=True, all_session=True):
-
-        if selected_clusters is None:
-            cluster_idx_list = np.unique(cluster_idx['cluster_idx'].to_numpy())
-        else:
-            cluster_idx_list = selected_clusters
-
-        if all_session:
-            fname_pixel_traces = os.path.join(self.path,'T'+str(self.trial)+'_pixel_mean_traces.png')
-        else:
-            fname_pixel_traces = self.fname_pixel_traces
-
-        pixel_idx = cluster_idx.index.values.tolist()
-        neuropil = pd.read_csv(self.fname_neuropil, usecols=pixel_idx)
-        fig_mean,ax_mean= plt.subplots(figsize=(20,20), tight_layout=True)
-        t = neuropil.index.values.tolist()
-        for i,c in enumerate(cluster_idx_list):
-            pixel_list = cluster_idx[cluster_idx['cluster_idx']==c].index.values.tolist()
-            cluster_activity =[]
-            for j,p in enumerate(pixel_list):
-                cluster_activity.append(neuropil[p].to_numpy())
-             
-            mean_cluster_activity = np.mean(cluster_activity,axis=0)
-            sd_cluster_activity = np.std(cluster_activity,axis=0)
-            ax_mean.plot(t,mean_cluster_activity+i*k,color=cmap.colors[c], label='cluster'+str(c))
-            ax_mean.fill_between(t,(mean_cluster_activity+i*k)+sd_cluster_activity,(mean_cluster_activity+i*k)-sd_cluster_activity,color=cmap.colors[c], alpha=0.8)
-            ax_mean.legend()
-        if save_image:
-            fig_mean.savefig(fname_pixel_traces)       
-
-        return
-
     def Ca_events_neuropil(self, neuropil, show_fig=True):
 
         events_neuropil=pd.DataFrame(columns=neuropil.columns)
@@ -163,40 +131,13 @@ class Neuropil:
                 df_zscored: dataframe with normalized traces"""
         df_zscored = pd.DataFrame(columns=df.columns, index=df.index.to_list())
         print('computing mean and std')
-        mean_value = df.mean(axis=1)
-        std_value = df.std(axis=1)
+
         print('computing zscored traces')
         for col in cols:
             print(col)
+            mean_value = df[col].mean(axis=0)
+            print(mean_value)
+            std_value = df[col].std(axis=0)
             df_zscored[col] = (df[col] - mean_value)/std_value
         return df_zscored
-
-    @staticmethod       
-    def pca_neuropil_signal(neuropil,c,cmap, show_fig=False, save=True):
-
-        pca = PCA(n_components=3)
-        principalComponents_3CP = pca.fit_transform(neuropil)
-
-        # fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
-        # plt.plot(np.arange(1, 4), np.cumsum(pca.explained_variance_ratio_), color='black')
-        # plt.scatter(3, np.cumsum(pca.explained_variance_ratio_)[2], color='red')
-        # ax.set_xlabel('PCA components', fontsize=14)
-        # ax.set_ylabel('Explained variance', fontsize=14)
-        # plt.xticks(fontsize=13)
-        # plt.yticks(fontsize=13)
-        # ax.spines['right'].set_visible(False)
-        # ax.spines['top'].set_visible(False)
-
-        ax = plt.figure(figsize=(16,10)).gca(projection='3d')
-        ax.scatter(xs=principalComponents_3CP[:, 0], ys=principalComponents_3CP[:, 1], zs=principalComponents_3CP[:, 2], s=1, c=c, cmap=cmap)
-        ax.set_title('First 3 PCs - explained variance of ' + str(np.round(np.cumsum(pca.explained_variance_ratio_)[2], decimals=3)), fontsize=24)
-        ax.set_xlabel('PC component 1', fontsize=20)
-        ax.set_ylabel('PC component 2', fontsize=20)
-        ax.set_zlabel('PC component 3', fontsize=20)
-
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
-        plt.show()
-        # ax.savefig(os.path.join(path,'pca_temporal.png'))    
-        return 
 

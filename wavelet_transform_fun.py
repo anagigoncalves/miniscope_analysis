@@ -6,9 +6,23 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 def wavelet_transform_morse(trace,gamma=3,beta=2,min_scale=30,min_peak_position=15,min_freq=0.2, max_freq=15):
-    
+    '''Continuos wavelet transformation with morse wavelet.
+    Input:
+        trace: array of calcium trace
+        gamma:
+        beta:
+        min_scale:
+        min_peak_position:
+        min_freq:
+        max_freq:
+    Output:
+        cwt2d:
+        rifened_ridges:
+        events_cwt:
+         '''
     morse = GeneralizedMorseWavelet(gamma=gamma, beta=beta)
     fs = morse.log_spaced_frequencies(high=np.pi/min_freq, low=np.pi/max_freq)
+    print(fs)
     psi, psi_f = morse.make_wavelet(trace.shape[-1], fs)
     cwt2d = analytic_wavelet_transform(np.real(trace), psi_f, np.isrealobj(psi))    
     cwt2d = abs(cwt2d)
@@ -34,6 +48,20 @@ def wavelet_transform_morse(trace,gamma=3,beta=2,min_scale=30,min_peak_position=
     return cwt2d, rifened_ridges, events_cwt
 
 def wavelet_transform_gaus2(trace,sampling_period=0.033,min_scale=10,min_peak_position=5, min_width=0.2, max_width=15, dw=0.5):
+    '''Continuos wavelet transformation with second derivative gaussian wavelet.
+    Input:
+        trace: array of calcium trace
+        sampling_period:
+        min_scale:
+        min_peak_position:
+        min_width:
+        max_width:
+        dw:
+    Output:
+        cwt2d:
+        rifened_ridges:
+        events_cwt:
+    '''
     widths = np.arange(min_width,max_width,dw)
     cwt2d, freq = pywt.cwt(trace,widths,wavelet='gaus2',sampling_period=sampling_period)
     scales_ridges = ridges_detection(cwt2d)
@@ -59,6 +87,14 @@ def wavelet_transform_gaus2(trace,sampling_period=0.033,min_scale=10,min_peak_po
 
 
 def plot_cwt2d_trace(cwt_ax, cwt2d, trace, events=None, cmap='jet'):
+    '''Continuos wavelet transformation with morse wavelet.
+    Input:
+        cwt_ax:
+        cwt2d:
+        trace:
+        events:
+        cmap:
+    '''
     trace_ax = plt.twinx(cwt_ax)
     cwt_ax.imshow(cwt2d, cmap=cmap, aspect='auto',vmax=cwt2d.max(), vmin=-cwt2d.max())
     cwt_ax.invert_yaxis()
@@ -68,6 +104,14 @@ def plot_cwt2d_trace(cwt_ax, cwt2d, trace, events=None, cmap='jet'):
     return
 
 def plot_ridges_trace_events(ridges_ax, ridges, trace, events, events_comp = None):
+    '''Continuos wavelet transformation with morse wavelet.
+    Input:
+        ridges_ax:
+        ridges:
+        trace:
+        events:
+        events_comp:
+    '''
     trace_ax = plt.twinx(ridges_ax)
     if events_comp is not None:
         trace_ax.plot(events_comp*(max(trace)-min(trace))+min(trace), 'grey', alpha=0.7) 

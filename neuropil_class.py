@@ -134,9 +134,7 @@ class Neuropil:
 
         print('computing zscored traces')
         for col in cols:
-            print(col)
             mean_value = df[col].mean(axis=0)
-            print(mean_value)
             std_value = df[col].std(axis=0)
             df_zscored[col] = (df[col] - mean_value)/std_value
         return df_zscored

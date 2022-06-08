@@ -21,8 +21,8 @@ split = True
 
 if split:
     print('SPLIT')
-    # root_path = '/media/careylab/Samsung_T5/TM RAW FILES/split ipsi fast/MC8855/2021_04_05'
-    root_path = 'D:\\TM RAW FILES\\split ipsi fast\\MC8855\\2021_04_05'
+    root_path = '/media/careylab/Samsung_T5/TM RAW FILES/split ipsi fast/MC8855/2021_04_05'
+    # root_path = 'D:\\TM RAW FILES\\split ipsi fast\\MC8855\\2021_04_05'
     n_trials = 23
     newcolors = ['darkgrey', 'darkgrey', 'darkgrey', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
                     'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
@@ -31,7 +31,8 @@ if split:
                         'white', 'white', 'white', 'white', 'purple',
                         'blue', 'white', 'white', 'white', 'white', 'white', 'white', 'white', 'white', 'black']
     cmap_pca = ListedColormap(newcolors, name='split_session')
-    path_loco = 'D:\\TM TRACKING FILES\\split ipsi fast S1 050421\\'
+    path_loco = '/media/careylab/Samsung_T5/TM TRACKING FILES/split ipsi fast S1 050421/'
+    # path_loco = 'D:\\TM TRACKING FILES\\split ipsi fast S1 050421\\'
 
 else:
     print('TIED')
@@ -83,7 +84,7 @@ df_session.to_csv(os.path.join(path_results,'neuropil_session_signal_zscored.csv
 # print('computing zscore traces')
 #  '''
 
-# '''****************************************** SESSION CLUSTERS ******************************************
+'''****************************************** SESSION CLUSTERS ******************************************
 neuropil = Neuropil(path_results)
 neuropil_session_signal = pd.read_csv(os.path.join(path_results,'neuropil_session_signal_zscored.csv'), index_col=0)
 cluster_image, cluster_idx, z = neuropil.neuropil_h_clustering(neuropil_session_signal,th_cluster=0.55)
@@ -621,7 +622,7 @@ df_session.drop("Unnamed: 0", axis=1, inplace=True)
 df_session.to_csv(os.path.join(path_results,'rois_session_signal_zscored.csv'))
 #  '''
 
-# '''************************************* ROI CLUSTERS FROM RAW VIDEO ************************************
+'''************************************* ROI CLUSTERS FROM RAW VIDEO ************************************
 # compute clusters with raw signals
 rois = pd.read_csv(os.path.join(path_results,'rois_session_signal_zscored.csv'))
 rois = rois[rois.columns[1:]]
@@ -778,7 +779,7 @@ for trial in range(1,n_trials+1):
 
 
 
-'''****************************************** BODY CENTER TRACE *****************************************
+# '''****************************************** BODY CENTER TRACE *****************************************
 import locomotion_class
 
 
@@ -790,12 +791,15 @@ session = 1
 
 plot_bodycenter = False
 plot_bodyspeed =  False
-plot_bodyacc = True
+plot_bodyacc = False
+plot_paws = True
+paw_colors = ['red','magenta','blue','cyan']
 
 #Get session protocol
 filelist = loco.get_track_files(animal,session)
 
-for i,f in enumerate(filelist):    
+for i,f in enumerate(filelist):   
+    print('Trial ', i) 
     fig,ax1 = plt.subplots(figsize=(30,3), tight_layout=True)
     [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f,0.9,frames_dFF)
     bodycenter = loco.compute_bodycenter(final_tracks,'X')
@@ -817,15 +821,26 @@ for i,f in enumerate(filelist):
         ax1.hlines(0,range(len(bodyacc))[0],range(len(bodyacc))[-1],'red')
         ax1.set_ylim(-0.1,0.1)
         filename = '_bodyacc'
+    if plot_paws:
+        ax1.plot(final_tracks[0,0,:], paw_colors[0]) # FR
+        # ax1.plot(final_tracks[0,1,:], paw_colors[1]) # HR
+        # ax1.plot(final_tracks[0,2,:], paw_colors[2]) # FL
+        ax1.plot(final_tracks[0,3,:], paw_colors[3]) # HL
+        # ax1.plot(final_tracks[0,1,:]-final_tracks[0,2,:], 'purple')
+        # ax1.plot(final_tracks[0,1,:]-final_tracks[0,3,:], 'violet')
+        # ax1.plot(final_tracks[0,2,:]-final_tracks[0,1,:], 'darkviolet')
+        ax1.plot(final_tracks[0,0,:]-final_tracks[0,3,:], 'indigo')
+        filename = '_FR-HL'
 
-    ax1.set_yticks([])
-    ax1.spines['left'].set_visible(False)
+    # ax1.set_yticks([])
+    # ax1.spines['left'].set_visible(False)
     ax1.spines['right'].set_visible(False)
     ax1.spines['top'].set_visible(False)
     # plt.show()
     # plt.plot(final_tracks[0,3,:])
     # plt.plot(final_tracks[0,0,:]-final_tracks[0,2,:])
     # plt.title('trial '+str(i+1))
+    # plt.show()
     fig.savefig(os.path.join(path_results,'T'+str(i+1)+'_neuropil','T'+str(i+1)+filename+'.png'), transparent=True)
     plt.close(fig)
 

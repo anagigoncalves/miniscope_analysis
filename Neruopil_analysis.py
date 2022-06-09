@@ -1,5 +1,3 @@
-from operator import index
-from re import T
 from matplotlib.axes import Axes
 from neuropil_class import Neuropil
 import numpy as np
@@ -10,7 +8,7 @@ from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 import os
 import pandas as pd
 from PIL import Image
-from scipy.signal import spectrogram
+from scipy.signal import spectrogram, correlate, resample
 from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 from scipy.spatial.distance import pdist, squareform
 from scipy import stats
@@ -21,8 +19,8 @@ split = True
 
 if split:
     print('SPLIT')
-    root_path = '/media/careylab/Samsung_T5/TM RAW FILES/split ipsi fast/MC8855/2021_04_05'
-    # root_path = 'D:\\TM RAW FILES\\split ipsi fast\\MC8855\\2021_04_05'
+    # root_path = '/media/careylab/Samsung_T5/TM RAW FILES/split ipsi fast/MC8855/2021_04_05'
+    root_path = 'D:\\TM RAW FILES\\split ipsi fast\\MC8855\\2021_04_05'
     n_trials = 23
     newcolors = ['darkgrey', 'darkgrey', 'darkgrey', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
                     'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
@@ -31,8 +29,8 @@ if split:
                         'white', 'white', 'white', 'white', 'purple',
                         'blue', 'white', 'white', 'white', 'white', 'white', 'white', 'white', 'white', 'black']
     cmap_pca = ListedColormap(newcolors, name='split_session')
-    path_loco = '/media/careylab/Samsung_T5/TM TRACKING FILES/split ipsi fast S1 050421/'
-    # path_loco = 'D:\\TM TRACKING FILES\\split ipsi fast S1 050421\\'
+    # path_loco = '/media/careylab/Samsung_T5/TM TRACKING FILES/split ipsi fast S1 050421/'
+    path_loco = 'D:\\TM TRACKING FILES\\split ipsi fast S1 050421\\'
 
 else:
     print('TIED')
@@ -87,7 +85,7 @@ df_session.to_csv(os.path.join(path_results,'neuropil_session_signal_zscored.csv
 '''****************************************** SESSION CLUSTERS ******************************************
 neuropil = Neuropil(path_results)
 neuropil_session_signal = pd.read_csv(os.path.join(path_results,'neuropil_session_signal_zscored.csv'), index_col=0)
-cluster_image, cluster_idx, z = neuropil.neuropil_h_clustering(neuropil_session_signal,th_cluster=0.55)
+cluster_image, cluster_idx, z = neuropil.neuropil_h_clustering(neuropil_session_signal,th_cluster=0.5)
 
 print('Saving clustering output for entire session')
 np.savetxt(os.path.join(path_results,'clusters_map.csv'),cluster_image,delimiter=',')
@@ -106,9 +104,9 @@ cmap.colors[0]=[1,1,1,0]
 print('Plotting clustering output for entire session')
 fig_cluster = plt.figure(figsize=(20,20), tight_layout=True)
 plt.imshow(cluster_image, aspect='auto', cmap=cmap)            
-# for i,c in enumerate(cluster_idx_list):
-#     fig_cluster.text(0.9,0.9-i*0.025,'cluster index: '+str(c), size = 16, bbox=dict(boxstyle ='round', fc=cmap.colors[i+1]))
-# fig_cluster.savefig(os.path.join(path_results,'clusters_slide.png'), transparent=True)
+for i,c in enumerate(cluster_idx_list):
+    fig_cluster.text(0.9,0.9-i*0.025,'cluster index: '+str(c), size = 16, bbox=dict(boxstyle ='round', fc=cmap.colors[i+1]))
+fig_cluster.savefig(os.path.join(path_results,'clusters.png'), transparent=True)
 
 print('Plotting dendogram')
 fig_dendogram = plt.figure(figsize=(20,15), tight_layout=True)
@@ -174,6 +172,7 @@ fig_mean,ax_mean= plt.subplots(figsize=(30,10), tight_layout=True)
 k=5
 t = neuropil_signal_zscored.index.values.tolist()
 mean_neuropil_signal = []
+
 for i,c in enumerate(selected_clusters):
     pixel_list = cluster_idx[cluster_idx['cluster_idx']==c].index.values.tolist()
 
@@ -188,17 +187,12 @@ for i,c in enumerate(selected_clusters):
     ax_mean.hlines(i*k,t[0],t[-1], color=cmap.colors[c])
     # ax_mean.fill_between(t,(mean_cluster_activity+i*k)+sd_cluster_activity,(mean_cluster_activity+i*k)-sd_cluster_activity,color=cmap.colors[c], alpha=0.8)
     ax_mean.legend()
-    mean_neuropil_signal.append(mean_cluster_activity)
 
 for j in np.unique(trials):
     ax_mean.vlines(trials_df.index[trials_df['trial']==j][0], 0, i*k, linewidth=3)
 
 fig_mean.savefig(os.path.join(path_results,'cluisters_trace.png'), transparent = True)
-plt.close(fig_mean)
-
-plt.imshow(mean_neuropil_signal, aspect='auto', vmax=5)  
-for j in np.unique(trials):
-    plt.vlines(trials_df.index[trials_df['trial']==j][0], 0, 14, linewidth=2, color='red')  
+plt.close(fig_mean) 
 # plt.show()
 #  '''
 
@@ -380,9 +374,10 @@ trials_df = pd.read_csv(os.path.join(path_results,'rois_session_signal.csv'), us
 trials = trials_df['trial'].to_numpy()
 
 # selected_clusters = [1,2,3,4,5,6,7,8,9,11,13,14,15,18,20] # cluster 10, 12, 16, 17, 19 excluded
-# selected_clusters = [1,2,3,4,7,12,13,14,16,18] #split
-selected_clusters = [1,2,4,5,6,9,10] #tied
+selected_clusters = [1,2,3,4,7,12,13,14,16,18] #split
+# selected_clusters = [1,2,4,5,6,9,10] #tied
 nr_clusters = len(cluster_idx_list)
+print(cluster_idx_list)
 
 print('Loading zscored cluster signal')
 neuropil_signal_zscored = pd.read_csv(os.path.join(path_results,'neuropil_session_signal_zscored.csv'), usecols=pixel_idx)
@@ -392,10 +387,8 @@ cmap = cm.get_cmap('inferno', int(nr_clusters)+1)
 cmap.colors[0]=[1,1,1,1]
 
 k=5
-
-
-mean_neuropil_signal = []
 for t in np.unique(trials):
+    df_mean_cluster = pd.DataFrame(columns=selected_clusters)
     trial_index = trials_df.index[trials_df['trial']==t]
     fig_mean,ax_mean= plt.subplots(figsize=(30,10), tight_layout=True)
     print('Trial ', t)
@@ -406,7 +399,7 @@ for t in np.unique(trials):
             cluster_activity.append(neuropil_signal_zscored[p][trial_index].to_numpy())        
         mean_cluster_activity = np.mean(cluster_activity,axis=0)
         sd_cluster_activity = np.std(cluster_activity,axis=0)
-
+        df_mean_cluster[c]=mean_cluster_activity
         print('Plotting  cluster ', c, ' activity')
         ax_mean.plot(range(len(mean_cluster_activity)),mean_cluster_activity+i*k,color=cmap.colors[c], label='cluster'+str(c))
         ax_mean.hlines(i*k,range(len(mean_cluster_activity))[0],range(len(mean_cluster_activity))[-1], color=cmap.colors[c])
@@ -416,8 +409,8 @@ for t in np.unique(trials):
         ax_mean.spines['left'].set_visible(False)
         ax_mean.spines['right'].set_visible(False)
         ax_mean.spines['top'].set_visible(False)
-        mean_neuropil_signal.append(mean_cluster_activity)
-    fig_mean.savefig(os.path.join(path_results,'T'+str(t)+'_neuropil','T'+str(t)+'_clusters_trace.png'), transparent=True)
+    df_mean_cluster.to_csv(os.path.join(path_results,'T'+str(t)+'_neuropil','T'+str(t)+'_clusters_mean_trace.csv'))
+    # fig_mean.savefig(os.path.join(path_results,'T'+str(t)+'_neuropil','T'+str(t)+'_clusters_trace.png'), transparent=True)
     plt.close(fig_mean)
 #  '''
 
@@ -777,30 +770,25 @@ for trial in range(1,n_trials+1):
 # '''
 
 
-
-
-# '''****************************************** BODY CENTER TRACE *****************************************
+'''****************************************** BODY CENTER TRACE *****************************************
 import locomotion_class
-
-
 frames_dFF = 0 #black frames removed before ROI segmentation
-
 loco = locomotion_class.loco_class(path_loco)
 animal = 'MC8855'
 session = 1
 
-plot_bodycenter = False
+plot_bodycenter = True
 plot_bodyspeed =  False
 plot_bodyacc = False
-plot_paws = True
+plot_paws = False
 paw_colors = ['red','magenta','blue','cyan']
 
 #Get session protocol
 filelist = loco.get_track_files(animal,session)
 
 for i,f in enumerate(filelist):   
-    print('Trial ', i) 
-    fig,ax1 = plt.subplots(figsize=(30,3), tight_layout=True)
+    print('Trial ', i+1) 
+    fig,ax1 = plt.subplots(figsize=(15,3), tight_layout=True)
     [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f,0.9,frames_dFF)
     bodycenter = loco.compute_bodycenter(final_tracks,'X')
     bodyspeed = loco.compute_bodyspeed(bodycenter)
@@ -811,7 +799,7 @@ for i,f in enumerate(filelist):
     if plot_bodycenter:
         ax1.plot(bodycenter, 'green')
         filename = '_bodycenter'
-        ax1.set_ylim(0,300)
+        # ax1.set_ylim(0,300)
     if plot_bodyspeed:
         ax1.plot(bodyspeed, 'blue')
         ax1.set_ylim(-2,2)
@@ -824,25 +812,67 @@ for i,f in enumerate(filelist):
     if plot_paws:
         ax1.plot(final_tracks[0,0,:], paw_colors[0]) # FR
         # ax1.plot(final_tracks[0,1,:], paw_colors[1]) # HR
-        # ax1.plot(final_tracks[0,2,:], paw_colors[2]) # FL
-        ax1.plot(final_tracks[0,3,:], paw_colors[3]) # HL
-        # ax1.plot(final_tracks[0,1,:]-final_tracks[0,2,:], 'purple')
-        # ax1.plot(final_tracks[0,1,:]-final_tracks[0,3,:], 'violet')
-        # ax1.plot(final_tracks[0,2,:]-final_tracks[0,1,:], 'darkviolet')
-        ax1.plot(final_tracks[0,0,:]-final_tracks[0,3,:], 'indigo')
-        filename = '_FR-HL'
+        ax1.plot(final_tracks[0,2,:], paw_colors[2]) # FL
+        # ax1.plot(final_tracks[0,3,:], paw_colors[3]) # HL
+        ax1.plot(final_tracks[0,0,:]-final_tracks[0,2,:], 'violet') #FR-FL
+        filename = '_FR-FL'
+        # ax1.plot(final_tracks[0,1,:]-final_tracks[0,3,:], 'violet') #HR-HL
+        # filename = '_HR-HL'
+        # ax1.plot(final_tracks[0,1,:]-final_tracks[0,2,:], 'violet') #FL-HR
+        # filename = '_FL-HR'
+        # ax1.plot(final_tracks[0,0,:]-final_tracks[0,3,:], 'violet') #FR-HL
+        # filename = '_FR-HL'
 
-    # ax1.set_yticks([])
-    # ax1.spines['left'].set_visible(False)
+    ax1.set_yticks([])
+    ax1.spines['left'].set_visible(False)
     ax1.spines['right'].set_visible(False)
     ax1.spines['top'].set_visible(False)
     # plt.show()
     # plt.plot(final_tracks[0,3,:])
     # plt.plot(final_tracks[0,0,:]-final_tracks[0,2,:])
-    # plt.title('trial '+str(i+1))
+    plt.title('trial '+str(i+1))
     # plt.show()
     fig.savefig(os.path.join(path_results,'T'+str(i+1)+'_neuropil','T'+str(i+1)+filename+'.png'), transparent=True)
     plt.close(fig)
 
 
 #  '''
+
+# '''*************************************** BODY CENTER CORRELATION **************************************
+import locomotion_class
+
+frames_dFF = 0 #black frames removed before ROI segmentation
+loco = locomotion_class.loco_class(path_loco)
+animal = 'MC8855'
+session = 1
+
+#Get session protocol
+filelist = loco.get_track_files(animal,session)
+
+for i,f in enumerate(filelist):   
+    t = i+1
+    print('Trial ', t) 
+    df_mean_cluster=pd.read_csv(os.path.join(path_results,'T'+str(t)+'_neuropil','T'+str(t)+'_clusters_mean_trace.csv'), index_col=0)
+    # fig,ax1 = plt.subplots(figsize=(15,3), tight_layout=True)
+    [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f,0.9,frames_dFF)
+    bodycenter = loco.compute_bodycenter(final_tracks,'X')
+
+    rho = np.zeros((len(df_mean_cluster.columns), 1))
+    p = np.zeros((len(df_mean_cluster.columns), 1))
+    lag = np.zeros((len(df_mean_cluster.columns), 1))
+    y = 300-bodycenter
+    y = resample(y,len(df_mean_cluster[df_mean_cluster.columns[0]]))
+    time = np.linspace(0, 60, len(df_mean_cluster[df_mean_cluster.columns[0]]))
+
+    for j,c in enumerate(df_mean_cluster.columns):
+        x = df_mean_cluster[c].to_numpy()        
+        rho[j], p[j]  = stats.pearsonr(x,y)
+        correlation = correlate(x,y, mode="full")/len(x)
+        lags = np.arange(-x.size + 1, y.size)
+        lag[j]  =  round(lags[np.argmax(correlation)]*33e-3,3)
+        # correlation /= np.max(correlation) #nel caso si volesse vedere l'andamento della correlazione
+        if p[j]<0.05 and rho[j]>0.3:
+            print('cluster ', c, ' lag', lag[j], rho[j], p[j])
+        # compute corr with delay
+
+# '''

@@ -77,9 +77,6 @@ elif len(trials) == 26:
 elif len(trials) < 23:
     trials_baseline = trials
 
-# TODO
-#  do analysis for raw and deconvoluted traces, do sw and st for raw signal, check correlation between all ROIs for each frame and see how close highly correlated frames are from stance/sw
-
 if load_data == 0:
     # Load ROIs and traces - EXTRACT
     thrs_spatial_weights = 0

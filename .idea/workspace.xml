@@ -1,14 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="966785ed-030e-4e39-9b07-be622fd4c57c" name="Changes" comment="residuals movie, updated roi_curation function">
-      <change afterPath="$PROJECT_DIR$/Population_plots_split.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Population_plots_tied.py" afterDir="false" />
+    <list default="true" id="966785ed-030e-4e39-9b07-be622fd4c57c" name="Changes" comment="JR detrend and event detection">
+      <change afterPath="$PROJECT_DIR$/test.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Miniscope_dataviz.py" beforeDir="false" afterPath="$PROJECT_DIR$/Miniscope_dataviz.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ROI_analysis.py" beforeDir="false" afterPath="$PROJECT_DIR$/ROI_analysis.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/miniscope_session_class.py" beforeDir="false" afterPath="$PROJECT_DIR$/miniscope_session_class.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/preprocess_tiff.py" beforeDir="false" afterPath="$PROJECT_DIR$/preprocess_tiff.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -50,7 +46,7 @@
   <component name="PropertiesComponent">
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/test.py" />
     <property name="settings.editor.selected.configurable" value="PyConsoleConfigurable.Python Console" />
   </component>
   <component name="PyConsoleOptionsProvider">
@@ -61,7 +57,7 @@
       </console-settings>
     </option>
   </component>
-  <component name="RunManager" selected="Python.ROI_analysis">
+  <component name="RunManager" selected="Python.test">
     <configuration name="ROI_GUI" type="PythonConfigurationType" factoryName="Python">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -104,9 +100,31 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="test" type="PythonConfigurationType" factoryName="Python">
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="C:\Users\Ana\.conda\envs\mscope\python.exe" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <module name="" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/test.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <list>
       <item itemvalue="Python.ROI_GUI" />
       <item itemvalue="Python.ROI_analysis" />
+      <item itemvalue="Python.test" />
     </list>
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
@@ -132,7 +150,21 @@
       <option name="project" value="LOCAL" />
       <updated>1645729397116</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="populations plots retreat, JR detrend and event detection">
+      <created>1655711884400</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1655711884401</updated>
+    </task>
+    <task id="LOCAL-00004" summary="JR detrend and event detection">
+      <created>1655711923084</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1655711923084</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -161,6 +193,8 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="registered, high constrast and residuals tiffs; update roi_curation function" />
     <MESSAGE value="residuals movie, updated roi_curation function" />
-    <option name="LAST_COMMIT_MESSAGE" value="residuals movie, updated roi_curation function" />
+    <MESSAGE value="populations plots retreat, JR detrend and event detection" />
+    <MESSAGE value="JR detrend and event detection" />
+    <option name="LAST_COMMIT_MESSAGE" value="JR detrend and event detection" />
   </component>
 </project>

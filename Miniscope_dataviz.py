@@ -21,8 +21,10 @@ import matplotlib.patches as patches
 import glob
 
 # path inputs
-path = 'E:\\TM RAW FILES\\split ipsi fast\\MC8855\\2021_04_05\\'
-path_loco = 'E:\\TM TRACKING FILES\\split ipsi fast\\split ipsi fast S1 050421\\'
+# path = 'E:\\TM RAW FILES\\split ipsi fast\\MC8855\\2021_04_05\\'
+# path_loco = 'E:\\TM TRACKING FILES\\split ipsi fast\\split ipsi fast S1 050421\\'
+path = 'E:\\TM RAW FILES\\tied baseline\\MC8855\\2021_04_04\\'
+path_loco = 'E:\\TM TRACKING FILES\\tied baseline\\tied baseline S1 040421\\'
 os.chdir('C:\\Users\\Ana\\PycharmProjects\\MSCOPEproject\\')
 import miniscope_session_class
 mscope = miniscope_session_class.miniscope_session(path)
@@ -445,7 +447,7 @@ class Miniscope_dataviz():
                     [self.coord_cell, self.dFF_trial] = mscope.read_extract_output(thrs_spatial_weights, self.frame_time, trials)
                     self.centroid_cell = mscope.get_roi_centroids(self.coord_cell)
                 if self.PROCESSED:
-                    [self.dFF_trial, df_events_extract, trials, self.coord_cell, reg_th, amp_arr,
+                    [self.dFF_trial, df_events_extract,  df_extract_rawtrace, trials, self.coord_cell, reg_th, amp_arr,
                      reg_bad_frames] = mscope.load_processed_files()
                     self.centroid_cell = mscope.get_roi_centroids(self.coord_cell)
                 if values['Behavior']:

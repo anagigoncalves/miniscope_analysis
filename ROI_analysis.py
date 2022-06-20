@@ -8,16 +8,16 @@ import time
 import seaborn as sns
 
 # path inputs
-path = 'E:\\TM RAW FILES\\split ipsi fast\\MC8855\\2021_04_05\\'
-path_loco = 'E:\\TM TRACKING FILES\\split ipsi fast\\split ipsi fast S1 050421\\'
-# path = 'E:\\TM RAW FILES\\tied baseline\\MC8855\\2021_04_04\\'
-# path_loco = 'E:\\TM TRACKING FILES\\tied baseline\\tied baseline S1 040421\\'
+path = 'I:\\TM RAW FILES\\split ipsi fast\\MC8855\\2021_04_05\\'
+path_loco = 'I:\\TM TRACKING FILES\\split ipsi fast\\split ipsi fast S1 050421\\'
+# path = 'I:\\TM RAW FILES\\tied baseline\\MC8855\\2021_04_04\\'
+# path_loco = 'I:\\TM TRACKING FILES\\tied baseline\\tied baseline S1 040421\\'
 session_type = 'split'
 delim = path[-1]
 version_mscope = 'v4'
 load_data = 1
 improve_eventdet = 0
-plot_figures = 1
+plot_figures = 0
 plot_data = 1
 paw_colors = ['red', 'magenta', 'blue', 'cyan']
 paws = ['FR','HR','FL','HL']
@@ -77,6 +77,9 @@ elif len(trials) == 26:
 elif len(trials) < 23:
     trials_baseline = trials
 
+# TODO
+#  do analysis for raw and deconvoluted traces, do sw and st for raw signal, check correlation between all ROIs for each frame and see how close highly correlated frames are from stance/sw
+
 if load_data == 0:
     # Load ROIs and traces - EXTRACT
     thrs_spatial_weights = 0
@@ -119,20 +122,35 @@ if load_data == 0:
     trial_plot = 3
     mscope.plot_events_roi_trial(trial_plot, roi_plot, frame_time, df_extract_curated, df_events_extract, 0)
     # df_dFF_fiji = mscope.compute_dFF(df_fiji_allframes)
-    # df_dFF_fiji_norm = mscope.norm_traces(df_dFF_fiji, 'zscore')
-    # df_fiji_bgsub_norm = mscope.norm_traces(df_trace_bgsub, 'zscore')
+    # df_dFF_fiji_norm = mscope.norm_traces(df_dFF_fiji, 'zscore', 'trial')
+    # df_fiji_bgsub_norm = mscope.norm_traces(df_trace_bgsub, 'zscore', 'trial')
     # df_events_all = mscope.get_events(df_dFF_fiji_norm, timeT, 'df_events_all')
     # df_events_unsync = mscope.get_events(df_fiji_bgsub_norm, timeT, 'df_events_unsync')
     # # Save data
-    mscope.save_processed_files(df_extract_curated, trials, df_events_extract, coord_ext_curated, th, amp_arr, idx_to_nan)
+    roi_list = list(df_extract_curated.columns[2:])
+    df_extract_rawtrace = mscope.compute_extract_rawtrace(coord_ext, roi_list, trials, frame_time)
+    mscope.save_processed_files(df_extract_curated, trials, df_events_extract,  df_extract_rawtrace, coord_ext_curated, th, amp_arr, idx_to_nan)
     # # mscope.save_processed_files_ext_fiji(df_fiji, df_trace_bgsub, df_extract, df_events_all, df_events_unsync, trials, coord_fiji, coord_ext, th, idx_to_nan)
+
+    # #delete after
+    # df_extract = pd.read_csv(mscope.path + '\\processed files\\' + 'df_extract.csv')
+    # df_events_extract = pd.read_csv(mscope.path + '\\processed files\\' + 'df_events_extract.csv')
+    # coord_ext = np.load(mscope.path + '\\processed files\\' + 'coord_ext.npy', allow_pickle=True)
+    # trials = np.load(mscope.path + '\\processed files\\' + 'trials.npy')
+    # reg_th = np.load(mscope.path + '\\processed files\\' + 'reg_th.npy')
+    # amp_arr = np.load(mscope.path + '\\processed files\\' + 'amplitude_events.npy')
+    # reg_bad_frames = np.load(mscope.path + '\\processed files\\' + 'frames_to_exclude.npy')
+    # roi_list = list(df_extract.columns[2:])
+    # df_extract_rawtrace = mscope.compute_extract_rawtrace(coord_ext, roi_list, trials, frame_time)
+    # df_extract_rawtrace.to_csv(mscope.path + '\\processed files\\' + 'df_extract_raw.csv', sep=',', index=False)
+
 
 if load_data == 1:
     # Load data
-    [df_extract, df_events_extract, trials, coord_ext, reg_th, amp_arr, reg_bad_frames] = mscope.load_processed_files()
+    [df_extract, df_events_extract, df_extract_rawtrace, trials, coord_ext, reg_th, amp_arr, reg_bad_frames] = mscope.load_processed_files()
     # df_dFF_fiji = mscope.compute_dFF(df_fiji)
-    # df_dFF_fiji_norm = mscope.norm_traces(df_dFF_fiji, 'zscore')
-    # df_fiji_bgsub_norm = mscope.norm_traces(df_fiji_bgsub, 'zscore')
+    # df_dFF_fiji_norm = mscope.norm_traces(df_dFF_fiji, 'zscore', 'trial')
+    # df_fiji_bgsub_norm = mscope.norm_traces(df_fiji_bgsub, 'zscore', 'trial')
     if improve_eventdet == 1:
         timeT = 7
         roi_list = df_extract.columns[2:]
@@ -156,7 +174,7 @@ if load_data == 1:
         roi_plot = 3
         trial_plot = 3
         mscope.plot_events_roi_trial(trial_plot, roi_plot, frame_time, df_extract, df_events_extract, 0)
-        mscope.save_processed_files(df_extract, trials, df_events_extract, coord_ext, reg_th, amp_arr, reg_bad_frames)
+        mscope.save_processed_files(df_extract, trials, df_events_extract, df_extract_rawtrace, coord_ext, reg_th, amp_arr, reg_bad_frames)
 
 # Load behavioral data
 filelist = loco.get_track_files(animal, session)
@@ -174,14 +192,14 @@ for f in filelist:
 
 if plot_figures:
     # # Standard plots - example traces, ROI masks, heatmap for baseline speed trials
-    df_extract_norm = mscope.norm_traces(df_extract, 'min_max')
+    df_extract_norm = mscope.norm_traces(df_extract, 'min_max', 'session')
     mscope.plot_stacked_traces(frame_time, df_extract_norm, trials_ses, plot_data) # input can be one trial or trials_ses
     mscope.plot_rois_ref_image(ref_image, coord_ext, plot_data)
     mscope.plot_heatmap_baseline(df_extract_norm, plot_data)
     # df_dFF_fiji = mscope.compute_dFF(df_fiji)
     # df_dFF_fiji_bgsub = mscope.compute_dFF(df_fiji_bgsub)
-    # df_dFF_fiji_norm = mscope.norm_traces(df_dFF_fiji, 'min_max')
-    # df_dFF_fiji_bgsub_norm = mscope.norm_traces(df_dFF_fiji_bgsub, 'min_max')
+    # df_dFF_fiji_norm = mscope.norm_traces(df_dFF_fiji, 'min_max', 'session')
+    # df_dFF_fiji_bgsub_norm = mscope.norm_traces(df_dFF_fiji_bgsub, 'min_max', 'session')
 
     # # Microzones plots, order correlation matrix by distance between neurons - do this for raw signals
     centroid_ext = mscope.get_roi_centroids(coord_ext)
@@ -278,177 +296,26 @@ if plot_figures:
         count_r += 1
         plt.close('all')
 
+df_extract_rawtrace_norm = mscope.norm_traces(df_extract_rawtrace, 'min_max', 'trial')
+time_window = 1
+paw = 'FR'
+align = 'stance'
+roi_list = mscope.get_roi_list(df_extract_rawtrace_norm)
+for roi in roi_list:
+    # mscope.plot_stacked_traces_singleROI(frame_time, df_extract_rawtrace_norm, np.int64(roi[3:]), session_type, trials, plot_data)
+    raw_signal_st = mscope.raw_signal_align_st_sw(df_extract_rawtrace, st_strides_trials, sw_strides_trials, time_window, paw, np.int64(roi[3:]), align, session_type, trials_ses, plot_data)
+    plt.close('all')
 
-# Population plots tied baseline
-# # after manual check replot the refined ROI selection
-# [df_extract, df_events_extract, trials, coord_ext, reg_th, amp_arr, reg_bad_frames] = mscope.load_processed_files()
-# event_proportion_all = np.load(mscope.path + '\\processed files\\' + 'event_proportion_allrois.npy')
-# rois_names = np.array([11,16,17,18,19,20,24,27,30,31,32,33,36,39,40,41,44,50,51,54,55,58,62,66,68,25,52])
-# [df_extract_new, df_events_extract_new, coord_ext_new, keep_roi_idx] = mscope.refine_roi_list(rois_names, df_extract, df_events_extract, coord_ext)
-# df_extract_new_norm = mscope.norm_traces(df_extract_new,'min_max')
-# mscope.plot_stacked_traces(frame_time, df_extract_new_norm, trials_ses, plot_data)  # input can be one trial or trials_ses
-# mscope.plot_rois_ref_image(ref_image, coord_ext_new, plot_data)
-# #tied baseline spatial maps
-# st_up = np.array([11,18,20,24,25,30,31,33,36,39,66,44,50,58,66])
-# st_down = np.array([19,17,41,50,55,58,62,68])
-# sp_up = np.array([16,18,24,25,33,36,39,40,50,58,62])
-# sp_down = np.array([17,19,20,31,44,52,54,55,66,68])
-# sp_others = np.array([11,27,30,32,41,51,52])
-# roi_list = df_extract_new.columns[2:]
-# plt.figure(figsize=(10, 10), tight_layout=True)
-# for r in range(len(coord_ext_new)):
-#     plt.scatter(coord_ext_new[r][:, 0], coord_ext_new[r][:, 1], s=1, alpha=0.6, color='lightgray')
-#     if np.int64(roi_list[r][3:]) in sp_up:
-#         plt.scatter(coord_ext_new[r][:, 0], coord_ext_new[r][:, 1], s=1, alpha=0.6, color='blue')
-#     if np.int64(roi_list[r][3:]) in sp_down:
-#         plt.scatter(coord_ext_new[r][:, 0], coord_ext_new[r][:, 1], s=1, alpha=0.6, color='red')
-# plt.imshow(ref_image, cmap='gray',
-#            extent=[0, np.shape(ref_image)[1] / mscope.pixel_to_um, np.shape(ref_image)[0] / mscope.pixel_to_um, 0])
-# plt.title('ROIs grouped by activity regarding speed', fontsize=mscope.fsize)
-# plt.xlabel('FOV in micrometers', fontsize=mscope.fsize - 4)
-# plt.ylabel('FOV in micrometers', fontsize=mscope.fsize - 4)
-# plt.xticks(fontsize=mscope.fsize - 4)
-# plt.yticks(fontsize=mscope.fsize - 4)
-# plt.figure(figsize=(10, 10), tight_layout=True)
-# for r in range(len(coord_ext_new)):
-#     plt.scatter(coord_ext_new[r][:, 0], coord_ext_new[r][:, 1], s=1, alpha=0.6, color='lightgray')
-#     if np.int64(roi_list[r][3:]) in st_up:
-#         plt.scatter(coord_ext_new[r][:, 0], coord_ext_new[r][:, 1], s=1, alpha=0.6, color='blue')
-#     if np.int64(roi_list[r][3:]) in st_down:
-#         plt.scatter(coord_ext_new[r][:, 0], coord_ext_new[r][:, 1], s=1, alpha=0.6, color='red')
-# plt.imshow(ref_image, cmap='gray',
-#            extent=[0, np.shape(ref_image)[1] / mscope.pixel_to_um, np.shape(ref_image)[0] / mscope.pixel_to_um, 0])
-# plt.title('ROIs grouped by activity regarding FR stance', fontsize=mscope.fsize)
-# plt.xlabel('FOV in micrometers', fontsize=mscope.fsize - 4)
-# plt.ylabel('FOV in micrometers', fontsize=mscope.fsize - 4)
-# plt.xticks(fontsize=mscope.fsize - 4)
-# plt.yticks(fontsize=mscope.fsize - 4)
-# #event proportion across trials and ROIs
-# event_proportion_all_new = event_proportion_all[keep_roi_idx,:]
-# fig, ax = plt.subplots(3,1,figsize=(8,20))
-# ax = ax.ravel()
-# for r in range(np.shape(event_proportion_all_new)[0]):
-#     ax[0].scatter(trials,event_proportion_all_new[r,:], color = 'black')
-#     ax[0].plot(trials, event_proportion_all_new[r, :],linewidth=0.5,color='lightgray')
-#     ax[0].set_title('All ROIs')
-#     ax[0].spines['right'].set_visible(False)
-#     ax[0].spines['top'].set_visible(False)
-#     if np.int64(roi_list[r][3:]) in sp_up:
-#         ax[1].scatter(trials, event_proportion_all_new[r, :], color='red')
-#         ax[1].plot(trials, event_proportion_all_new[r, :],linewidth=0.5,color='lightgray')
-#         ax[1].set_title('Increase activity with speed')
-#         ax[1].spines['right'].set_visible(False)
-#         ax[1].spines['top'].set_visible(False)
-#     if np.int64(roi_list[r][3:]) in sp_down:
-#         ax[2].scatter(trials, event_proportion_all_new[r, :], color='blue')
-#         ax[2].plot(trials, event_proportion_all_new[r, :],linewidth=0.5,color='lightgray')
-#         ax[2].set_title('Increase activity with speed')
-#         ax[2].spines['right'].set_visible(False)
-#         ax[2].spines['top'].set_visible(False)
-# #ROIs ordered all trials - events
-# rois_ordered_sp = np.concatenate((np.concatenate((sp_up,sp_down)),sp_others))
-# rois_ordered_sp_idx = np.zeros(len(rois_ordered_sp))
-# for r in range(len(rois_ordered_sp)):
-#     rois_ordered_sp_idx[r] = np.where('ROI' + str(rois_ordered_sp[r]) == roi_list)[0][0]
-# df_events_extract_data = df_events_extract_new.iloc[:,2:]
-# fig, ax = plt.subplots(figsize=(10, 7), tight_layout=True)
-# sns.heatmap(np.transpose(df_events_extract_data.iloc[:,rois_ordered_sp_idx]), cmap='viridis', cbar=False)
-# ax.vlines(np.where(df_events_extract_new.iloc[:,1]==3)[0][-1], *ax.get_ylim(), color='white', linestyle='dashed')
-# ax.hlines([len(sp_up)], *ax.get_xlim(), color='white', linewidth=0.5)
-# ax.hlines([len(sp_up)+len(sp_down)], *ax.get_xlim(), color='white', linewidth=0.5)
-# ax.set_xticks(np.arange(df_events_extract_data.index[0], df_events_extract_data.index[-1], 500))
-# ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-# ax.set_title('ROIs ordered by their response to speed', fontsize=mscope.fsize - 4)
-# ax.spines['right'].set_visible(False)
-# ax.spines['top'].set_visible(False)
-# plt.xticks(fontsize=mscope.fsize - 8)
-# plt.yticks(fontsize=mscope.fsize - 8)
-# rois_ordered_st = np.concatenate((st_up,st_down))
-# rois_ordered_st_idx = np.zeros(len(rois_ordered_st))
-# for r in range(len(rois_ordered_st)):
-#     rois_ordered_st_idx[r] = np.where('ROI' + str(rois_ordered_st[r]) == roi_list)[0][0]
-# df_events_extract_data = df_events_extract_new.iloc[:,2:]
-# fig, ax = plt.subplots(figsize=(10, 7), tight_layout=True)
-# sns.heatmap(np.transpose(df_events_extract_data.iloc[:,rois_ordered_st_idx]), cmap='viridis', cbar=False)
-# ax.vlines(np.where(df_events_extract_new.iloc[:,1]==3)[0][-1], *ax.get_ylim(), color='white', linestyle='dashed')
-# ax.hlines([len(st_up)], *ax.get_xlim(), color='white', linewidth=0.5)
-# ax.hlines([len(st_up)+len(st_down)], *ax.get_xlim(), color='white', linewidth=0.5)
-# ax.set_xticks(np.arange(df_events_extract_data.index[0], df_events_extract_data.index[-1], 500))
-# ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-# ax.set_title('ROIs ordered by their response to FR stance', fontsize=mscope.fsize - 4)
-# ax.spines['right'].set_visible(False)
-# ax.spines['top'].set_visible(False)
-# plt.xticks(fontsize=mscope.fsize - 8)
-# plt.yticks(fontsize=mscope.fsize - 8)
-# #ROIs ordered all trials - deconv signal
-# rois_ordered_sp = np.concatenate((np.concatenate((sp_up,sp_down)),sp_others))
-# rois_ordered_sp_idx = np.zeros(len(rois_ordered_sp))
-# for r in range(len(rois_ordered_sp)):
-#     rois_ordered_sp_idx[r] = np.where('ROI' + str(rois_ordered_sp[r]) == roi_list)[0][0]
-# df_extract_data = df_extract_new.iloc[:,2:]
-# fig, ax = plt.subplots(figsize=(10, 7), tight_layout=True)
-# sns.heatmap(np.transpose(df_extract_data.iloc[:,rois_ordered_sp_idx]), cmap='viridis', cbar=False)
-# ax.vlines(np.where(df_extract_new.iloc[:,1]==3)[0][-1], *ax.get_ylim(), color='white', linestyle='dashed')
-# ax.hlines([len(sp_up)], *ax.get_xlim(), color='white', linewidth=0.5)
-# ax.hlines([len(sp_up)+len(sp_down)], *ax.get_xlim(), color='white', linewidth=0.5)
-# ax.set_xticks(np.arange(df_extract_data.index[0], df_extract_data.index[-1], 500))
-# ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-# ax.set_title('ROIs ordered by their response to speed', fontsize=mscope.fsize - 4)
-# ax.spines['right'].set_visible(False)
-# ax.spines['top'].set_visible(False)
-# plt.xticks(fontsize=mscope.fsize - 8)
-# plt.yticks(fontsize=mscope.fsize - 8)
-# rois_ordered_st = np.concatenate((st_up,st_down))
-# rois_ordered_st_idx = np.zeros(len(rois_ordered_st))
-# for r in range(len(rois_ordered_st)):
-#     rois_ordered_st_idx[r] = np.where('ROI' + str(rois_ordered_st[r]) == roi_list)[0][0]
-# df_extract_data = df_extract_new.iloc[:,2:]
-# fig, ax = plt.subplots(figsize=(10, 7), tight_layout=True)
-# sns.heatmap(np.transpose(df_extract_data.iloc[:,rois_ordered_st_idx]), cmap='viridis', cbar=False)
-# ax.vlines(np.where(df_extract_new.iloc[:,1]==3)[0][-1], *ax.get_ylim(), color='white', linestyle='dashed')
-# ax.hlines([len(st_up)], *ax.get_xlim(), color='white', linewidth=0.5)
-# ax.hlines([len(st_up)+len(st_down)], *ax.get_xlim(), color='white', linewidth=0.5)
-# ax.set_xticks(np.arange(df_extract_data.index[0], df_extract_data.index[-1], 500))
-# ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-# ax.set_title('ROIs ordered by their response to FR stance', fontsize=mscope.fsize - 4)
-# ax.spines['right'].set_visible(False)
-# ax.spines['top'].set_visible(False)
-# plt.xticks(fontsize=mscope.fsize - 8)
-# plt.yticks(fontsize=mscope.fsize - 8)
 
-# Population plots  split ipsi fast
-# after manual check replot the refined ROI selection
-[df_extract, df_events_extract, trials, coord_ext, reg_th, amp_arr, reg_bad_frames] = mscope.load_processed_files()
-event_proportion_all = np.load(mscope.path + '\\processed files\\' + 'event_proportion_allrois.npy')
-rois_names = np.array([2,4,7,9,12,19,24,39,44,60,67,68,73,74,87,100,104,105,114,123,128,129,131,135,142,161,172,3,5,8,10,11,13,14,15,16,18,20,21,23,25,27,28,34,37,40,42,45,50,51,53,61,62,63,70,72,75,76,77,78,80,83,88,94,97,109,116,117,118,121,124,127,150,151,159,166,170])
-[df_extract_new, df_events_extract_new, coord_ext_new, keep_roi_idx] = mscope.refine_roi_list(rois_names, df_extract, df_events_extract, coord_ext)
-df_extract_new_norm = mscope.norm_traces(df_extract_new,'min_max')
-mscope.plot_stacked_traces(frame_time, df_extract_new_norm, trials_ses, plot_data)  # input can be one trial or trials_ses
-mscope.plot_rois_ref_image(ref_image, coord_ext_new, plot_data)
 
-data_1st_5s_list = []
-frames_len = []
-for t in trials:
-    data_1st_5s_list.append(np.transpose(df_extract_new.loc[df_extract_new['trial']==t].iloc[:5*mscope.sr,2:]))
-    frames_len.append(np.shape(df_extract_new.loc[df_extract_new['trial']==t].iloc[:5*mscope.sr,2:])[0])
-data_1st_5s = np.concatenate(data_1st_5s_list,axis=1)
-cum_frames_len = np.cumsum(frames_len)
-fig = plt.figure(figsize=(25, 12), tight_layout=True)
-gs = fig.add_gridspec(4, 1)
-ax1 = fig.add_subplot(gs[:3, 0])
-ax1 = sns.heatmap(data_1st_5s, cbar='False')
-for t in trials:
-    ax1.vlines(cum_frames_len[t-1], *ax1.get_ylim(), color='white', linestyle='dashed')
-ax1.set_title('1st 5s of each trial', fontsize=mscope.fsize - 4)
-ax1.set_yticklabels(df_extract_new.columns[2::2], rotation=45, fontsize=mscope.fsize - 10)
-plt.setp(ax1.get_xticklabels(), visible=False)
-ax1.tick_params(axis='x', which='x', length=0)
-ax1.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-ax2 = fig.add_subplot(gs[3, 0])
-ax2.plot(np.arange(0,np.shape(data_1st_5s)[1]),np.sum(data_1st_5s,axis=0), color='black', linewidth=2)
-ax2.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-ax2.spines['right'].set_visible(False)
-ax2.spines['top'].set_visible(False)
-plt.xticks(fontsize=mscope.fsize - 8)
-plt.yticks(fontsize=mscope.fsize - 8)
+
+
+
+
+
+
+
+
+
+
 

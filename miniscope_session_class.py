@@ -156,27 +156,39 @@ class miniscope_session:
         return p_corrcoef
 
     @staticmethod
-    def norm_traces(df_fiji, norm_name):
-        """Function to do a min-max normalization or z-scoring of the calcim trace of the dataframe
-        Input:
-            df_fiji: dataframe with session info and calcium traces
-            norm_name: (str) min_max or zscore"""
-        if norm_name == 'min_max':
-            min_fiji = np.tile(np.array(df_fiji.iloc[:, 2:].min(axis=0)), (np.shape(df_fiji)[0], 1))
-            arr_fiji_norm = (np.array(df_fiji.iloc[:, 2:]) - min_fiji) / (
-                        np.array(df_fiji.iloc[:, 2:].max(axis=0)) - np.array(df_fiji.iloc[:, 2:].min(axis=0)))
-        if norm_name == 'zscore':
-            df_fiji_mean = np.tile(np.array(df_fiji.iloc[:, 2:].mean(axis=0)), (np.shape(df_fiji)[0], 1))
-            df_fiji_std = np.tile(np.array(df_fiji.iloc[:, 2:].std(axis=0, ddof=0)), (np.shape(df_fiji)[0], 1))
-            arr_fiji_norm = (np.array(df_fiji.iloc[:, 2:]) - df_fiji_mean) / df_fiji_std
-        roi_list = list(df_fiji.columns[2:])
-        trial_ext = list(df_fiji['trial'])
-        frame_time_ext = list(df_fiji['time'])
-        data_fiji1 = {'trial': trial_ext, 'time': frame_time_ext}
-        df_fiji1 = pd.DataFrame(data_fiji1)
-        df_fiji2 = pd.DataFrame(arr_fiji_norm, columns=roi_list)
-        df_fiji_minmax = pd.concat([df_fiji1, df_fiji2], axis=1)
-        return df_fiji_minmax
+    def norm_traces(df, norm_name, axis):
+        """Function to compute the norm traces.
+            Inputs:
+                df: dataframe containing for each column ROI/pixel raw trace
+                norm_name: (str) min_max or zscore
+                axis: (str) "session" for single session norm or "trial" for each trial norm"""
+        df_norm = pd.DataFrame(columns=df.columns, index=df.index.to_list())
+        trials = df['trial'].unique()
+        if axis == 'trial':
+            for col in df.columns[2:]:
+                trace_alltrials = []
+                for t in trials:
+                    mean_value = df.loc[df['trial'] == t, col].mean(axis=0, skipna=True)
+                    std_value = df.loc[df['trial'] == t, col].std(axis=0, skipna=True)
+                    min_value = df.loc[df['trial'] == t, col].min(axis=0, skipna=True)
+                    max_value = df.loc[df['trial'] == t, col].max(axis=0, skipna=True)
+                    if norm_name == 'zscore':
+                        trace_alltrials.extend((df.loc[df['trial'] == t, col] - mean_value) / std_value)
+                    if norm_name == 'min_max':
+                        trace_alltrials.extend((df.loc[df['trial'] == t, col] - min_value) / (max_value-min_value))
+                df_norm[col] = trace_alltrials
+        if axis == 'session':
+            for col in df.columns[2:]:
+                mean_value = df[col].mean(axis=0, skipna=True)
+                std_value = df[col].std(axis=0, skipna=True)
+                min_value = df[col].min(axis=0, skipna=True)
+                max_value = df[col].max(axis=0, skipna=True)
+                if norm_name == 'zscore':
+                    df_norm[col] = (df[col] - mean_value)/std_value
+                if norm_name == 'min_max':
+                    df_norm[col] = (df[col] - min_value)/(max_value-min_value)
+        df_norm.iloc[:,:2] = df.iloc[:,:2]
+        return df_norm
 
     @staticmethod
     def compute_dFF(df_fiji):
@@ -400,26 +412,14 @@ class miniscope_session:
             count_t += 1        
         return trial_order        
     
-    def trial_length(self):
-        """ Get number of frames for each trial"""
-        tiflist = glob.glob(self.path+self.delim+'Suite2p'+self.delim+'*.tif')
-        if not tiflist:
-            tiflist = glob.glob(self.path+self.delim+'Suite2p'+self.delim+'*.tiff') #get list of tifs
-        trial_id = []
-        for t in range(len(tiflist)):
-            tifname = tiflist[t].split(self.delim)   
-            tifname_split = tifname[-1].split('_')
-            trial_id.append(int(tifname_split[0][1:])) #get trial order in that list    
-        trial_order = np.sort(trial_id) #reorder trials
-        files_ordered = [] #order tif filenames by file order
-        trial_length = []
-        for f in range(len(tiflist)):
-            tr_ind = np.where(trial_order[f] == trial_id)[0][0]
-            files_ordered.append(tiflist[tr_ind])
-        #get size of trials
-        for f in range(len(files_ordered)):
-            image_stack = tiff.imread(files_ordered[f]) #choose right tiff
-            trial_length.append(np.shape(image_stack)[0])
+    def trial_length(self, df_extract):
+        """ Get number of frames for each trial based on traces dataframe
+        Input:
+        df_extract: dataframe with traces and the usual structure"""
+        trials = np.unique(df_extract['trial'])
+        trial_length = np.zeros(len(trials))
+        for count, t in enumerate(trials):
+            trial_length[count] = len(df_extract.loc[df_extract['trial'] == t].index)
         return trial_length
 
     def get_reg_data(self):
@@ -628,10 +628,11 @@ class miniscope_session:
         df_ext = pd.concat([df_ext1, df_ext2], axis=1)
         return coord_cell_t, df_ext
 
-    def compute_extract_rawtrace(self, coord_ext, trials, frame_time):
+    def compute_extract_rawtrace(self, coord_ext, roi_list, trials, frame_time):
         """Function to compute the raw traces from the ROI coordinates from EXTRACT.
         Input:
             coord_cell: list with ROIs coordinates
+            roi_list: list with ROIs
             trials: array with all the trials in the session
             frame_time: list with frame timestamps"""
         ext_trace_all_list = []
@@ -648,9 +649,6 @@ class miniscope_session:
             ext_trace_concat = np.hstack(ext_trace_trials)
             ext_trace_all_list.append(ext_trace_concat)
         ext_trace_arr = np.transpose(np.vstack(ext_trace_all_list))        # trace as dataframe
-        roi_list = []
-        for r in range(len(coord_cell)):
-            roi_list.append('ROI'+str(r+1))
         trial_ext = []
         frame_time_ext = []
         for t in trials:
@@ -802,11 +800,12 @@ class miniscope_session:
             coord_cell_clean.append(coord_ext_aspectratio[r])
         return coord_cell_clean, df_dFF_clean
 
-    def refine_roi_list(self, rois_names, df_dFF, df_dFF_events, coord_cell):
+    def refine_roi_list(self, rois_names, df_dFF, df_dFF_raw, df_dFF_events, coord_cell):
         """Refine existing data structures for the following chosen ROIs
         Input:
         rois_names: list of ROIs numbers
         df_dFF
+        df_dFF_raw
         df_dFF_events
         coord_cell"""
         rois_names_ordered = np.sort(rois_names)
@@ -814,6 +813,7 @@ class miniscope_session:
         for r in rois_names_ordered:
             rois_names_ordered_complete.append('ROI'+str(r))
         df_dFF_new = df_dFF[rois_names_ordered_complete]
+        df_dFF_new_raw = df_dFF_raw[rois_names_ordered_complete]
         df_dFF_events_new = df_dFF_events[rois_names_ordered_complete]
         keep_roi_idx = []
         for r in df_dFF_new.columns[2:]:
@@ -822,7 +822,7 @@ class miniscope_session:
         coord_cell_new = []
         for r in np.sort(keep_roi_idx):
             coord_cell_new.append(coord_cell[r])
-        return df_dFF_new, df_dFF_events_new, coord_cell_new, keep_roi_idx
+        return df_dFF_new, df_dFF_new_raw, df_dFF_events_new, coord_cell_new, keep_roi_idx
 
 
     def isolation_distance(self, roi, trial, coord_fiji, plot_data):
@@ -1515,7 +1515,7 @@ class miniscope_session:
         df_fiji = pd.concat([df_fiji1, df_fiji2], axis=1)
         return [df_fiji, roi_trace_bgsub_arr]
 
-    def save_processed_files(self, df_extract, trials, df_events_extract, coord_ext, th, amp_arr, idx_to_nan):
+    def save_processed_files(self, df_extract, trials, df_events_extract, df_extract_rawtrace, coord_ext, th, amp_arr, idx_to_nan):
         """Saves calcium traces, ROI coordinates, trial number and motion frames.
         Saves them under path/processed files
         Inputs:
@@ -1531,6 +1531,7 @@ class miniscope_session:
         if self.delim == '/':
             df_extract.to_csv(self.path + '/processed files/' + 'df_extract.csv', sep=',', index = False)
             df_events_extract.to_csv(self.path + '/processed files/' + 'df_events_extract.csv', sep=',', index=False)
+            df_extract_rawtrace.to_csv(self.path + '/processed files/' + 'df_extract_raw.csv', sep=',', index=False)
             np.save(self.path + '/processed files/' + 'coord_ext.npy', coord_ext, allow_pickle = True)
             np.save(self.path + '/processed files/' + 'trials.npy', trials)
             np.save(self.path + '/processed files/' + 'reg_th.npy', th)
@@ -1539,6 +1540,7 @@ class miniscope_session:
         else:
             df_extract.to_csv(self.path + '\\processed files\\' + 'df_extract.csv', sep=',', index = False)
             df_events_extract.to_csv(self.path + '\\processed files\\' + 'df_events_extract.csv', sep=',', index=False)
+            df_extract_rawtrace.to_csv(self.path + '\\processed files\\' + 'df_extract_raw.csv', sep=',', index=False)
             np.save(self.path + '\\processed files\\' + 'coord_ext.npy', coord_ext, allow_pickle = True)
             np.save(self.path + '\\processed files\\' + 'trials.npy', trials)
             np.save(self.path + '\\processed files\\' + 'reg_th.npy', th)
@@ -1551,6 +1553,7 @@ class miniscope_session:
         if self.delim == '/':
             df_extract = pd.read_csv(self.path + '/processed files/' + 'df_extract.csv')
             df_events_extract = pd.read_csv(self.path + '/processed files/' + 'df_events_extract.csv')
+            df_extract_rawtrace = pd.read_csv(self.path + '/processed files/' + 'df_extract_raw.csv')
             coord_ext = np.load(self.path + '/processed files/' + 'coord_ext.npy', allow_pickle=True)
             trials = np.load(self.path + '/processed files/' + 'trials.npy')
             reg_th = np.load(self.path + '/processed files/' + 'reg_th.npy')
@@ -1559,12 +1562,13 @@ class miniscope_session:
         else:
             df_extract = pd.read_csv(self.path + '\\processed files\\' + 'df_extract.csv')
             df_events_extract = pd.read_csv(self.path + '\\processed files\\' + 'df_events_extract.csv')
+            df_extract_rawtrace = pd.read_csv(self.path + '\\processed files\\' + 'df_extract_raw.csv')
             coord_ext = np.load(self.path + '\\processed files\\' + 'coord_ext.npy', allow_pickle=True)
             trials = np.load(self.path + '\\processed files\\' + 'trials.npy')
             reg_th = np.load(self.path + '\\processed files\\' + 'reg_th.npy')
             amp_arr = np.load(self.path + '\\processed files\\' + 'amplitude_events.npy')
             reg_bad_frames = np.load(self.path + '\\processed files\\' + 'frames_to_exclude.npy')
-        return df_extract, df_events_extract, trials, coord_ext, reg_th, amp_arr, reg_bad_frames
+        return df_extract, df_events_extract, df_extract_rawtrace, trials, coord_ext, reg_th, amp_arr, reg_bad_frames
 
     def save_processed_files_ext_fiji(self, df_fiji, df_trace_bgsub, df_extract, df_events_all, df_events_unsync, trials, coord_fiji, coord_ext, th, idx_to_nan):
         """Saves calcium traces, ROI coordinates, trial number and motion frames.
@@ -2421,6 +2425,80 @@ class miniscope_session:
             else:
                 plt.savefig(self.path + '\\images\\events\\ROI' + str(roi_plot) + '\\' + 'event_prob_roi_' + str(roi_plot), dpi=self.my_dpi)
         return event_proportion
+
+    def raw_signal_align_st_sw(self, df_rawtrace, st_strides_trials, sw_strides_trials, time_window, paw, roi_plot, align, session_type, trials_ses, plot_data):
+        """Align raw calcium signal to stance, swing or stride period. It outputs the matrix of aligned data
+        Inputs:
+            df_rawtrace: dataframe with signal
+            st_strides_trials: list of trials with matrix with stance points
+            sw_strides_trials: list of trials with matrix with swing points
+            time_window: (float) with time_window around event in s
+            paw (str): 'FR','HR','FL','HL'
+            roi_plot (int): roi number
+            align (str): period to align - 'stance','swing'
+            session_type. (str) split or tied
+            trials_ses: relevant trials for the session to compute transition lines
+            plot_data: boolean"""
+        df_rawtrace_norm = self.norm_traces(df_rawtrace, 'min_max', 'trial')
+        if align == 'stance':
+            align_str = 'st'
+        if align == 'swing':
+            align_str = 'sw'
+        if paw == 'FR':
+            p = 0  # paw of tracking
+        if paw == 'HR':
+            p = 1
+        if paw == 'FL':
+            p = 2
+        if paw == 'HL':
+            p = 3
+        event_stride_list = []
+        trial_length_strides = np.zeros(len(st_strides_trials))
+        for t in np.arange(1, len(st_strides_trials) + 1):
+            if align == 'stance':
+                align_time = st_strides_trials[t - 1][p][:, 0, -1] / self.sr_loco
+            if align == 'swing':
+                align_time = sw_strides_trials[t - 1][p][:, 0, -1] / self.sr_loco
+            trial_length_strides[t - 1] = len(align_time)
+            event_stride_arr = np.zeros((len(align_time), np.int64(time_window * self.sr * 2)))
+            for count_s, s1 in enumerate(align_time):
+                data_events = df_rawtrace_norm[
+                    (df_rawtrace_norm['time'].between(s1 - time_window, s1 + time_window)) & (
+                            df_rawtrace_norm['trial'] == t)]
+                if len(data_events) == time_window * self.sr * 2:
+                    event_stride_arr[count_s, :] = np.array(data_events['ROI' + str(roi_plot)])
+            event_stride_list.append(event_stride_arr)
+        event_stride_all = np.vstack(event_stride_list)
+        trial_length_strides_cumsum = np.cumsum(trial_length_strides)
+        fig, ax = plt.subplots(figsize=(10, 20), tight_layout=True)
+        sns.heatmap(event_stride_all)
+        ax.vlines(time_window * self.sr, *ax.get_ylim(), color='white', linestyle='dashed')
+        if session_type == 'split':
+            ax.hlines([trial_length_strides_cumsum[trials_ses[0]], trial_length_strides_cumsum[trials_ses[2]]],
+                      *ax.get_xlim(), color='white', linewidth=0.5)
+        if session_type == 'tied':
+            for t in trials_ses[:-1]:
+                ax.hlines([trial_length_strides_cumsum[t - 1]], *ax.get_xlim(), color='white', linewidth=0.5)
+        ax.set_yticks(np.arange(0, np.shape(event_stride_all)[0], 250))
+        ax.set_yticklabels(list(map(str, np.arange(0, np.shape(event_stride_all)[0], 250))))
+        ax.set_xticklabels(list(map(str, np.round(np.arange(-time_window, time_window, 0.02), 2))), rotation=45)
+        ax.set_xlabel('Time (s)', fontsize=self.fsize - 4)
+        ax.set_ylabel('Stride number', fontsize=self.fsize - 4)
+        ax.set_title(paw + ' ' + align_str + ' raw signal', fontsize=self.fsize - 4)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        plt.xticks(fontsize=self.fsize - 12)
+        plt.yticks(fontsize=self.fsize - 12)
+        if plot_data:
+            if not os.path.exists(self.path + '\\images\\raw signal\\ROI' + str(roi_plot)):
+                os.mkdir(self.path + '\\images\\raw signal\\ROI' + str(roi_plot))
+            if self.delim == '/':
+                plt.savefig(self.path + '/images/raw signal/ROI' + str(roi_plot) + '/' + 'rawsignal_' + align + '_' + paw + '_window_' + str(time_window).replace('.', ',') + '_roi_' + str(roi_plot),
+                            dpi=self.my_dpi)
+            else:
+                plt.savefig(self.path + '\\images\\raw signal\\ROI' + str(roi_plot) + '\\' + 'rawsignal_' + align + '_' + paw + '_window_' + str(time_window).replace('.', ',') + '_roi_' + str(roi_plot),
+                            dpi=self.my_dpi)
+        return event_stride_all
 
     def events_align_st_sw(self, df_events, st_strides_trials, sw_strides_trials, time_window, bin_size, paw, roi_plot, align, session_type, trials_ses, plot_data):
         """Align events to stance, swing or stride period. It outputs the CS indexes for each

@@ -2,9 +2,13 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="966785ed-030e-4e39-9b07-be622fd4c57c" name="Changes" comment="residuals movie, updated roi_curation function">
+      <change afterPath="$PROJECT_DIR$/Population_plots_split.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Population_plots_tied.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Miniscope_dataviz.py" beforeDir="false" afterPath="$PROJECT_DIR$/Miniscope_dataviz.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ROI_analysis.py" beforeDir="false" afterPath="$PROJECT_DIR$/ROI_analysis.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/miniscope_session_class.py" beforeDir="false" afterPath="$PROJECT_DIR$/miniscope_session_class.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/preprocess_tiff.py" beforeDir="false" afterPath="$PROJECT_DIR$/preprocess_tiff.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -57,7 +61,7 @@
       </console-settings>
     </option>
   </component>
-  <component name="RunManager" selected="Python.ROI_GUI">
+  <component name="RunManager" selected="Python.ROI_analysis">
     <configuration name="ROI_GUI" type="PythonConfigurationType" factoryName="Python">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />

@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="966785ed-030e-4e39-9b07-be622fd4c57c" name="Changes" comment="JR detrend and event detection">
-      <change afterPath="$PROJECT_DIR$/test.py" afterDir="false" />
+    <list default="true" id="966785ed-030e-4e39-9b07-be622fd4c57c" name="Changes" comment="test new event detection">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Neruopil_analysis.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Population_plots_split.py" beforeDir="false" afterPath="$PROJECT_DIR$/Population_plots_split.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ROI_analysis.py" beforeDir="false" afterPath="$PROJECT_DIR$/ROI_analysis.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/SlopeThreshold.py" beforeDir="false" afterPath="$PROJECT_DIR$/SlopeThreshold.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/miniscope_session_class.py" beforeDir="false" afterPath="$PROJECT_DIR$/miniscope_session_class.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/reg_concat_tiffs_extract.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test.py" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -37,6 +42,9 @@
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="ProjectErrors" />
+  </component>
   <component name="ProjectId" id="24SwBVVfaIcReRrn8wY8dUhxNSH" />
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
@@ -46,7 +54,8 @@
   <component name="PropertiesComponent">
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/test.py" />
+    <property name="last_opened_file_path" value="$USER_HOME$/Downloads/SlopeThreshold (1).py" />
+    <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
     <property name="settings.editor.selected.configurable" value="PyConsoleConfigurable.Python Console" />
   </component>
   <component name="PyConsoleOptionsProvider">
@@ -164,7 +173,14 @@
       <option name="project" value="LOCAL" />
       <updated>1655711923084</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="test new event detection">
+      <created>1655712537408</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1655712537408</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -195,6 +211,7 @@
     <MESSAGE value="residuals movie, updated roi_curation function" />
     <MESSAGE value="populations plots retreat, JR detrend and event detection" />
     <MESSAGE value="JR detrend and event detection" />
-    <option name="LAST_COMMIT_MESSAGE" value="JR detrend and event detection" />
+    <MESSAGE value="test new event detection" />
+    <option name="LAST_COMMIT_MESSAGE" value="test new event detection" />
   </component>
 </project>

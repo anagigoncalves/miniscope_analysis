@@ -213,10 +213,15 @@ class miniscope_session:
         height_roi = []
         aspect_ratio = []
         for r in range(len(coord_cell)):
-            params, ell = miniscope_session.fitEllipse(coord_cell[r], 1)
-            width_roi.append(params[2])
-            height_roi.append(params[3])
-            aspect_ratio.append(params[3] / params[2])
+            try:
+                params, ell = miniscope_session.fitEllipse(coord_cell[r], 1)
+                width_roi.append(params[2])
+                height_roi.append(params[3])
+                aspect_ratio.append(params[3] / params[2])
+            except:
+                width_roi.append(0)
+                height_roi.append(0)
+                aspect_ratio.append(0)
         return width_roi, height_roi, aspect_ratio
 
     @staticmethod
@@ -386,6 +391,45 @@ class miniscope_session:
                 ax.set_xticklabels(roi_nr)
         return distance_neurons
 
+    @staticmethod
+    def compute_events_onset(rawdata, acq_fq, detrend_bool):
+        """Computes events for a vector of fluorescence. It uses JR SlopeThreshold method
+        Input:
+            rawdata: vector of fluorescence trace
+            acq_fq: sampling rate (float)"""
+        if detrend_bool:
+            # Estimate Baseline
+            Baseline, Est_Std = ST.Estim_Baseline_PosEvents(rawdata, acq_fq, dtau=0.2, bmax_tslope=3, filtcut=1,graph=False)
+            # Calculate dF/F0:
+            F0 = Baseline - Est_Std * 2
+            dff = (rawdata - F0) / F0
+            dff = np.where(dff < 0, np.zeros_like(dff), dff)  # Remove negative dff values
+        else:
+            dff = rawdata
+        Ev_Onset, Ev_ApproxPeak, dff_std, IncremSet = ST.Detect_PosEvents_ROI(dff, acq_fq, rtau=0.02, graph=None)
+        return [Ev_Onset, IncremSet]
+
+    @staticmethod
+    def event_detection_calcium_trace(rawdata, Ev_Onset, IncremSet, TimePntThres):
+        """"From the SlopeThreshold function compute the maximums (and not the slope rises) for the positive crossings"""
+        peaks = []
+        if len(IncremSet) > 0:
+            if type(IncremSet[0]) is tuple:
+                Ev_Onset = []
+                for i in range(len(IncremSet)):
+                    Ev_Onset.append(IncremSet[i][0])
+                    if IncremSet[i][1] + TimePntThres >= len(rawdata):
+                        values_idx = np.arange(IncremSet[i][1], len(rawdata))
+                    else:
+                        values_idx = np.arange(IncremSet[i][1], IncremSet[i][1] + TimePntThres)
+                    peak_idx = np.argmax(rawdata[values_idx])
+                    peaks.append(IncremSet[i][1] + peak_idx)
+            else:
+                for i in range(len(JoinedPosSet)):
+                    peak_idx = np.argmax(rawdata[JoinedPosSet[i]:JoinedPosSet[i] + TimePntThres])
+                    peaks.append(JoinedPosSet[i] + peak_idx)
+        return np.array(peaks)
+
     def get_animal_id(self):
         animal_name = self.path.split(self.delim)[3]
         return animal_name
@@ -422,14 +466,25 @@ class miniscope_session:
             trial_length[count] = len(df_extract.loc[df_extract['trial'] == t].index)
         return trial_length
 
+    def get_s2p_parameters(self):
+        """Function to get the parameters used to run suite2p
+            Outputs: ops_s2p"""
+        ops = np.load(os.path.join(self.path, 'Suite2p', 'suite2p', 'plane0', 'ops.npy'), allow_pickle=True)
+        ops_s2p = {'suite2p_version': ops[()]['suite2p_version'], 'tau': ops[()]['tau'], 'fs': ops[()]['fs'],
+                   'aspect_ratio': ops[()]['aspect'], 'reg_on': ops[()]['do_registration'],
+                   'reg_2step': ops[()]['two_step_registration'],
+                   'nimg_init': ops[()]['nimg_init'], 'batch_size': ops[()]['batch_size'],
+                   'maxregshift': ops[()]['maxregshift'], 'smooth_sigma_time': ops[()]['smooth_sigma_time'],
+                   'smooth_sigma': ops[()]['smooth_sigma'], 'nonrigid_on': ops[()]['nonrigid'],
+                   '1preg_on': ops[()]['1Preg'], 'diameter': ops[()]['diameter'], 'connected': ops[()]['connected'],
+                   'max_iterations': ops[()]['max_iterations'], 'threshold_scaling': ops[()]['threshold_scaling'],
+                   'max_overlap': ops[()]['max_overlap'], 'high_pass_window': ops[()]['high_pass']}
+        return ops_s2p
+
     def get_reg_data(self):
         """Function to get the correlation map computed from suite2p
             Outputs: x_offset, y_offset, corrXY"""
-        print(self.path)
-        if self.delim == '/':
-            ops = np.load(self.path+'Suite2p/suite2p/plane0/ops.npy', allow_pickle=True)
-        else:
-            ops = np.load(self.path+'Suite2p\\suite2p\\plane0\\ops.npy', allow_pickle=True)
+        ops = np.load(os.path.join(self.path, 'Suite2p', 'suite2p', 'plane0', 'ops.npy'), allow_pickle=True)
         y_offset = ops[()]['yoff'] #y shifts in registration
         x_offset = ops[()]['xoff'] #x shifts in registration
         corrXY = ops[()]['corrXY'] #phase correlation between ref image and each frame
@@ -441,13 +496,9 @@ class miniscope_session:
         fig = plt.figure(figsize=(5,5),tight_layout=True)
         plt.plot(corrXY,color='black')
         plt.axhline(y=th,color='gray')
-        if not os.path.exists(self.path + '\\images\\'):
-            os.mkdir(self.path + '\\images\\')
-        delim = self.path[-1]
-        if delim == '/':
-            plt.savefig(self.path + 'images/' + 'corr_fov_movement', dpi=self.my_dpi)
-        else:
-            plt.savefig(self.path + 'images\\' + 'corr_fov_movement', dpi=self.my_dpi)
+        if not os.path.exists(os.path.join(self.path, 'images')):
+            os.mkdir(os.path.join(self.path, 'images'))
+        plt.savefig(os.path.join(self.path, 'images', 'corr_fov_movement'), dpi=self.my_dpi)
         idx_to_nan = np.where(corrXY<=th)[0]
         df_dFF.iloc[idx_to_nan,2:] = np.nan
         return idx_to_nan, df_dFF
@@ -534,7 +585,7 @@ class miniscope_session:
                     np.max(y_offset_clean) - np.min(y_offset_clean))
         if plot_data:
             r = np.random.randint(1, roi_nr + 1)
-            df_extract_norm = self.norm_traces(df_extract, 'min_max')
+            df_extract_norm = self.norm_traces(df_extract, 'min_max', 'session')
             fig, ax = plt.subplots(2, 1, figsize=(20, 10), tight_layout=True)
             ax = ax.ravel()
             ax[0].plot(np.array(df_extract_norm.loc[df_extract['trial'] == trial, 'ROI' + str(r)]), color='darkgrey')
@@ -567,19 +618,11 @@ class miniscope_session:
             ax.spines['top'].set_visible(False)
             ax.tick_params(axis='x', labelsize=self.fsize - 6)
             ax.tick_params(axis='y', labelsize=self.fsize - 6)
-            if self.delim == '/':
-                plt.savefig(self.path + 'images/' + 'corr_trace_motionreg_shifts',
+            plt.savefig(os.path.join(self.path, 'images', 'corr_trace_motionreg_shifts'),
                             dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + 'images\\' + 'corr_trace_motionreg_shifts',
-                            dpi=self.my_dpi)
-
     def get_ref_image(self):
         """Function to get the session reference image from suite2p"""
-        if self.delim == '/':
-            path_ops = 'Suite2p'+self.delim+'suite2p/plane0/ops.npy'
-        else:
-            path_ops = 'Suite2p'+self.delim+'suite2p\\plane0\\ops.npy'
+        path_ops = os.path.join('Suite2p', 'suite2p', 'plane0', 'ops.npy')
         ops = np.load(self.path+path_ops,allow_pickle=True)
         ref_image = ops[()]['meanImg']
         return ref_image
@@ -592,11 +635,8 @@ class miniscope_session:
             threshold_spatial_weights: float
             frame_time: list with miniscope timestamps
             trials: list of trials"""
-        if self.delim == '/':
-            path_extract = self.path + '/Registered video/EXTRACT/'
-        if self.delim == '\\':
-            path_extract = self.path + '\\Registered video\\EXTRACT\\'
-        files_extract = glob.glob(path_extract + '*.mat')
+        path_extract = os.path.join(self.path, 'Registered video', 'EXTRACT')
+        files_extract = glob.glob(path_extract + self.delim + '*.mat')
         ext_rois = mat73.loadmat(files_extract[0]) #masks are the same across trials
         spatial_weights = ext_rois['spatial_weights']
         trace_ext_list = []
@@ -628,35 +668,37 @@ class miniscope_session:
         df_ext = pd.concat([df_ext1, df_ext2], axis=1)
         return coord_cell_t, df_ext
 
-    def compute_extract_rawtrace(self, coord_ext, roi_list, trials, frame_time):
+    def compute_extract_rawtrace(self, coord_ext, df_extract, roi_list, trials, frame_time):
         """Function to compute the raw traces from the ROI coordinates from EXTRACT.
         Input:
             coord_cell: list with ROIs coordinates
+            df_extract: deconvoluted traces (just to get the size of dataframe)
             roi_list: list with ROIs
             trials: array with all the trials in the session
             frame_time: list with frame timestamps"""
-        ext_trace_all_list = []
-        for c in range(len(coord_ext)):
-            ext_trace_trials = []
-            for t in trials:
-                tiff_stack = tiff.imread(self.path + 'Registered video\\T' + str(t) + '_reg.tif')  # read tiffs
+        trial_length = self.trial_length(df_extract)
+        ext_trace_trials = []
+        for t in trials:
+            tiff_stack = tiff.imread(
+                os.path.join(self.path, 'Registered video') + self.delim + 'T' + str(t) + '_reg.tif')  # read tiffs
+            ext_trace = np.zeros((int(trial_length[t - 1]), np.shape(df_extract.iloc[:, 2:])[1]))
+            for c in range(len(coord_ext)):
                 ext_trace_tiffmean = np.zeros((np.shape(tiff_stack)[0]))
                 for f in range(np.shape(tiff_stack)[0]):
                     ext_trace_tiffmean[f] = np.nansum(tiff_stack[f, np.int64(
                         np.round(coord_ext[c][:, 1] * self.pixel_to_um)), np.int64(
                         np.round(coord_ext[c][:, 0] * self.pixel_to_um))]) / np.shape(coord_ext[c])[0]
-                ext_trace_trials.append(ext_trace_tiffmean)
-            ext_trace_concat = np.hstack(ext_trace_trials)
-            ext_trace_all_list.append(ext_trace_concat)
-        ext_trace_arr = np.transpose(np.vstack(ext_trace_all_list))        # trace as dataframe
+                ext_trace[:, c] = ext_trace_tiffmean
+            ext_trace_trials.append(ext_trace)
+        ext_trace_arr = np.transpose(np.vstack(ext_trace_trials))  # trace as dataframe
         trial_ext = []
         frame_time_ext = []
         for t in trials:
-            trial_ext.extend(np.repeat(t, len(frame_time[t-1])))
+            trial_ext.extend(np.repeat(t, len(frame_time[t - 1])))
             frame_time_ext.extend(frame_time[t - 1])
         dict_ext = {'trial': trial_ext, 'time': frame_time_ext}
         df_ext1 = pd.DataFrame(dict_ext)
-        df_ext2 = pd.DataFrame(ext_trace_arr, columns=roi_list)
+        df_ext2 = pd.DataFrame(np.transpose(ext_trace_arr), columns=roi_list)
         df_ext_raw = pd.concat([df_ext1, df_ext2], axis=1)
         return df_ext_raw
 
@@ -668,9 +710,9 @@ class miniscope_session:
             frame_time: list with miniscope timestamps
             trial: (arr) - trial list
             norm: boolean to do min-max normalization"""
-        path_fiji = 'Registered video' + self.delim
+        path_fiji = 'Registered video'
         filename_rois = 'RoiSet.zip'
-        rois = read_roi.read_roi_zip(self.path + path_fiji + filename_rois)
+        rois = read_roi.read_roi_zip(os.path.join(self.path, path_fiji, filename_rois))
         rois_names = list(rois.keys())
         x1_list = []
         x2_list = []
@@ -692,7 +734,7 @@ class miniscope_session:
         # get traces of rois
         roi_trace_all = []
         for t in trials:
-            tiff_stack = tiff.imread(self.path + path_fiji+'\\T'+str(t)+'_reg.tif')  ##read tiffs
+            tiff_stack = tiff.imread(os.path.join(self.path + path_fiji) + self.delim + 'T'+str(t)+'_reg.tif')  ##read tiffs
             roi_trace_tiffmean = np.zeros((np.shape(tiff_stack)[0],len(coord_fiji)))
             for c in range(len(coord_fiji)):
                 for f in range(np.shape(tiff_stack)[0]):
@@ -731,7 +773,7 @@ class miniscope_session:
             df_dFF: dataframe with calcium trace values
             coord_cell: list with ROI coordinates
             trial_curation: (int) trial to plot"""
-        rois_idx_aspectratio = list(np.where(np.array(aspect_ratio) > 1.2)[0])
+        rois_idx_aspectratio = list(np.where(np.array(aspect_ratio) > 2)[0])
         coord_ext_aspectratio = []
         for r in rois_idx_aspectratio:
             coord_ext_aspectratio.append(coord_cell[r])
@@ -975,7 +1017,7 @@ class miniscope_session:
             version: if v3.2 or v4 because timestamps were saved differently"""
         path_split = self.path.split(self.delim)
         if version == 'v3.2':
-            path_timestamps = self.delim.join(path_split[:-2]) + self.delim + 'Miniscopes' + self.delim
+            path_timestamps = os.path.join(self.delim.join(path_split[:-2]), 'Miniscopes')
             columns_to_keep = ['camNum', 'frameNum', 'sysClock', 'buffer']
         if version == 'v4':
             path_timestamps = self.path
@@ -983,12 +1025,12 @@ class miniscope_session:
         frame_time = []
         for t in range(len(trials)):
             if version == 'v3.2':
-                df = pd.read_table(path_timestamps + 'T' + str(trials[t]) + self.delim + "timestamp.dat", sep="\s+",
+                df = pd.read_table(os.path.join(path_timestamps, 'T' + str(trials[t]), "timestamp.dat"), sep="\s+",
                                    usecols=columns_to_keep)
                 sysClock = np.array(df['sysClock'])
             if version == 'v4':
                 df = pd.read_table(
-                    path_timestamps + 'T' + str(trials[t]) + self.delim + "Miniscope" + self.delim + "timeStamps.csv",
+                    os.path.join(path_timestamps, 'T' + str(trials[t]), "Miniscope", "timeStamps.csv"),
                     sep=",", usecols=columns_to_keep)
                 sysClock = np.array(df['Time Stamp (ms)'])
             # first sysclock has to be 0
@@ -1002,10 +1044,10 @@ class miniscope_session:
     def get_black_frames(self):
         """Get the number of black frames per tiff video that had to be removed.
         Frames only removed from the beginning"""
-        tiflist = glob.glob(self.path + self.delim + 'Suite2p' + self.delim + '*.tif')
+        tiflist = glob.glob(os.path.join(self.path, 'Suite2p', '*.tif'))
         tiff_boolean = 0
         if not tiflist:
-            tiflist = glob.glob(self.path + self.delim + 'Suite2p' + self.delim + '*.tiff')  # get list of tifs
+            tiflist = glob.glob(os.path.join(self.path, 'Suite2p', '*.tiff'))  # get list of tifs
             tiff_boolean = 1
         trial_id = []
         for t in range(len(tiflist)):
@@ -1048,7 +1090,7 @@ class miniscope_session:
         trial_list = []
         for t in range(len(trials)):
             df = pd.read_table(
-                self.path + 'T' + str(trials[t]) + self.delim + "Miniscope" + self.delim + "headOrientation.csv",
+                os.path.join(self.path, 'T' + str(trials[t]), "Miniscope", "headOrientation.csv"),
                 sep=",", usecols=columns_to_keep)
             timestamps = np.array(df['Time Stamp (ms)'])
             [roll_x, pitch_y, yaw_z] = miniscope_session.euler_from_quaternion(np.array(df['qx']), np.array(df['qy']),
@@ -1075,7 +1117,7 @@ class miniscope_session:
         trial_list = []
         for t in range(len(trials)):
             df = pd.read_table(
-                self.path + 'T' + str(trials[t]) + self.delim + "Miniscope" + self.delim + "headOrientation.csv",
+                os.path.join(self.path, 'T', str(trials[t]), "Miniscope", "headOrientation.csv"),
                 sep=",", usecols=columns_to_keep)
             timestamps = np.array(df['Time Stamp (ms)'])
             [roll_x, pitch_y, yaw_z] = miniscope_session.euler_from_quaternion(np.array(df['qx']), np.array(df['qy']),
@@ -1133,15 +1175,9 @@ class miniscope_session:
             if plot_data:
                 if not os.path.exists(self.path + 'images'):
                     os.mkdir(self.path + 'images')
-                if not os.path.exists(self.path + 'images' + self.delim + 'acc' + self.delim):
-                    if self.delim == '/':
-                        os.mkdir(self.path + 'images/acc/')
-                    else:
-                        os.mkdir(self.path + 'images\\acc\\')
-                if self.delim == '/':
-                    plt.savefig(self.path + 'images/acc/' + 'pca_2d', dpi=400)
-                else:
-                    plt.savefig(self.path + 'images\\acc\\' + 'pca_2d', dpi=400)
+                if not os.path.exists(os.path.join(self.path, 'images', 'acc')):
+                    os.mkdir(os.path.join(self.path, 'images', 'acc'))
+                plt.savefig(os.path.join(self.path, 'images', 'acc', 'pca_2d'), dpi=400)
         return principalComponents_3CP, trial_clean
 
     def plot_rois_ref_image(self, ref_image, coord_cell, print_plots):
@@ -1161,14 +1197,34 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if print_plots:
-            if not os.path.exists(self.path + '\\images\\'):
-                os.mkdir(self.path + '\\images\\')
-            delim = self.path[-1]
-            if delim == '/':
-                plt.savefig(self.path + 'images/' + 'rois_fov', dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + 'images\\' + 'rois_fov', dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images')):
+                os.mkdir(os.path.join(self.path, 'images'))
+            plt.savefig(os.path.join(self.path, 'images', 'rois_fov'), dpi=self.my_dpi)
         return
+
+    def plot_single_roi_ref_image(self, ref_image, coord_cell, roi_plot, roi_list, print_plots):
+        """Plot a single ROI on top of reference image.
+        Inputs:
+            ref_image: reference image
+            coord_cell: coordinates for each ROI
+            roi_plot: int
+            roi_list: list with ROIs
+            print_plots (boolean)"""
+        roi_list_new = [np.int64(s.strip('ROI')) for s in roi_list]
+        roi_idx = np.where(np.array(roi_list_new) == roi_plot)[0][0]
+        plt.figure(figsize=(10, 10), tight_layout=True)
+        plt.scatter(coord_cell[roi_idx][:, 0], coord_cell[roi_idx][:, 1], s=1, color='blue')
+        plt.imshow(ref_image, cmap='gray',
+                   extent=[0, np.shape(ref_image)[1] / self.pixel_to_um, np.shape(ref_image)[0] / self.pixel_to_um, 0])
+        plt.title('ROIs grouped by activity', fontsize=self.fsize)
+        plt.xlabel('FOV in micrometers', fontsize=self.fsize - 4)
+        plt.ylabel('FOV in micrometers', fontsize=self.fsize - 4)
+        plt.xticks(fontsize=self.fsize - 4)
+        plt.yticks(fontsize=self.fsize - 4)
+        if print_plots:
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot))):
+                os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot)))
+            plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot), 'roi_fov'), dpi=self.my_dpi)
 
     def plot_heatmap_baseline(self, df_dFF, plot_data):
         """Plots the heatmap for all ROIs given the their traces (min-max normalized).
@@ -1191,11 +1247,7 @@ class miniscope_session:
             ax[t - 1].set_yticklabels(df_dFF.columns[2::2], fontsize=self.fsize - 4)
             ax[t - 1].set_xlabel('Time (s)', fontsize=self.fsize - 4)
         if plot_data:
-            if self.delim == '/':
-                plt.savefig(self.path + '/images/' + 'heatmap_1st_6trials_minmax_traces_allROIs',
-                            dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + '\\images\\' + 'heatmap_1st_6trials_minmax_traces_allROIs',
+            plt.savefig(os.path.join(self.path, 'images', 'heatmap_1st_6trials_minmax_traces_allROIs'),
                             dpi=self.my_dpi)
         return
 
@@ -1247,10 +1299,7 @@ class miniscope_session:
         if print_plots:
             if not os.path.exists(self.path + 'images'):
                 os.mkdir(self.path + 'images')
-            if self.delim == '/':
-                plt.savefig(self.path + 'images/' + 'dFF_stacked_traces', dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + 'images\\' + 'dFF_stacked_traces', dpi=self.my_dpi)
+            plt.savefig(os.path.join(self.path, 'images', 'dFF_stacked_traces'), dpi=self.my_dpi)
 
     def plot_stacked_traces_singleROI(self, frame_time, df_dFF, roi_plot, session_type, trials, print_plots):
         """"Funtion to compute stacked traces for all trials in a session for a single ROI.
@@ -1301,12 +1350,9 @@ class miniscope_session:
             plt.tick_params(axis='y', labelsize=0, length=0)
             count_t += 1
         if print_plots:
-            if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi_plot)):
-                os.mkdir(self.path + '\\images\\events\\ROI' + str(roi_plot))
-            if self.delim == '/':
-                plt.savefig(self.path + '/images/events/ROI' + str(roi_plot) + '/' + 'dFF_stacked_traces', dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + '\\images\\events\\ROI' + str(roi_plot) + '\\' + 'dFF_stacked_traces', dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot))):
+                os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot)))
+            plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot), 'dFF_stacked_traces'), dpi=self.my_dpi)
         return
 
     def compute_roi_clustering(self, df_dFF, centroid_cell, distance_neurons, trial, th_cluster, colormap_cluster, plot_data):
@@ -1353,12 +1399,9 @@ class miniscope_session:
             ax.spines['right'].set_visible(False)
             plt.xticks(fontsize=16)
             plt.yticks(fontsize=14)
-            if not os.path.exists(self.path + '\\images\\cluster\\'):
-                os.mkdir(self.path + '\\images\\cluster\\')
-            if self.delim == '/':
-                plt.savefig(self.path + '/images/cluster/' + 'dendrogram', dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + '\\images\\cluster\\' + 'dendrogram', dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'cluster')):
+                os.mkdir(os.path.join(self.path, 'images', 'cluster'))
+            plt.savefig(os.path.join(self.path, 'images', 'cluster', 'dendrogram'), dpi=self.my_dpi)
             furthest_neuron = np.argmax(np.array(centroid_cell)[:, 0])
             neuron_order = np.argsort(distance_neurons[furthest_neuron, :])
             p_corrcoef_ordered = p_corrcoef[neuron_order, :][:, neuron_order]
@@ -1366,12 +1409,9 @@ class miniscope_session:
             with sns.axes_style("white"):
                 sns.heatmap(p_corrcoef_ordered, cmap="YlGnBu", linewidth=0.5)
                 ax.set_title('correlation matrix ordered by distance between ROIs')
-            if not os.path.exists(self.path + '\\images\\cluster\\'):
-                os.mkdir(self.path + '\\images\\cluster\\')
-            if self.delim == '/':
-                plt.savefig(self.path + 'images/cluster/' + 'pcorrcoef_ordered', dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + 'images\\cluster\\' + 'pcorrcoef_ordered', dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'cluster')):
+                os.mkdir(os.path.join(self.path, 'images', 'cluster'))
+            plt.savefig(os.path.join(self.path, 'images', 'cluster', 'pcorrcoef_ordered'), dpi=self.my_dpi)
         return colors, idx
 
     def plot_roi_clustering_spatial(self, ref_image, colors, idx, coord_cell, print_plots):
@@ -1393,35 +1433,31 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if print_plots:
-            if not os.path.exists(self.path + '\\images\\cluster\\'):
-                os.mkdir(self.path + '\\images\\cluster\\')
-            delim = self.path[-1]
-            if delim == '/':
-                plt.savefig(self.path + 'images/cluster/' + 'roi_clustering_fov', dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + 'images\\cluster\\' + 'roi_clustering_fov', dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'cluster')):
+                os.mkdir(os.path.join(self.path, 'images', 'cluster'))
+            plt.savefig(os.path.join(self.path, 'images', 'cluster', 'roi_clustering_fov'), dpi=self.my_dpi)
         return
 
-    def plot_roi_clustering_temporal(self, df_dFF, frame_time, centroid_cell, distance_neurons, trial_plot, colors, idx, print_plots):
+    def plot_roi_clustering_temporal(self, df_dFF_norm, frame_time, centroid_cell, distance_neurons, trial_plot, colors, idx, print_plots):
         """Plot ROIs on top of reference image color coded by the result of the hierarchical clustering
         Ordered by distance between ROIs.
         Inputs:
-            df_dFF: dataframe with calcium trace
+            df_dFF: dataframe with calcium trace normalized
             frame_time: list of mscope timestamps
             trial_plot: (int) trial to plot
             colors: colors for each cluster
             idx: to which cluster each ROI belongs to
             print_plots (boolean)"""
-        df_dFF_norm = self.norm_traces(df_dFF,'min_max')
         furthest_neuron = np.argmax(np.array(centroid_cell)[:, 0])
         neuron_order = np.argsort(distance_neurons[furthest_neuron, :])
         roi_list = df_dFF_norm.columns[2:]
         roi_list_ordered = roi_list[neuron_order]
+        idx_ordered = idx[neuron_order]
         dFF_trial = df_dFF_norm.loc[df_dFF_norm['trial'] == trial_plot]  # get dFF for the desired trial
         fig, ax = plt.subplots(figsize=(10, 20), tight_layout=True)
         count_r = 0
         for r in roi_list_ordered:
-            plt.plot(frame_time[trial_plot - 1], dFF_trial[r] + count_r, color=colors[idx[count_r] - 1])
+            plt.plot(frame_time[trial_plot - 1], dFF_trial[r] + count_r, color=colors[idx_ordered[count_r] - 1])
             count_r += 1
         ax.set_xlabel('Time (s)', fontsize=self.fsize - 4)
         ax.set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=self.fsize - 4)
@@ -1434,13 +1470,9 @@ class miniscope_session:
         ax.spines['left'].set_visible(False)
         plt.tick_params(axis='y', labelsize=0, length=0)
         if print_plots:
-            if not os.path.exists(self.path + '\\images\\cluster\\'):
-                os.mkdir(self.path + '\\images\\cluster\\')
-            delim = self.path[-1]
-            if delim == '/':
-                plt.savefig(self.path + 'images/cluster/' + 'roi_clustering_trace', dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + 'images\\cluster\\' + 'roi_clustering_trace', dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'cluster')):
+                os.mkdir(os.path.join(self.path, 'images', 'cluster'))
+            plt.savefig(os.path.join(self.path, 'images', 'cluster', 'roi_clustering_trace'), dpi=self.my_dpi)
         return
 
     def compute_bg_roi_fiji(self, coord_cell, trials, frame_time, df_dFF, coeff_sub):
@@ -1515,7 +1547,7 @@ class miniscope_session:
         df_fiji = pd.concat([df_fiji1, df_fiji2], axis=1)
         return [df_fiji, roi_trace_bgsub_arr]
 
-    def save_processed_files(self, df_extract, trials, df_events_extract, df_extract_rawtrace, coord_ext, th, amp_arr, idx_to_nan):
+    def save_processed_files(self, df_extract, trials, df_events_extract, df_extract_rawtrace, df_events_extract_rawtrace, coord_ext, th, idx_to_nan):
         """Saves calcium traces, ROI coordinates, trial number and motion frames.
         Saves them under path/processed files
         Inputs:
@@ -1528,47 +1560,27 @@ class miniscope_session:
             idx_to_nan: indices of frames to dismiss while processing (too much motion)"""
         if not os.path.exists(self.path + 'processed files'):
             os.mkdir(self.path + 'processed files')
-        if self.delim == '/':
-            df_extract.to_csv(self.path + '/processed files/' + 'df_extract.csv', sep=',', index = False)
-            df_events_extract.to_csv(self.path + '/processed files/' + 'df_events_extract.csv', sep=',', index=False)
-            df_extract_rawtrace.to_csv(self.path + '/processed files/' + 'df_extract_raw.csv', sep=',', index=False)
-            np.save(self.path + '/processed files/' + 'coord_ext.npy', coord_ext, allow_pickle = True)
-            np.save(self.path + '/processed files/' + 'trials.npy', trials)
-            np.save(self.path + '/processed files/' + 'reg_th.npy', th)
-            np.save(self.path + '/processed files/' + 'amplitude_events.npy', amp_arr)
-            np.save(self.path + '/processed files/' + 'frames_to_exclude.npy', idx_to_nan)
-        else:
-            df_extract.to_csv(self.path + '\\processed files\\' + 'df_extract.csv', sep=',', index = False)
-            df_events_extract.to_csv(self.path + '\\processed files\\' + 'df_events_extract.csv', sep=',', index=False)
-            df_extract_rawtrace.to_csv(self.path + '\\processed files\\' + 'df_extract_raw.csv', sep=',', index=False)
-            np.save(self.path + '\\processed files\\' + 'coord_ext.npy', coord_ext, allow_pickle = True)
-            np.save(self.path + '\\processed files\\' + 'trials.npy', trials)
-            np.save(self.path + '\\processed files\\' + 'reg_th.npy', th)
-            np.save(self.path + '\\processed files\\' + 'amplitude_events.npy', amp_arr)
-            np.save(self.path + '\\processed files\\' + 'frames_to_exclude.npy', idx_to_nan)
+        df_extract.to_csv(os.path.join(self.path, 'processed files', 'df_extract.csv'), sep=',', index = False)
+        df_events_extract.to_csv(os.path.join(self.path, 'processed files', 'df_events_extract.csv'), sep=',', index=False)
+        df_extract_rawtrace.to_csv(os.path.join(self.path, 'processed files', 'df_extract_raw.csv'), sep=',', index=False)
+        df_events_extract_rawtrace.to_csv(os.path.join(self.path, 'processed files', 'df_events_extract_rawtrace.csv'), sep=',', index=False)
+        np.save(os.path.join(self.path, 'processed files', 'coord_ext.npy'), coord_ext, allow_pickle = True)
+        np.save(os.path.join(self.path, 'processed files', 'trials.npy'), trials)
+        np.save(os.path.join(self.path, 'processed files', 'reg_th.npy'), th)
+        np.save(os.path.join(self.path, 'processed files', 'frames_to_exclude.npy'), idx_to_nan)
         return
 
     def load_processed_files(self):
         """Loads processed files that were saved under path/processed files"""
-        if self.delim == '/':
-            df_extract = pd.read_csv(self.path + '/processed files/' + 'df_extract.csv')
-            df_events_extract = pd.read_csv(self.path + '/processed files/' + 'df_events_extract.csv')
-            df_extract_rawtrace = pd.read_csv(self.path + '/processed files/' + 'df_extract_raw.csv')
-            coord_ext = np.load(self.path + '/processed files/' + 'coord_ext.npy', allow_pickle=True)
-            trials = np.load(self.path + '/processed files/' + 'trials.npy')
-            reg_th = np.load(self.path + '/processed files/' + 'reg_th.npy')
-            amp_arr = np.load(self.path + '/processed files/' + 'amplitude_events.npy')
-            reg_bad_frames = np.load(self.path + '/processed files/' + 'frames_to_exclude.npy')
-        else:
-            df_extract = pd.read_csv(self.path + '\\processed files\\' + 'df_extract.csv')
-            df_events_extract = pd.read_csv(self.path + '\\processed files\\' + 'df_events_extract.csv')
-            df_extract_rawtrace = pd.read_csv(self.path + '\\processed files\\' + 'df_extract_raw.csv')
-            coord_ext = np.load(self.path + '\\processed files\\' + 'coord_ext.npy', allow_pickle=True)
-            trials = np.load(self.path + '\\processed files\\' + 'trials.npy')
-            reg_th = np.load(self.path + '\\processed files\\' + 'reg_th.npy')
-            amp_arr = np.load(self.path + '\\processed files\\' + 'amplitude_events.npy')
-            reg_bad_frames = np.load(self.path + '\\processed files\\' + 'frames_to_exclude.npy')
-        return df_extract, df_events_extract, df_extract_rawtrace, trials, coord_ext, reg_th, amp_arr, reg_bad_frames
+        df_extract = pd.read_csv(os.path.join(self.path, 'processed files', 'df_extract.csv'))
+        df_events_extract = pd.read_csv(os.path.join(self.path, 'processed files', 'df_events_extract.csv'))
+        df_extract_rawtrace = pd.read_csv(os.path.join(self.path, 'processed files', 'df_extract_raw.csv'))
+        df_events_extract_rawtrace = pd.read_csv(os.path.join(self.path, 'processed files', 'df_events_extract_rawtrace.csv'))
+        coord_ext = np.load(os.path.join(self.path, 'processed files', 'coord_ext.npy'), allow_pickle=True)
+        trials = np.load(os.path.join(self.path, 'processed files', 'trials.npy'))
+        reg_th = np.load(os.path.join(self.path, 'processed files', 'reg_th.npy'))
+        reg_bad_frames = np.load(os.path.join(self.path, 'processed files', 'frames_to_exclude.npy'))
+        return df_extract, df_events_extract, df_extract_rawtrace, df_events_extract_rawtrace, trials, coord_ext, reg_th, reg_bad_frames
 
     def save_processed_files_ext_fiji(self, df_fiji, df_trace_bgsub, df_extract, df_events_all, df_events_unsync, trials, coord_fiji, coord_ext, th, idx_to_nan):
         """Saves calcium traces, ROI coordinates, trial number and motion frames.
@@ -1586,59 +1598,71 @@ class miniscope_session:
             th: threshold to discard frames for poor correlation with ref image"""
         if not os.path.exists(self.path + 'processed files'):
             os.mkdir(self.path + 'processed files')
-        if self.delim == '/':
-            df_fiji.to_csv(self.path + '/processed files/' + 'df_fiji.csv', sep=',', index = False)
-            df_trace_bgsub.to_csv(self.path + '/processed files/' + 'df_fiji_bgsub.csv', sep=',', index = False)
-            df_extract.to_csv(self.path + '/processed files/' + 'df_extract.csv', sep=',', index = False)
-            df_events_all.to_csv(self.path + '/processed files/' + 'df_events_all.csv', sep=',', index=False)
-            df_events_unsync.to_csv(self.path + '/processed files/' + 'df_events_unsync.csv', sep=',', index=False)
-            np.save(self.path + '/processed files/' + 'coord_fiji.npy', coord_fiji, allow_pickle = True)
-            np.save(self.path + '/processed files/' + 'coord_ext.npy', coord_ext, allow_pickle = True)
-            np.save(self.path + '/processed files/' + 'trials.npy', trials)
-            np.save(self.path + '/processed files/' + 'reg_th.npy', th)
-            np.save(self.path + '/processed files/' + 'frames_to_exclude.npy', idx_to_nan)
-        else:
-            df_fiji.to_csv(self.path + '\\processed files\\' + 'df_fiji.csv', sep=',', index = False)
-            df_trace_bgsub.to_csv(self.path + '\\processed files\\' + 'df_fiji_bgsub.csv', sep=',', index = False)
-            df_extract.to_csv(self.path + '\\processed files\\' + 'df_extract.csv', sep=',', index = False)
-            df_events_all.to_csv(self.path + '\\processed files\\' + 'df_events_all.csv', sep=',', index=False)
-            df_events_unsync.to_csv(self.path + '\\processed files\\' + 'df_events_unsync.csv', sep=',', index=False)
-            np.save(self.path + '\\processed files\\' + 'coord_fiji.npy', coord_fiji, allow_pickle = True)
-            np.save(self.path + '\\processed files\\' + 'coord_ext.npy', coord_ext, allow_pickle = True)
-            np.save(self.path + '\\processed files\\' + 'trials.npy', trials)
-            np.save(self.path + '\\processed files\\' + 'reg_th.npy', th)
-            np.save(self.path + '\\processed files\\' + 'frames_to_exclude.npy', idx_to_nan)
+        df_fiji.to_csv(os.path.join(self.path + 'processed files' + 'df_fiji.csv'), sep=',', index = False)
+        df_trace_bgsub.to_csv(os.path.join(self.path + 'processed files' + 'df_fiji_bgsub.csv'), sep=',', index = False)
+        df_extract.to_csv(os.path.join(self.path + 'processed files' + 'df_extract.csv'), sep=',', index = False)
+        df_events_all.to_csv(os.path.join(self.path + 'processed files' + 'df_events_all.csv'), sep=',', index=False)
+        df_events_unsync.to_csv(os.path.join(self.path + 'processed files' + 'df_events_unsync.csv'), sep=',', index=False)
+        np.save(os.path.join(self.path + 'processed files' + 'coord_fiji.npy'), coord_fiji, allow_pickle = True)
+        np.save(os.path.join(self.path + 'processed files' + 'coord_ext.npy'), coord_ext, allow_pickle = True)
+        np.save(os.path.join(self.path + 'processed files' + 'trials.npy'), trials)
+        np.save(os.path.join(self.path + 'processed files' + 'reg_th.npy'), th)
+        np.save(os.path.join(self.path + 'processed files' + 'frames_to_exclude.npy'), idx_to_nan)
         return
 
     def load_processed_files_ext_fiji(self):
         """Loads processed files that were saved under path/processed files"""
-        if self.delim == '/':
-            df_fiji = pd.read_csv(self.path+'/processed files/'+'df_fiji.csv')
-            df_fiji_bgsub = pd.read_csv(self.path + '/processed files/' + 'df_fiji_bgsub.csv')
-            df_extract = pd.read_csv(self.path + '/processed files/' + 'df_extract.csv')
-            coord_fiji = np.load(self.path+'/processed files/'+'coord_fiji.npy', allow_pickle = True)
-            coord_ext = np.load(self.path + '/processed files/' + 'coord_ext.npy', allow_pickle = True)
-            trials = np.load(self.path+'/processed files/'+'trials.npy')
-            reg_th = np.load(self.path+'/processed files/'+'reg_th.npy')
-            reg_bad_frames = np.load(self.path+'/processed files/'+'frames_to_exclude.npy')
-        else:
-            df_fiji = pd.read_csv(self.path+'\\processed files\\'+'df_fiji.csv')
-            df_fiji_bgsub = pd.read_csv(self.path+'\\processed files\\'+'df_fiji_bgsub.csv')
-            df_extract = pd.read_csv(self.path+'\\processed files\\'+'df_extract.csv')
-            coord_fiji = np.load(self.path+'\\processed files\\'+'coord_fiji.npy', allow_pickle = True)
-            coord_ext = np.load(self.path + '\\processed files\\' + 'coord_ext.npy', allow_pickle = True)
-            trials = np.load(self.path+'\\processed files\\'+'trials.npy')
-            reg_th = np.load(self.path+'\\processed files\\'+'reg_th.npy')
-            reg_bad_frames = np.load(self.path+'\\processed files\\'+'frames_to_exclude.npy')
+        df_fiji = pd.read_csv(os.path.join(self.path, 'processed files', 'df_fiji.csv'))
+        df_fiji_bgsub = pd.read_csv(os.path.join(self.path, 'processed files', 'df_fiji_bgsub.csv'))
+        df_extract = pd.read_csv(os.path.join(self.path, 'processed files', 'df_extract.csv'))
+        coord_fiji = np.load(os.path.join(self.path, 'processed files', 'coord_fiji.npy'), allow_pickle = True)
+        coord_ext = np.load(os.path.join(self.path, 'processed files', 'coord_ext.npy'), allow_pickle = True)
+        trials = np.load(os.path.join(self.path, 'processed files', 'trials.npy'))
+        reg_th = np.load(os.path.join(self.path, 'processed files', 'reg_th.npy'))
+        reg_bad_frames = np.load(os.path.join(self.path, 'processed files', 'frames_to_exclude.npy'))
         return df_fiji, df_fiji_bgsub, df_extract, trials, coord_fiji, coord_ext, reg_th, reg_bad_frames
 
-    def get_events(self, df_dFF, timeT, amp_vec, csv_name):
-        """"Function to get the calcium event using Jorge's derivative method.
-        Amplitude of envelope is determined as the median absolute deviation
+    def compute_detrended_traces(self, df_dFF, csv_name):
+        """"Function to get the detrended traces using Jorge's derivative method.
         Inputs:
         df_dFF: dataframe with calcium trace values after deltaF/F computation and z-scoring
-        timeT: time thershold (within how many frames does the event happen)
-        amp_vec: vector with ROIs amplitudes for event detection; if empty it recorded the amplitudes used for each trial and ROI
+        csv_name: (str) filename of df_events create; if empty doesn't save file"""
+        roi_trace = np.array(df_dFF.iloc[:,2:])
+        roi_list = list(df_dFF.columns[2:])
+        trial_ext = list(df_dFF['trial'])
+        trials = np.unique(trial_ext)
+        frame_time_ext = list(df_dFF['time'])
+        data_dFF1 = {'trial': trial_ext, 'time': frame_time_ext}
+        df_dFF1 = pd.DataFrame(data_dFF1)
+        df_dFF2 = pd.DataFrame(np.zeros(np.shape(roi_trace)), columns=roi_list)
+        df_dFF_detrended = pd.concat([df_dFF1, df_dFF2], axis=1)
+        roi_list = df_dFF.columns[2:]
+        count_r = 0
+        for r in roi_list:
+            print('Processing detrended trace of ' + r)
+            count_t = 0
+            for t in trials:
+                data = np.array(df_dFF.loc[df_dFF['trial'] == t, r])
+                # Estimate Baseline
+                Baseline, Est_Std = ST.Estim_Baseline_PosEvents(data, self.sr, dtau=0.2, bmax_tslope=3, filtcut=1,graph=False)
+                # Calculate dF/F0:
+                F0 = Baseline - Est_Std * 2
+                dff = (data - F0) / F0
+                dff = np.where(dff < 0, np.zeros_like(dff), dff)  # Remove negative dff values
+                df_dFF_detrended.loc[df_dFF_detrended['trial'] == t, r] = dff
+                count_t += 1
+            count_r += 1
+        if len(csv_name)>0:
+            if not os.path.exists(self.path + 'processed files'):
+                os.mkdir(self.path + 'processed files')
+            df_dFF_detrended.to_csv(self.path + '\\processed files\\' + csv_name + '.csv', sep=',', index=False)
+        return df_dFF_detrended
+
+    def get_events(self, df_dFF, detrend_bool, csv_name):
+        """"Function to get the calcium event using Jorge's derivative method.
+        Inputs:
+        df_dFF: dataframe with calcium trace values after deltaF/F computation and z-scoring
+        detrend_bool: 1 if trace is raw signal
         csv_name: (str) filename of df_events create; if empty doesn't save file"""
         roi_trace = np.array(df_dFF.iloc[:,2:])
         roi_list = list(df_dFF.columns[2:])
@@ -1650,203 +1674,33 @@ class miniscope_session:
         df_dFF2 = pd.DataFrame(np.zeros(np.shape(roi_trace)), columns=roi_list)
         df_events = pd.concat([df_dFF1, df_dFF2], axis=1)
         roi_list = df_dFF.columns[2:]
-        if len(amp_vec) == 0:
-            amp_arr = np.zeros((len(trials),len(roi_list)))
-            count_r = 0
-            for r in roi_list:
-                count_t = 0
-                for t in trials:
-                    data = np.array(df_dFF.loc[df_dFF['trial'] == t, r])
-                    amp = robust.mad(data)
-                    events_mat = np.zeros(len(data))
-                    if (np.nanmax(data) - np.nanmin(data)) <= 1:  # if trace is event probability or min-max normed
-                        # the high number of 0 values are a problem for derivative estimation
-                        #data = data * 60
-                        amp = np.nanpercentile(data, 95)
-                    [JoinedPosSet_all, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(data, amp, timeT,
-                                                                                           CollapSeq=True, acausal=False,
-                                                                                           verbose=0, graph=None)
-                    if len(JoinedPosSet_all) == 0:
-                        print('No events for trial' + str(t) + ' and ' + r)
-                    else:
-                        events_mat[ST.event_detection_calcium_trace(data, JoinedPosSet_all, timeT)] = 1
-                    df_events.loc[df_events['trial'] == t, r] = events_mat
-                    amp_arr[count_t,count_r] = amp
-                    count_t += 1
-                count_r += 1
-        else:
-            count_r = 0
-            for r in roi_list:
-                amp = amp_vec[count_r]
-                for t in trials:
-                    data = np.array(df_dFF.loc[df_dFF['trial'] == t, r])
-                    events_mat = np.zeros(len(data))
-                    [JoinedPosSet_all, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(data, amp, timeT,
-                                                                                           CollapSeq=True, acausal=False,
-                                                                                           verbose=0, graph=None)
-                    if len(JoinedPosSet_all) == 0:
-                        print('No events for trial' + str(t) + ' and ' + r)
-                    else:
-                        events_mat[ST.event_detection_calcium_trace(data, JoinedPosSet_all, timeT)] = 1
-                    df_events.loc[df_events['trial'] == t, r] = events_mat
-                count_r += 1
-            amp_arr = amp_vec #to make output the same
+        count_r = 0
+        for r in roi_list:
+            print('Processing events of ' + r)
+            count_t = 0
+            for t in trials:
+                data = np.array(df_dFF.loc[df_dFF['trial'] == t, r])
+                events_mat = np.zeros(len(data))
+                [Ev_Onset, IncremSet] = self.compute_events_onset(data, self.sr, detrend_bool)
+                if len(Ev_Onset) > 0:
+                    events = self.event_detection_calcium_trace(data, Ev_Onset, IncremSet, 3)
+                    if detrend_bool == 0:
+                        events_new= []
+                        for e in events:
+                            if data[e] >= np.nanpercentile(data, 75):
+                                events_new.append(e)
+                        events = events_new
+                    events_mat[events] = 1
+                else:
+                    print('No events for ' + r + ' trial ' + str(t))
+                df_events.loc[df_events['trial'] == t, r] = events_mat
+                count_t += 1
+            count_r += 1
         if len(csv_name)>0:
             if not os.path.exists(self.path + 'processed files'):
                 os.mkdir(self.path + 'processed files')
             df_events.to_csv(self.path + '\\processed files\\' + csv_name + '.csv', sep=',', index=False)
-        return df_events, amp_arr
-
-    @staticmethod
-    def get_events_singletrial(traces, timeT):
-        """"Function to get the calcium event using Jorge's derivative method for a single trial across some ROIs.
-        Amplitude of envelope is determined as the median absolute deviation
-        Inputs:
-        traces: numpy array with the traces (frames x roi)
-        timeT: time thershold (within how many frames does the event happen)"""
-        events_traces = np.zeros(np.shape(traces))
-        for r in range(np.shape(traces)[1]):
-            data = traces[:,r]
-            amp = robust.mad(data)
-            events_mat = np.zeros(len(data))
-            if (np.max(data) - np.min(data)) <= 1:  # if trace is event probability or min-max normed
-                # the high number of 0 values are a problem for derivative estimation
-                # data = data * 60
-                amp = np.percentile(data, 90)
-            # diff_data = np.diff(data)
-            # diff_data_nonan = diff_data[~np.isnan(diff_data)]
-            # MAD = robust.mad(diff_data_nonan)
-            # if MAD == 0: #when it's very flat and some peaks - IMPROVE
-            #     deriv_std = np.percentile(data,99)
-            # else:
-            # norm_data = np.abs(diff_data_nonan - np.median(diff_data_nonan)) / MAD #this is a change, slope is done on data not on norm_data
-            # deriv_mean, deriv_std = stats.norm.fit(norm_data)
-            # True_std = np.sqrt((deriv_std ** 2) / 2)
-            # FiltWin = 3
-            # denoised_data = signal.wiener(data, mysize=FiltWin, noise=noise_std**2)
-            # [JoinedPosSet_all, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(denoised_data, True_std, timeT,
-            #                                                                        CollapSeq=True, acausal=False,
-            #                                                                        verbose=0, graph=None)
-            [JoinedPosSet_all, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(data, amp, timeT,
-                                                                                   CollapSeq=True, acausal=False,
-                                                                                   verbose=0, graph=None)
-            if len(JoinedPosSet_all) == 0:
-                print('No events for index ' + str(r))
-            else:
-                events_mat[ST.event_detection_calcium_trace(data, JoinedPosSet_all, timeT)] = 1
-            events_traces[:, r] = events_mat
-        return events_traces
-
-    def event_differences(self, df_fiji, roi, timeT):
-        """Function to compare the several thresholds for event direction (derivative-based algorithm)
-        Input:
-            df_fiji: (dataframe)
-            roi: (int) roi to plot
-            timeT: (int) interval of calcium transient in frames"""
-        r = 'ROI'+str(roi)
-        df_dFF_fiji = self.compute_dFF(df_fiji)
-        df_dFF_fiji_norm = self.norm_traces(df_dFF_fiji, 'zscore')
-        data = np.array(df_dFF_fiji_norm.loc[df_dFF_fiji_norm['trial'] == 2, r])
-        # Find outliers using MAD and neutralize them:
-        MAD = robust.mad(np.diff(data))
-        deriv_mean, deriv_std = stats.norm.fit(np.abs(np.diff(data) - np.median(np.diff(data))) / MAD)
-        # noise is gaussian, stationary and independently distributed
-        # two independent normal distributions - noise and signal????
-        # variance the sum of two independent gaussian distributions
-        # var(z) = var(n) + var (s), so std(n) = sqrt(var(z)/2)
-        # variance of the product of independent gaussian distributions
-        # var(z) = (var(n)+mean(n))*(var(s)+mean(s))-(mean(n)**2mean(s)**2)
-        noise_std = np.sqrt((deriv_std ** 2) / 2)  # Based on the product of two equal gaussians
-        FiltWin = 5
-        denoised_data = signal.wiener(data, mysize=FiltWin, noise=deriv_std ** 2)
-        MAD_denoised = robust.mad(np.diff(denoised_data))
-        deriv_mean_denoised, deriv_std_denoised = stats.norm.fit(
-            np.abs(np.diff(denoised_data) - np.median(np.diff(denoised_data))) / MAD_denoised)
-        events_raw_mad = np.zeros(len(data))
-        [JoinedPosSet_all_raw_mad, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(data, MAD, timeT,
-                                                                                       CollapSeq=True, acausal=False,
-                                                                                       verbose=0, graph=None)
-        if len(JoinedPosSet_all_raw_mad) == 0:
-            print('No events')
-        else:
-            events_raw_mad[ST.event_detection_calcium_trace(data, JoinedPosSet_all_raw_mad, timeT)] = 1
-        events_raw_std = np.zeros(len(data))
-        [JoinedPosSet_all_raw_std, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(data, deriv_std, timeT,
-                                                                                       CollapSeq=True, acausal=False,
-                                                                                       verbose=0, graph=None)
-        if len(JoinedPosSet_all_raw_std) == 0:
-            print('No events')
-        else:
-            events_raw_std[ST.event_detection_calcium_trace(data, JoinedPosSet_all_raw_std, timeT)] = 1
-        events_denoised_mad = np.zeros(len(denoised_data))
-        [JoinedPosSet_all_denoised_mad, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(denoised_data, MAD_denoised,
-                                                                                            timeT,
-                                                                                            CollapSeq=True,
-                                                                                            acausal=False,
-                                                                                            verbose=0, graph=None)
-        if len(JoinedPosSet_all_denoised_mad) == 0:
-            print('No events')
-        else:
-            events_denoised_mad[
-                ST.event_detection_calcium_trace(denoised_data, JoinedPosSet_all_denoised_mad, timeT)] = 1
-        events_denoised_std = np.zeros(len(denoised_data))
-        [JoinedPosSet_all_denoised_std, JoinedNegSet_all, F_Values_all] = ST.SlopeThreshold(denoised_data,
-                                                                                            deriv_std_denoised, timeT,
-                                                                                            CollapSeq=True,
-                                                                                            acausal=False,
-                                                                                            verbose=0, graph=None)
-        if len(JoinedPosSet_all_denoised_std) == 0:
-            print('No events')
-        else:
-            events_denoised_std[
-                ST.event_detection_calcium_trace(denoised_data, JoinedPosSet_all_denoised_std, timeT)] = 1
-        fig, ax = plt.subplots(2, 2, figsize=(20, 8), tight_layout=True)
-        ax = ax.ravel()
-        ax[0].plot(data, linewidth=2, color='black')
-        ax[0].plot(np.repeat(np.median(data) + MAD, len(data)), linestyle='dashed', color='red')
-        ax[0].plot(np.repeat(np.median(data) - MAD, len(data)), linestyle='dashed', color='red')
-        ax[0].scatter(np.where(events_raw_mad)[0], data[np.where(events_raw_mad)[0]], s=20, color='red')
-        ax[0].set_title('MAD diff envelope raw data')
-        ax[0].spines['right'].set_visible(False)
-        ax[0].spines['top'].set_visible(False)
-        ax[1].plot(data, linewidth=2, color='black')
-        ax[1].plot(np.repeat(np.median(data) + deriv_std, len(data)), linestyle='dashed', color='red')
-        ax[1].plot(np.repeat(np.median(data) - deriv_std, len(data)), linestyle='dashed', color='red')
-        ax[1].scatter(np.where(events_raw_std)[0], data[np.where(events_raw_std)[0]], s=20, color='red')
-        ax[1].set_title('True std envelope raw data')
-        ax[1].spines['right'].set_visible(False)
-        ax[1].spines['top'].set_visible(False)
-        ax[2].plot(denoised_data, linewidth=2, color='black')
-        ax[2].plot(np.repeat(np.median(denoised_data) + MAD, len(denoised_data)), linestyle='dashed', color='red')
-        ax[2].plot(np.repeat(np.median(denoised_data) - MAD, len(denoised_data)), linestyle='dashed', color='red')
-        ax[2].scatter(np.where(events_denoised_mad)[0], denoised_data[np.where(events_denoised_mad)[0]], s=20,
-                      color='red')
-        ax[2].set_title('MAD diff envelope denoised data')
-        ax[2].spines['right'].set_visible(False)
-        ax[2].spines['top'].set_visible(False)
-        ax[3].plot(denoised_data, linewidth=2, color='black')
-        ax[3].plot(np.repeat(np.median(denoised_data) + deriv_std, len(denoised_data)), linestyle='dashed', color='red')
-        ax[3].plot(np.repeat(np.median(denoised_data) - deriv_std, len(denoised_data)), linestyle='dashed', color='red')
-        ax[3].scatter(np.where(events_denoised_std)[0], denoised_data[np.where(events_denoised_std)[0]], s=20,
-                      color='red')
-        ax[3].set_title('True std envelope denoised data')
-        ax[3].spines['right'].set_visible(False)
-        ax[3].spines['top'].set_visible(False)
-        fig, ax = plt.subplots(2, 1, figsize=(15, 5), tight_layout=True)
-        ax = ax.ravel()
-        ax[0].scatter(np.where(events_raw_mad)[0], np.ones(len(np.where(events_raw_mad)[0])), s=20, color='red')
-        ax[0].scatter(np.where(events_denoised_mad)[0], np.ones(len(np.where(events_denoised_mad)[0])), s=20,
-                      color='blue')
-        ax[0].set_title('MAD raw data (red) denoised data (blue)')
-        ax[0].spines['right'].set_visible(False)
-        ax[0].spines['top'].set_visible(False)
-        ax[1].scatter(np.where(events_raw_std)[0], np.ones(len(np.where(events_raw_std)[0])), s=20, color='red')
-        ax[1].scatter(np.where(events_denoised_std)[0], np.ones(len(np.where(events_denoised_std)[0])), s=20,
-                      color='blue')
-        ax[1].set_title('True std raw data (red) denoised data (blue)')
-        ax[1].spines['right'].set_visible(False)
-        ax[1].spines['top'].set_visible(False)
-        return
+        return df_events
 
     def compute_isi(self, df_events, csv_name):
         """Function to compute the inter-spike interval of the dataframe with spikes. Outputs a similiar dataframe
@@ -1924,30 +1778,28 @@ class miniscope_session:
             roi: (int) ROI id
             isi_df: (dataframe) with ISI values
             plot_data: boolean"""
-        binwidth = 0.2
-        barWidth = 0.2
+        binwidth = 0.05
+        barWidth = 0.05
         isi_data = np.array(isi_df.loc[(isi_df['trial']==trial)&(isi_df['roi']=='ROI'+str(roi)),'isi'])
         max_isi = np.ceil(np.nanmax(isi_data))
         binedges = np.arange(0, max_isi + 0.5, binwidth)
         hist_all = np.histogram(isi_data, bins=binedges)
         hist_norm = hist_all[0] / np.sum(hist_all[0])
         r1 = binedges[:-1]
+        rate = np.round(1 / np.nanmedian(isi_data), 2)
         fig, ax = plt.subplots(figsize=(15, 7), tight_layout=True)
         plt.bar(r1, hist_norm, color='darkgrey', width=barWidth, edgecolor='white')
         plt.xlabel('Inter-event interval (s)', fontsize=self.fsize)  # Add xticks on the middle of the group bars
         plt.ylabel('Event count', fontsize=self.fsize)  # Add xticks on the middle of the group bars
-        plt.title('ISI distribution of trial '+ str(trial) + ' ROI '+str(roi), fontsize=self.fsize)
+        plt.title('Event rate of ' + str(rate) + ' trial ' + str(trial) + ' ROI ' + str(roi), fontsize=self.fsize)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if plot_data:
-            if not os.path.exists(self.path + '\\images\\events\\ROI'+str(roi)):
-                os.mkdir(self.path + '\\images\\events\\ROI'+str(roi))
-            if self.delim == '/':
-                plt.savefig(self.path+'/images/events/ROI'+str(roi)+'/'+ 'isi_hist_roi_'+str(roi)+'_trial_'+str(trial), dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path+ '\\images\\events\\ROI'+str(roi)+'\\'+ 'isi_hist_roi_'+str(roi)+'_trial_'+str(trial), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi))):
+                os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi)))
+            plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi), 'isi_hist_roi_' + str(roi) + '_trial_' + str(trial)), dpi=self.my_dpi)
         return
 
     def plot_isi_session(self, roi, isi_df, animal, session_type, trials, trials_ses, plot_data):
@@ -1960,7 +1812,7 @@ class miniscope_session:
             trials: list of trials
             trials_ses: list with the transition trials
             plot_data: boolean"""
-        binwidth = 0.2
+        binwidth = 0.05
         barWidth = 0.05
         if session_type == 'split':
             isi_data_baseline = np.array(isi_df.loc[(isi_df['trial'] > 0) & (
@@ -1993,12 +1845,10 @@ class miniscope_session:
             plt.xticks(fontsize=self.fsize - 4)
             plt.yticks(fontsize=self.fsize - 4)
             if plot_data:
-                if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi)):
-                    os.mkdir(self.path + '\\images\\events\\ROI' + str(roi))
-                if self.delim == '/':
-                    plt.savefig(self.path + '/images/events/ROI' + str(roi) + '/' + 'isi_hist_roi_' + str(roi),dpi=self.my_dpi)
-                else:
-                    plt.savefig(self.path + '\\images\\events\\ROI' + str(roi) + '\\' + 'isi_hist_roi_' + str(roi), dpi=self.my_dpi)
+                if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi))):
+                    print(os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi))))
+                    os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi)))
+                plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi),  'isi_hist_roi_' + str(roi)), dpi=self.my_dpi)
         if session_type == 'tied' and animal == 'MC8855':
             isi_data_sp1 = np.array(isi_df.loc[(isi_df['trial'] > 0) & (
                         isi_df['trial'] < trials_ses[0] + 1) & (isi_df['roi'] == 'ROI' + str(roi)), 'isi'])
@@ -2024,12 +1874,9 @@ class miniscope_session:
             plt.xticks(fontsize=self.fsize - 4)
             plt.yticks(fontsize=self.fsize - 4)
             if plot_data:
-                if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi)):
-                    os.mkdir(self.path + '\\images\\events\\ROI' + str(roi))
-                if self.delim == '/':
-                    plt.savefig(self.path + '/images/events/ROI' + str(roi) + '/' + 'isi_hist_roi_' + str(roi),dpi=self.my_dpi)
-                else:
-                    plt.savefig(self.path + '\\images\\events\\ROI' + str(roi) + '\\' + 'isi_hist_roi_' + str(roi), dpi=self.my_dpi)
+                if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi))):
+                    os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi)))
+                plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi), 'isi_hist_roi_' + str(roi)), dpi=self.my_dpi)
         if session_type == 'tied' and animal != 'MC8855':
             isi_data_sp1 = np.array(isi_df.loc[(isi_all_events['trial'] > 0) & (
                         isi_df['trial'] < trials_ses[0] + 1) & (isi_df['roi'] == 'ROI' + str(roi)), 'isi'])
@@ -2061,12 +1908,52 @@ class miniscope_session:
             plt.xticks(fontsize=self.fsize - 4)
             plt.yticks(fontsize=self.fsize - 4)
             if plot_data:
-                if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi)):
-                    os.mkdir(self.path + '\\images\\events\\ROI' + str(roi))
-                if self.delim == '/':
-                    plt.savefig(self.path + '/images/events/ROI' + str(roi) + '/' + 'isi_hist_roi_' + str(roi),dpi=self.my_dpi)
-                else:
-                    plt.savefig(self.path + '\\images\\events\\ROI' + str(roi) + '\\' + 'isi_hist_roi_' + str(roi), dpi=self.my_dpi)
+                if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi))):
+                    os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi)))
+                plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi), 'isi_hist_roi_' + str(roi)), dpi=self.my_dpi)
+        return
+
+    def plot_isi_boxplots(self, roi, isi_events, session_type, animal, plot_data):
+        """Function to plot the all ISI distributions across the session for a certain ROI
+        Inputs:
+            roi: (int) ROI id
+            isi_events: (dataframe) with ISI values
+            session_type: (str) split or tied
+            animal: (str) with animal name
+            plot_data: boolean"""
+        if session_type == 'tied' and animal == 'MC8855':
+            pal = {1: 'darkgray', 2: 'darkgray', 3: 'darkgray', 4: 'crimson', 5: 'crimson', 6: 'crimson'}
+        if session_type == 'split' and animal != 'MC8855:':
+            pal = {1: 'darkgray', 2: 'darkgray', 3: 'darkgray', 4: 'darkgray', 5: 'darkgray', 6: 'darkgray',
+                   7: 'crimson', 8: 'crimson', 9: 'crimson', 10: 'crimson', 11: 'crimson', 12: 'crimson', 13: 'crimson',
+                   14: 'crimson', 15: 'crimson',
+                   16: 'crimson', 17: 'royalblue', 18: 'royalblue', 19: 'royalblue', 20: 'royalblue', 21: 'royalblue',
+                   22: 'royalblue', 23: 'royalblue', 24: 'royalblue', 25: 'royalblue', 26: 'royalblue'}
+        if session_type == 'tied' and animal != 'MC8855':
+            pal = {1: 'darkgray', 2: 'darkgray', 3: 'darkgray', 4: 'darkgray', 5: 'darkgray', 6: 'darkgray',
+                   7: 'crimson',
+                   8: 'crimson', 9: 'crimson', 10: 'crimson', 11: 'crimson', 12: 'crimson', 13: 'green',
+                   14: 'green', 15: 'green', 16: 'green', 17: 'green', 18: 'green'}
+        if session_type == 'split' and animal == 'MC8855':
+            pal = {1: 'darkgray', 2: 'darkgray', 3: 'darkgray', 4: 'crimson', 5: 'crimson', 6: 'crimson', 7: 'crimson',
+                   8: 'crimson', 9: 'crimson', 10: 'crimson', 11: 'crimson', 12: 'crimson',
+                   13: 'crimson', 14: 'royalblue', 15: 'royalblue', 16: 'royalblue', 17: 'royalblue', 18: 'royalblue',
+                   19: 'royalblue', 20: 'royalblue', 21: 'royalblue', 22: 'royalblue', 23: 'royalblue'}
+        fig, ax = plt.subplots(figsize=(20, 5), tight_layout=True)
+        sns.boxplot(x='trial', y='isi', data=isi_events.loc[isi_events['roi'] == 'ROI' + str(roi)], palette=pal)
+        ax.set_xlabel('Trial number', fontsize=self.fsize - 4)
+        ax.set_ylabel('IEI (s)', fontsize=self.fsize - 4)
+        ax.set_title('IEI distribution for ' + 'ROI' + str(roi), fontsize=self.fsize - 4)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.tick_params(axis='x', labelsize=self.fsize - 6)
+        ax.tick_params(axis='y', labelsize=self.fsize - 6)
+        if plot_data:
+            if not os.path.exists(os.path.join(self.path + 'images', 'events', 'ROI' + str(roi))):
+                os.mkdir(os.path.join(self.path + 'images', 'events', 'ROI' + str(roi)))
+            plt.savefig(os.path.join(self.path + 'images', 'events', 'ROI' + str(roi),
+                                     'isi_boxplot_' + 'roi_' + str(roi)),
+                        dpi=self.my_dpi)
         return
 
     def plot_cv_session(self, roi, isi_cv, trials, plot_name, plot_data):
@@ -2105,12 +1992,9 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if plot_data:
-            if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi)):
-                os.mkdir(self.path + '\\images\\events\\ROI' + str(roi))
-            if self.delim == '/':
-                plt.savefig(self.path + '/images/events/ROI' + str(roi) + '/' + plot_name + '_roi_' + str(roi), dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + '\\images\\events\\ROI' + str(roi) + '\\' + plot_name + '_roi_' + str(roi), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi))):
+                os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi)))
+            plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi), plot_name + '_roi_' + str(roi)), dpi=self.my_dpi)
         return
 
     def plot_isi_ratio_session(self, roi, isi_ratio, range_isiratio, trials, plot_data):
@@ -2154,12 +2038,9 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if plot_data:
-            if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi)):
-                os.mkdir(self.path + '\\images\\events\\ROI' + str(roi))
-            if self.delim == '/':
-                plt.savefig(self.path + '/images/events/ROI' + str(roi) + '/' + 'isi_ratio_roi_' + str(roi), dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + '\\images\\events\\ROI' + str(roi) + '\\' + 'isi_ratio_roi_' + str(roi), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi))):
+                os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi)))
+            plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi), 'isi_ratio_roi_' + str(roi)), dpi=self.my_dpi)
         return
 
     def compute_event_waveform(self, df_fiji, df_events, roi_plot, animal, session_type, trials_ses, trials, plot_data):
@@ -2215,12 +2096,9 @@ class miniscope_session:
             ax[i].tick_params(axis='both', which='major', labelsize=self.fsize - 4)
         plt.suptitle('ROI' + str(roi_plot), fontsize=self.fsize - 2)
         if plot_data:
-            if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi_plot)):
-                os.mkdir(self.path + '\\images\\events\\ROI' + str(roi_plot))
-            if self.delim == '/':
-                plt.savefig(self.path + '/images/events/ROI' + str(roi_plot) + '/' + 'event_waveform_roi_' + str(roi_plot), dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + '\\images\\events\\ROI' + str(roi_plot) + '\\' + 'event_waveform_roi_' + str(roi_plot), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot))):
+                os.mkdir(os.path.join(self.path, 'images', 'events', '\ROI' + str(roi_plot)))
+            plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot), 'event_waveform_roi_' + str(roi_plot)), dpi=self.my_dpi)
         return [cs_waveforms_mean_all, cs_waveforms_sem_all]
     
     def get_event_count_wholetrial(self, df_events, trials, roi_plot, plot_data):
@@ -2260,12 +2138,9 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if plot_data:
-            if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi_plot)):
-                os.mkdir(self.path + '\\images\\events\\ROI' + str(roi_plot))
-            if self.delim == '/':
-                plt.savefig(self.path + '/images/events/ROI' + str(roi_plot) + '/' + 'event_count_roi_' + str(roi_plot), dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + '\\images\\events\\ROI' + str(roi_plot) + '\\' + 'event_count_roi_' + str(roi_plot), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot))):
+                os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot)))
+            plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot), 'event_count_roi_' + str(roi_plot)), dpi=self.my_dpi)
         return
 
     def get_event_count_locomotion(self, df_events, trials, bcam_time, st_strides_trials, roi_plot, plot_data):
@@ -2322,13 +2197,10 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if plot_data:
-            if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi_plot)):
-                os.mkdir(self.path + '\\images\\events\\ROI' + str(roi_plot))
-            if self.delim == '/':
-                plt.savefig(self.path + '/images/events/ROI' + str(roi_plot) + '/' + 'event_count_loco_roi_' + str(roi_plot), dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + '\\images\\events\\ROI' + str(roi_plot) + '\\' + 'event_count_loco_roi_' + str(roi_plot), dpi=self.my_dpi)
-        return
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot))):
+                os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot)))
+            plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot), 'event_count_loco_roi_' + str(roi_plot)), dpi=self.my_dpi)
+        return event_count_clean
 
     def events_stride(self, df_events, st_strides_trials, sw_pts_trials, paw, roi_plot, align):
         """Align CS to stance, swing or stride period. It outputs the CS indexes for each
@@ -2418,12 +2290,9 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if plot_data:
-            if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi_plot)):
-                os.mkdir(self.path + '\\images\\events\\ROI' + str(roi_plot))
-            if self.delim == '/':
-                plt.savefig(self.path + '/images/events/ROI' + str(roi_plot) + '/' + 'event_prob_roi_' + str(roi_plot), dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + '\\images\\events\\ROI' + str(roi_plot) + '\\' + 'event_prob_roi_' + str(roi_plot), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot))):
+                os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot)))
+            plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot), 'event_prob_roi_' + str(roi_plot)), dpi=self.my_dpi)
         return event_proportion
 
     def raw_signal_align_st_sw(self, df_rawtrace, st_strides_trials, sw_strides_trials, time_window, paw, roi_plot, align, session_type, trials_ses, plot_data):
@@ -2490,13 +2359,11 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 12)
         plt.yticks(fontsize=self.fsize - 12)
         if plot_data:
-            if not os.path.exists(self.path + '\\images\\raw signal\\ROI' + str(roi_plot)):
-                os.mkdir(self.path + '\\images\\raw signal\\ROI' + str(roi_plot))
-            if self.delim == '/':
-                plt.savefig(self.path + '/images/raw signal/ROI' + str(roi_plot) + '/' + 'rawsignal_' + align + '_' + paw + '_window_' + str(time_window).replace('.', ',') + '_roi_' + str(roi_plot),
-                            dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + '\\images\\raw signal\\ROI' + str(roi_plot) + '\\' + 'rawsignal_' + align + '_' + paw + '_window_' + str(time_window).replace('.', ',') + '_roi_' + str(roi_plot),
+            if not os.path.exists(os.path.join(self.path, 'images', 'raw signal')):
+                os.mkdir(os.path.join(self.path, 'images', 'raw signal'))
+            if not os.path.exists(os.path.join(self.path, 'images', 'raw signal', 'ROI' + str(roi_plot))):
+                os.mkdir(os.path.join(self.path, 'images', 'raw signal', 'ROI' + str(roi_plot)))
+            plt.savefig(os.path.join(self.path, 'images', 'raw signal', 'ROI' + str(roi_plot), 'rawsignal_' + align + '_' + paw + '_window_' + str(time_window).replace('.', ',') + '_roi_' + str(roi_plot)),
                             dpi=self.my_dpi)
         return event_stride_all
 
@@ -2573,15 +2440,10 @@ class miniscope_session:
         ax[1].spines['top'].set_visible(False)
         ax[1].spines['left'].set_visible(False)
         if plot_data:
-            if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi_plot)):
-                os.mkdir(self.path + '\\images\\events\\ROI' + str(roi_plot))
-            if self.delim == '/':
-                plt.savefig(self.path + '/images/events/ROI' + str(roi_plot) + '/' + 'event_' + align + '_' + paw + '_binsize_' + str(
-                    bin_size) + '_window_' + str(time_window).replace('.', ',') + '_roi_' + str(roi_plot),
-                            dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + '\\images\\events\\ROI' + str(roi_plot) + '\\' + 'event_' + align + '_' + paw + '_binsize_' + str(
-                    bin_size) + '_window_' + str(time_window).replace('.', ',') + '_roi_' + str(roi_plot),
+            if not os.path.exists(os.path.join(self.path + 'images', 'events', 'ROI' + str(roi_plot))):
+                os.mkdir(os.path.join(self.path + 'images', 'events', 'ROI' + str(roi_plot)))
+            plt.savefig(os.path.join(self.path + 'images', 'events', 'ROI' + str(roi_plot), 'event_' + align + '_' + paw + '_binsize_' + str(
+                    bin_size) + '_window_' + str(time_window).replace('.', ',') + '_roi_' + str(roi_plot)),
                             dpi=self.my_dpi)
         return event_stride_all
 
@@ -2693,13 +2555,9 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 12)
         plt.yticks(fontsize=self.fsize - 12)
         if plot_data:
-            if not os.path.exists(self.path + '\\images\\events\\ROI' + str(roi)):
-                os.mkdir(self.path + '\\images\\events\\ROI' + str(roi))
-            if self.delim == '/':
-                plt.savefig(self.path + '/images/events/ROI' + str(roi) + '/'  + 'event_paw_trajectory_' + '_roi_' + str(roi) + '_trial_' + str(trial),
-                            dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + '\\images\\events\\ROI' + str(roi) + '\\'  + 'event_paw_trajectory_' + '_roi_' + str(roi) + '_trial_' + str(trial),
+            if not os.path.exists(os.path.join(self.path + 'images', 'events', 'ROI' + str(roi))):
+                os.mkdir(os.path.join(self.path + 'images', 'events', 'ROI' + str(roi)))
+            plt.savefig(os.path.join(self.path + 'images', 'events', 'ROI' + str(roi), 'event_paw_trajectory_' + '_roi_' + str(roi) + '_trial_' + str(trial)),
                             dpi=self.my_dpi)
         return
 
@@ -2931,13 +2789,9 @@ class miniscope_session:
         ax5.spines['top'].set_visible(False)
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
-        if not os.path.exists(self.path + 'EXTRACT\\Fiji ROI bgsub'):
-            os.mkdir(self.path + 'EXTRACT\\Fiji ROI bgsub')
-        if self.delim == '/':
-            plt.savefig(self.path + 'EXTRACT/Fiji ROI bgsub/' + 'fiji_bgsub_' + str(rfiji) + '_T' + str(trial),
-                        dpi=self.my_dpi)
-        else:
-            plt.savefig(self.path + 'EXTRACT\\Fiji ROI bgsub\\' + 'fiji_bgsub_' + str(rfiji) + '_T' + str(trial),
+        if not os.path.exists(os.path.join(self.path, 'EXTRACT', 'Fiji ROI bgsub')):
+            os.mkdir(os.path.join(self.path, 'EXTRACT', 'Fiji ROI bgsub'))
+        plt.savefig(os.path.join(self.path, 'EXTRACT', 'Fiji ROI bgsub' + 'fiji_bgsub_' + str(rfiji) + '_T' + str(trial)),
                         dpi=self.my_dpi)
         return
 
@@ -3012,16 +2866,16 @@ class miniscope_session:
                 np.max(roi_trace_bgsub_arr) - np.min(roi_trace_bgsub_arr))
         trace_roi = trace[rext, :]
         # compute events in fiji bgsub and extract trace
-        timeT = 10
-        [JoinedPosSet_fiji, JoinedNegSet_fiji, F_Values_fiji] = ST.SlopeThreshold(roi_trace_bgsub_minmax,
-                                                                                  amp_fiji, timeT,
-                                                                                  CollapSeq=True, acausal=False,
-                                                                                  verbose=0, graph=None)
-        events_fiji = ST.event_detection_calcium_trace(roi_trace_bgsub_minmax, JoinedPosSet_fiji, timeT)
-        [JoinedPosSet_ext, JoinedNegSet_ext, F_Values_ext] = ST.SlopeThreshold(trace_roi, amp_ext,
-                                                                               timeT, CollapSeq=True, acausal=False,
-                                                                               verbose=0, graph=None)
-        events_ext = ST.event_detection_calcium_trace(trace_roi, JoinedPosSet_ext, timeT)
+        [Ev_Onset_fiji, IncremSet_fiji] = ST.SlopeThreshold(roi_trace_bgsub_minmax, self.sr)
+        if len(Ev_Onset_fiji) > 0:
+            events_fiji = np.zeros(len(roi_trace_bgsub_minmax))
+            events_fiji_list = self.event_detection_calcium_trace(roi_trace_bgsub_minmax, Ev_Onset_fiji, IncremSet_fiji, 3)
+            events_fiji[events_fiji_list] = 1
+        [Ev_Onset_ext, IncremSet_ext] = ST.SlopeThreshold(trace_roi, self.sr)
+        if len(Ev_Onset_fiji) > 0:
+            events_ext = np.zeros(len(trace_roi))
+            events_ext_list = self.event_detection_calcium_trace(trace_roi, Ev_Onset_ext, IncremSet_ext, 3)
+            events_ext[events_ext_list] = 1
         if plot_data:
             fig = plt.figure(figsize=(20, 10), tight_layout=True)
             gs = fig.add_gridspec(2, 4)
@@ -3083,14 +2937,10 @@ class miniscope_session:
             ax4.spines['top'].set_visible(False)
             plt.xticks(fontsize=self.fsize - 4)
             plt.yticks(fontsize=self.fsize - 4)
-            if not os.path.exists(self.path + 'EXTRACT\\EXTRACT comparisons'):
-                os.mkdir(self.path + 'EXTRACT\\EXTRACT comparisons')
-            if self.delim == '/':
-                plt.savefig(self.path + 'EXTRACT/EXTRACT comparisons/' + 'fiji_bgsub_' + str(rfiji) + '_ext_' + str(
-                    rext) + '_T' + str(trial), dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + 'EXTRACT\\EXTRACT comparisons\\' + 'fiji_bgsub_' + str(rfiji) + '_ext_' + str(
-                    rext) + '_T' + str(trial), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'EXTRACT', 'EXTRACT comparisons')):
+                os.mkdir(os.path.join(self.path, 'EXTRACT', 'EXTRACT comparisons'))
+            plt.savefig(os.path.join(self.path, 'EXTRACT', 'EXTRACT comparisons', 'fiji_bgsub_' + str(rfiji) + '_ext_' + str(
+                    rext) + '_T' + str(trial)), dpi=self.my_dpi)
         return coord_fiji, roi_trace_bgsub_minmax, trace_roi
 
     def plot_events_roi_examples_bgsub(self, trial_plot, roi_plot, frame_time, df_fiji_norm, df_fiji_bgsub_norm,
@@ -3125,13 +2975,8 @@ class miniscope_session:
                            df_fiji_bgsub_norm.loc[df_fiji_bgsub_norm['trial'] == trial_plot, 'ROI' + str(roi_plot)])[
                            e] + 5, s=20, color='red')
         if plot_data:
-            if self.delim == '/':
-                plt.savefig(
-                    self.path + 'images/events/' + 'event_example_trial' + str(trial_plot) + '_roi' + str(roi_plot),
-                    dpi=self.my_dpi)
-            else:
-                plt.savefig(
-                    self.path + 'images\\events\\' + 'event_example_trial' + str(trial_plot) + '_roi' + str(roi_plot),
+            plt.savefig(
+                    os.path.join(self.path, 'images', 'events', 'event_example_trial' + str(trial_plot) + '_roi' + str(roi_plot)),
                     dpi=self.my_dpi)
 
     def plot_events_roi_trial_bgsub(self, trial_plot, frame_time, df_fiji_norm, df_fiji_bgsub_norm, df_events_all,
@@ -3191,11 +3036,7 @@ class miniscope_session:
         ax[1].spines['left'].set_visible(False)
         plt.tick_params(axis='y', labelsize=0, length=0)
         if plot_data:
-            if self.delim == '/':
-                plt.savefig(self.path + 'images/events/' + 'events_trial' + str(trial_plot),
-                            dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + 'images\\events\\' + 'events_trial' + str(trial_plot),
+            plt.savefig(os.path.join(self.path, 'images', 'events', 'events_trial' + str(trial_plot)),
                             dpi=self.my_dpi)
         return
 
@@ -3211,7 +3052,7 @@ class miniscope_session:
         df_dff_trial = df_dff.loc[df_dff['trial'] == trial_plot, 'ROI' + str(roi_plot)]  # get dFF for the desired trial
         fig, ax = plt.subplots(figsize=(20, 10), tight_layout=True)
         ax.plot(frame_time[trial_plot - 1], df_dff_trial, color='black')
-        events_plot = np.where(df_events.loc[df_dff['trial'] == trial_plot, 'ROI' + str(roi_plot)])[0]
+        events_plot = np.where(df_events.loc[df_events['trial'] == trial_plot, 'ROI' + str(roi_plot)])[0]
         for e in events_plot:
             ax.scatter(frame_time[trial_plot - 1][e], df_dff_trial.iloc[e], s=20,
                        color='gray')
@@ -3226,11 +3067,7 @@ class miniscope_session:
         ax.spines['left'].set_visible(False)
         plt.tick_params(axis='y', labelsize=0, length=0)
         if plot_data:
-            if self.delim == '/':
-                plt.savefig(self.path + 'images/events/' + 'events_trial' + str(trial_plot) + '_roi' + str(roi_plot),
-                            dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path + 'images\\events\\' + 'events_trial' + str(trial_plot) + '_roi' + str(roi_plot),
+            plt.savefig(os.path.join(self.path, 'images', 'events', 'events_trial' + str(trial_plot) + '_roi' + str(roi_plot)),
                             dpi=self.my_dpi)
         return
 
@@ -3239,11 +3076,10 @@ class miniscope_session:
         Inputs:
             animal_name: string with the animal name to sort"""
         matfiles = glob.glob(self.path+'*.mat')
-        delim = self.path[-1]
         matfiles_animal = []
         days_animal = []
         for f in matfiles:
-            path_split = f.split(delim)
+            path_split = f.split(self.delim)
             filename = path_split[-1][:-4]
             filename_split = filename.split('_')
             if filename_split[0] == animal_name:
@@ -3255,50 +3091,6 @@ class miniscope_session:
             tr_ind = np.where(days_ordered[f] == days_animal)[0][0]
             files_ordered.append(matfiles_animal[tr_ind])
         return files_ordered
-
-    # def check_f0(self):
-    #     """Print ROIs from suite2p (1st trial) with respective 10% percentile"""
-    #     fsize = 20
-    #     delim = self.path[-1]
-    #     if delim == '/':
-    #         path_f0 = self.path+'/F0/'
-    #     else:
-    #         path_f0 = self.path+'\\F0\\'
-    #     if not os.path.exists(path_f0):
-    #         os.mkdir(path_f0)
-    #     if delim == '/':
-    #         path_F = 'Suite2p/suite2p/plane0/F.npy'
-    #     else:
-    #         path_F = 'Suite2p\\suite2p\\plane0\\F.npy'
-    #     if delim == '/':       
-    #         path_iscell = 'Suite2p/suite2p/plane0/iscell.npy'
-    #     else:       
-    #         path_iscell = 'Suite2p\\suite2p\\plane0\\iscell.npy'    
-    #     F = np.load(self.path+path_F)
-    #     iscell = np.load(self.path+path_iscell)
-    #     iscell_idx = np.where(iscell[:,0])[0]
-    #     F_cell = F[iscell_idx,:]       
-    #     #F0 using percentile for each ROI
-    #     F0_roi_perc = []
-    #     for c in range(len(iscell_idx)):
-    #         F0_roi_perc.append(np.percentile(F_cell[c,:],10))
-    #     for r in range(np.shape(F_cell)[0]):
-    #         fig, ax = plt.subplots(figsize = (10,5), tight_layout=True)
-    #         xaxis = np.linspace(0,60,60*self.sr)
-    #         plt.plot(xaxis,F_cell[r,:60*self.sr], color = 'black', linewidth=2)
-    #         plt.axhline(y=F0_roi_perc[r])
-    #         ax.set_xlabel('Time (s)', fontsize = fsize-4)
-    #         ax.set_ylabel('Fluorescence', fontsize = fsize-4)
-    #         ax.set_title('ROI from suite2p '+str(r+1))
-    #         ax.spines['right'].set_visible(False)
-    #         ax.spines['top'].set_visible(False)
-    #         plt.tick_params(axis='y', labelsize=fsize-4)
-    #         plt.tick_params(axis='x', labelsize=fsize-4)
-    #         if delim == '/':        
-    #             plt.savefig(path_f0+ 'ROI_f0_'+str(r+1), dpi=self.my_dpi)
-    #         else:
-    #             plt.savefig(path_f0+ 'ROI_f0_'+str(r+1), dpi=self.my_dpi)   
-    #         plt.close('all')
 
     # def get_background_signal(self, weight, coord_cell):
     #     """ Get neuropil background signals for each cell coordinates. Low-pass filter of

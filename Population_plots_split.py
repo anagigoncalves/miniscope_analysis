@@ -10,8 +10,6 @@ import seaborn as sns
 # path inputs
 path = 'I:\\TM RAW FILES\\split ipsi fast\\MC8855\\2021_04_05\\'
 path_loco = 'I:\\TM TRACKING FILES\\split ipsi fast\\split ipsi fast S1 050421\\'
-# path = 'I:\\TM RAW FILES\\tied baseline\\MC8855\\2021_04_04\\'
-# path_loco = 'I:\\TM TRACKING FILES\\tied baseline\\tied baseline S1 040421\\'
 session_type = 'split'
 delim = path[-1]
 version_mscope = 'v4'
@@ -76,23 +74,20 @@ elif len(trials) < 23:
     trials_baseline = trials
 
 # Population plots  split ipsi fast
-# after manual check replot the refined ROI selection
-[df_extract, df_events_extract, df_extract_rawtrace, trials, coord_ext, reg_th, amp_arr, reg_bad_frames] = mscope.load_processed_files()
-event_proportion_all = np.load(mscope.path + '\\processed files\\' + 'event_proportion_allrois.npy')
-rois_names = np.array([2,4,7,9,12,19,24,39,44,60,67,68,73,74,87,100,104,105,114,123,128,129,131,135,142,161,172,3,5,8,10,11,13,14,15,16,18,20,21,23,25,27,28,34,37,40,42,45,50,51,53,61,62,63,70,72,75,76,77,78,80,83,88,94,97,109,116,117,118,121,124,127,150,151,159,166,170])
-[df_extract_new, df_extract_new_raw, df_events_extract_new, coord_ext_new, keep_roi_idx] = mscope.refine_roi_list(rois_names, df_extract, df_extract_rawtrace, df_events_extract, coord_ext)
-df_extract_new_norm = mscope.norm_traces(df_extract_new,'min_max', 'trial')
-df_extract_new_raw_norm = mscope.norm_traces(df_extract_new_raw,'zscore', 'trial')
-mscope.plot_stacked_traces(frame_time, df_extract_new_norm, trials_ses, plot_data)  # input can be one trial or trials_ses
-mscope.plot_rois_ref_image(ref_image, coord_ext_new, plot_data)
+[df_extract, df_events_extract, df_extract_rawtrace, df_events_extract_rawtrace, trials, coord_ext, reg_th,
+ reg_bad_frames] = mscope.load_processed_files()
+df_extract_rawtrace_detrended = mscope.compute_detrended_traces(df_extract_rawtrace, 'df_extract_rawtrace_detrended')
+df_extract_rawtrace_detrended_norm = mscope.norm_traces(df_extract_rawtrace_detrended, 'min_max', 'session')
+df_extract_rawtrace_detrended_zscore = mscope.norm_traces(df_extract_rawtrace_detrended, 'min_max', 'session')
+df_extract_norm = mscope.norm_traces(df_extract, 'min_max', 'session')
 
 data_1st_5s_list_raw = []
 frames_len = []
 trial_sum_raw = []
 for t in trials:
-    data_1st_5s_list_raw.append(np.transpose(df_extract_new_raw_norm.loc[df_extract_new_raw_norm['trial']==t].iloc[:5*mscope.sr,2:]))
-    frames_len.append(np.shape(df_extract_new_raw_norm.loc[df_extract_new_raw_norm['trial']==t].iloc[:5*mscope.sr,2:])[0])
-    trial_sum_raw.append(df_extract_new_raw_norm.loc[df_extract_new_raw_norm['trial'] == t].iloc[:5 * mscope.sr, 2:].sum().sum())
+    data_1st_5s_list_raw.append(np.transpose(df_extract_rawtrace_detrended_zscore.loc[df_extract_rawtrace_detrended_zscore['trial']==t].iloc[:5*mscope.sr,2:]))
+    frames_len.append(np.shape(df_extract_rawtrace_detrended_zscore.loc[df_extract_rawtrace_detrended_zscore['trial']==t].iloc[:5*mscope.sr,2:])[0])
+    trial_sum_raw.append(df_extract_rawtrace_detrended_zscore.loc[df_extract_rawtrace_detrended_zscore['trial'] == t].iloc[:5 * mscope.sr, 2:].sum().sum())
 data_1st_5s_raw = np.concatenate(data_1st_5s_list_raw,axis=1)
 cum_frames_len = np.cumsum(frames_len)
 fig, ax = plt.subplots(figsize=(25, 12), tight_layout=True)
@@ -100,7 +95,7 @@ sns.heatmap(data_1st_5s_raw, cbar='False')
 for t in trials:
     ax.vlines(cum_frames_len[t-1], *ax.get_ylim(), color='white', linestyle='dashed')
 ax.set_title('1st 5s of each trial raw trace', fontsize=mscope.fsize - 4)
-ax.set_yticklabels(df_extract_new_norm.columns[2::2], rotation=45, fontsize=mscope.fsize - 10)
+ax.set_yticklabels(df_extract_rawtrace_detrended_zscore.columns[2::2], rotation=45, fontsize=mscope.fsize - 10)
 plt.setp(ax.get_xticklabels(), visible=False)
 ax.tick_params(axis='x', which='x', length=0)
 ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
@@ -110,7 +105,7 @@ fig, ax = plt.subplots(figsize=(25, 5), tight_layout=True)
 # ax.plot(np.arange(0,np.shape(data_1st_5s_raw)[1]),np.sum(data_1st_5s_raw,axis=0), color='black', linewidth=2)
 ax.bar(np.arange(0,np.shape(data_1st_5s_raw)[1]),np.sum(data_1st_5s_raw,axis=0), color='black', linewidth=2)
 for t in trials:
-    ax.vlines(cum_frames_len[t-1], ymin = -140, ymax = 400, color='black', linestyle='dashed')
+    ax.vlines(cum_frames_len[t-1], ymin = 0, ymax = 110, color='black', linestyle='dashed')
 ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
@@ -119,10 +114,11 @@ plt.yticks(fontsize=mscope.fsize - 8)
 if save_data:
     plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_raw_sum_frames_bar', dpi=mscope.my_dpi)
 fig, ax = plt.subplots(figsize=(25, 5), tight_layout=True)
-# ax.plot(np.arange(75,np.shape(data_1st_5s_raw)[1],150),trial_sum_raw, color='black', marker='o', linewidth=2)
-ax.bar(np.arange(75,np.shape(data_1st_5s_raw)[1],150),trial_sum_raw, width = 140, color='black')
+ax.bar(np.arange(75,trials_ses[0]*150,150),trial_sum_raw[:trials_ses[0]], width = 150, color='darkgrey')
+ax.bar(np.arange(trials_ses[0]*150+75,trials_ses[2]*150,150),trial_sum_raw[trials_ses[0]:trials_ses[2]], width = 150, color='crimson')
+ax.bar(np.arange(trials_ses[2]*150+75,np.shape(data_1st_5s_raw)[1],150),trial_sum_raw[trials_ses[2]:], width = 150, color='blue')
 for t in trials:
-    ax.vlines(cum_frames_len[t-1], ymin = -5600, ymax = 12700, color='black', linestyle='dashed')
+    ax.vlines(cum_frames_len[t-1], ymin = 0, ymax = 6000, color='black', linestyle='dashed')
 ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
@@ -130,6 +126,17 @@ plt.xticks(fontsize=mscope.fsize - 8)
 plt.yticks(fontsize=mscope.fsize - 8)
 if save_data:
     plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_raw_sum_all_bar', dpi=mscope.my_dpi)
+fig, ax = plt.subplots(figsize=(25, 5), tight_layout=True)
+ax.plot(np.arange(75,np.shape(data_1st_5s_raw)[1],150),trial_sum_raw, color='black', marker='o', linewidth=2)
+for t in trials:
+    ax.vlines(cum_frames_len[t-1], ymin = 1000, ymax = 7000, color='black', linestyle='dashed')
+ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+plt.xticks(fontsize=mscope.fsize - 8)
+plt.yticks(fontsize=mscope.fsize - 8)
+if save_data:
+    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_raw_sum_all_line', dpi=mscope.my_dpi)
 fig, ax = plt.subplots(figsize=(7, 10), tight_layout=True)
 ax.plot(np.arange(0,np.shape(data_1st_5s_raw)[1]),np.sum(data_1st_5s_raw,axis=0), color='black', linewidth=2)
 for t in np.array([3,13]):
@@ -159,9 +166,9 @@ data_1st_5s_list_dconv = []
 frames_len = []
 trial_sum_dconv = []
 for t in trials:
-    data_1st_5s_list_dconv.append(np.transpose(df_extract_new_norm.loc[df_extract_new_norm['trial']==t].iloc[:5*mscope.sr,2:]))
-    frames_len.append(np.shape(df_extract_new_norm.loc[df_extract_new_norm['trial']==t].iloc[:5*mscope.sr,2:])[0])
-    trial_sum_dconv.append(df_extract_new_norm.loc[df_extract_new_norm['trial'] == t].iloc[:5 * mscope.sr, 2:].sum().sum())
+    data_1st_5s_list_dconv.append(np.transpose(df_extract_norm.loc[df_extract_norm['trial']==t].iloc[:5*mscope.sr,2:]))
+    frames_len.append(np.shape(df_extract_norm.loc[df_extract_norm['trial']==t].iloc[:5*mscope.sr,2:])[0])
+    trial_sum_dconv.append(df_extract_norm.loc[df_extract_norm['trial'] == t].iloc[:5 * mscope.sr, 2:].sum().sum())
 data_1st_5s_dconv = np.concatenate(data_1st_5s_list_dconv,axis=1)
 cum_frames_len = np.cumsum(frames_len)
 fig, ax = plt.subplots(figsize=(25, 12), tight_layout=True)
@@ -169,14 +176,13 @@ sns.heatmap(data_1st_5s_dconv, cbar='False')
 for t in trials:
     ax.vlines(cum_frames_len[t-1], *ax.get_ylim(), color='white', linestyle='dashed')
 ax.set_title('1st 5s of each trial deconvolved trace', fontsize=mscope.fsize - 4)
-ax.set_yticklabels(df_extract_new_norm.columns[2::2], rotation=45, fontsize=mscope.fsize - 10)
+ax.set_yticklabels(df_extract_norm[2::2], rotation=45, fontsize=mscope.fsize - 10)
 plt.setp(ax.get_xticklabels(), visible=False)
 ax.tick_params(axis='x', which='x', length=0)
 ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
 if save_data:
     plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s', dpi=mscope.my_dpi)
 fig, ax = plt.subplots(figsize=(25, 5), tight_layout=True)
-# ax.plot(np.arange(0,np.shape(data_1st_5s_dconv)[1]),np.sum(data_1st_5s_dconv,axis=0), color='black', linewidth=2)
 ax.bar(np.arange(0,np.shape(data_1st_5s_dconv)[1]),np.sum(data_1st_5s_dconv,axis=0), color='black')
 for t in trials:
     ax.vlines(cum_frames_len[t-1], ymin = 0, ymax = 14, color='black', linestyle='dashed')
@@ -188,7 +194,17 @@ plt.yticks(fontsize=mscope.fsize - 8)
 if save_data:
     plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_sum_frames_bar', dpi=mscope.my_dpi)
 fig, ax = plt.subplots(figsize=(25, 5), tight_layout=True)
-# ax.plot(np.arange(75,np.shape(data_1st_5s_dconv)[1],150),trial_sum_dconv, color='black', marker='o', linewidth=2)
+ax.plot(np.arange(0,np.shape(data_1st_5s_dconv)[1]),np.sum(data_1st_5s_dconv,axis=0), color='black', linewidth=2)
+for t in trials:
+    ax.vlines(cum_frames_len[t-1], ymin = 0, ymax = 20, color='black', linestyle='dashed')
+ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+plt.xticks(fontsize=mscope.fsize - 8)
+plt.yticks(fontsize=mscope.fsize - 8)
+if save_data:
+    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_sum_frames_line', dpi=mscope.my_dpi)
+fig, ax = plt.subplots(figsize=(25, 5), tight_layout=True)
 ax.bar(np.arange(75,np.shape(data_1st_5s_dconv)[1],150),trial_sum_dconv, color='black', width=140)
 for t in trials:
     ax.vlines(cum_frames_len[t-1], ymin = 400, ymax = 1200, color='black', linestyle='dashed')
@@ -199,6 +215,17 @@ plt.xticks(fontsize=mscope.fsize - 8)
 plt.yticks(fontsize=mscope.fsize - 8)
 if save_data:
     plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_sum_all_bar', dpi=mscope.my_dpi)
+fig, ax = plt.subplots(figsize=(25, 5), tight_layout=True)
+ax.plot(np.arange(75,np.shape(data_1st_5s_dconv)[1],150),trial_sum_dconv, color='black', marker='o', linewidth=2)
+for t in trials:
+    ax.vlines(cum_frames_len[t-1], ymin = 0, ymax = 800, color='black', linestyle='dashed')
+ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+plt.xticks(fontsize=mscope.fsize - 8)
+plt.yticks(fontsize=mscope.fsize - 8)
+if save_data:
+    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_sum_all_line', dpi=mscope.my_dpi)
 fig, ax = plt.subplots(figsize=(10, 10), tight_layout=True)
 ax.plot(np.arange(0,np.shape(data_1st_5s_dconv)[1]),np.sum(data_1st_5s_dconv,axis=0), color='black', linewidth=2)
 for t in np.array([3,13]):
@@ -223,3 +250,86 @@ plt.xticks(fontsize=mscope.fsize - 8)
 plt.yticks(fontsize=mscope.fsize - 8)
 if save_data:
     plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_raw_sum_all_revyaxis', dpi=mscope.my_dpi)
+
+
+data_1st_5s_list_raw_events = []
+frames_len = []
+trial_sum_raw_events = []
+for t in trials:
+    data_1st_5s_list_raw_events.append(np.transpose(df_events_extract_rawtrace.loc[df_events_extract_rawtrace['trial']==t].iloc[:5*mscope.sr,2:]))
+    frames_len.append(np.shape(df_events_extract_rawtrace.loc[df_events_extract_rawtrace['trial']==t].iloc[:5*mscope.sr,2:])[0])
+    trial_sum_raw_events.append(df_events_extract_rawtrace.loc[df_events_extract_rawtrace['trial'] == t].iloc[:5 * mscope.sr, 2:].sum().sum())
+data_1st_5s_raw_events = np.concatenate(data_1st_5s_list_raw_events,axis=1)
+cum_frames_len = np.cumsum(frames_len)
+fig, ax = plt.subplots(figsize=(25, 12), tight_layout=True)
+sns.heatmap(data_1st_5s_raw_events, cbar='False')
+for t in trials:
+    ax.vlines(cum_frames_len[t-1], *ax.get_ylim(), color='white', linestyle='dashed')
+ax.set_title('1st 5s of each trial raw events', fontsize=mscope.fsize - 4)
+ax.set_yticklabels(df_events_extract_rawtrace[2::2], rotation=45, fontsize=mscope.fsize - 10)
+plt.setp(ax.get_xticklabels(), visible=False)
+ax.tick_params(axis='x', which='x', length=0)
+ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
+if save_data:
+    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_raw_events', dpi=mscope.my_dpi)
+fig, ax = plt.subplots(figsize=(25, 5), tight_layout=True)
+ax.bar(np.arange(75,trials_ses[0]*150,150),trial_sum_raw_events[:trials_ses[0]], width = 150, color='darkgrey')
+ax.bar(np.arange(trials_ses[0]*150+75,trials_ses[2]*150,150),trial_sum_raw_events[trials_ses[0]:trials_ses[2]], width = 150, color='crimson')
+ax.bar(np.arange(trials_ses[2]*150+75,np.shape(data_1st_5s_raw)[1],150),trial_sum_raw_events[trials_ses[2]:], width = 150, color='blue')
+for t in trials:
+    ax.vlines(cum_frames_len[t-1], ymin = 0, ymax = 2300, color='black', linestyle='dashed')
+ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+plt.xticks(fontsize=mscope.fsize - 8)
+plt.yticks(fontsize=mscope.fsize - 8)
+if save_data:
+    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_raw_events_sum_all_bar', dpi=mscope.my_dpi)
+
+plt.figure(figsize=(10, 10), tight_layout=True)
+for r in range(len(coord_ext)):
+    plt.scatter(coord_ext[r][:, 0], coord_ext[r][:, 1], s=1, alpha=0.6)
+    plt.text(coord_ext[r][0, 0], coord_ext[r][0, 1], str(r))
+plt.imshow(ref_image, cmap='gray',
+           extent=[0, np.shape(ref_image)[1] / mscope.pixel_to_um, np.shape(ref_image)[0] / mscope.pixel_to_um, 0])
+
+
+centroid_ext = mscope.get_roi_centroids(coord_ext)
+distance_neurons = mscope.distance_neurons(centroid_ext, 0)
+th_cluster = 0.5
+colormap_cluster = 'magma'
+cmap = plt.get_cmap(colormap_cluster)
+colors_new = [cmap(i) for i in np.linspace(0, 1, int(np.floor(20 + 1)))]
+trial_plot = 3
+[colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended_zscore, centroid_ext, distance_neurons, trial_plot, th_cluster, colormap_cluster, plot_data)
+furthest_neuron = np.argmax(np.array(centroid_ext)[:, 0])
+furthest_neuron = 183
+neuron_order = np.argsort(distance_neurons[furthest_neuron, :])
+roi_list = df_extract_rawtrace_detrended_zscore.columns[2:]
+roi_list_ordered = roi_list[neuron_order]
+idx_ordered = idx_roi_cluster[neuron_order]
+dFF_trial = df_extract_rawtrace_detrended_zscore.loc[df_extract_rawtrace_detrended_zscore['trial'] == trial_plot]  # get dFF for the desired trial
+colors = []
+colors.append((0.390384, 0.100379, 0.501864, 1.0)) #purple dark
+colors.append((0, 0, 0, 1.0)) #black
+colors.append((0.716387, 0.214982, 0.47529, 1.0)) #purple light
+colors.append((0.967671, 0.439703, 0.35981, 1.0)) #salmon
+colors.append((0.994738, 0.62435, 0.427397, 1.0)) #orange center
+colors.append((0.967671, 0.439703, 0.35981, 1.0))
+fig, ax = plt.subplots(figsize=(10, 20), tight_layout=True)
+count_r = 0
+for r in roi_list_ordered:
+    plt.plot(frame_time[trial_plot - 1], dFF_trial[r] + (count_r/2), color='black')
+    plt.plot(np.arange(-3,0), np.ones(3)*count_r/2, color=colors[idx_ordered[count_r] - 1], linewidth=4)
+    count_r += 1
+ax.set_xlabel('Time (s)', fontsize=mscope.fsize - 4)
+ax.set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=mscope.fsize - 4)
+plt.xticks(fontsize=mscope.fsize - 4)
+plt.yticks(fontsize=mscope.fsize - 4)
+plt.setp(ax.get_yticklabels(), visible=False)
+ax.tick_params(axis='y', which='y', length=0)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.spines['left'].set_visible(False)
+plt.tick_params(axis='y', labelsize=0, length=0)
+plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'traces_ncmposter'), dpi=mscope.my_dpi)

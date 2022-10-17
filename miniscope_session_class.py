@@ -156,41 +156,6 @@ class miniscope_session:
         return p_corrcoef
 
     @staticmethod
-    def norm_traces(df, norm_name, axis):
-        """Function to compute the norm traces.
-            Inputs:
-                df: dataframe containing for each column ROI/pixel raw trace
-                norm_name: (str) min_max or zscore
-                axis: (str) "session" for single session norm or "trial" for each trial norm"""
-        df_norm = pd.DataFrame(columns=df.columns, index=df.index.to_list())
-        trials = df['trial'].unique()
-        if axis == 'trial':
-            for col in df.columns[2:]:
-                trace_alltrials = []
-                for t in trials:
-                    mean_value = df.loc[df['trial'] == t, col].mean(axis=0, skipna=True)
-                    std_value = df.loc[df['trial'] == t, col].std(axis=0, skipna=True)
-                    min_value = df.loc[df['trial'] == t, col].min(axis=0, skipna=True)
-                    max_value = df.loc[df['trial'] == t, col].max(axis=0, skipna=True)
-                    if norm_name == 'zscore':
-                        trace_alltrials.extend((df.loc[df['trial'] == t, col] - mean_value) / std_value)
-                    if norm_name == 'min_max':
-                        trace_alltrials.extend((df.loc[df['trial'] == t, col] - min_value) / (max_value-min_value))
-                df_norm[col] = trace_alltrials
-        if axis == 'session':
-            for col in df.columns[2:]:
-                mean_value = df[col].mean(axis=0, skipna=True)
-                std_value = df[col].std(axis=0, skipna=True)
-                min_value = df[col].min(axis=0, skipna=True)
-                max_value = df[col].max(axis=0, skipna=True)
-                if norm_name == 'zscore':
-                    df_norm[col] = (df[col] - mean_value)/std_value
-                if norm_name == 'min_max':
-                    df_norm[col] = (df[col] - min_value)/(max_value-min_value)
-        df_norm.iloc[:,:2] = df.iloc[:,:2]
-        return df_norm
-
-    @staticmethod
     def compute_dFF(df_fiji):
         """Function to compute dF/F for each trial using as F0 the 10th percentile of the signal for that trial"""
         trials = df_fiji['trial'].unique()
@@ -430,6 +395,48 @@ class miniscope_session:
                     peaks.append(JoinedPosSet[i] + peak_idx)
         return np.array(peaks)
 
+    def norm_traces(self, df, norm_name, axis):
+        """Function to compute the norm traces.
+            Inputs:
+                df: dataframe containing for each column ROI/pixel raw trace
+                norm_name: (str) min_max or zscore
+                axis: (str) "session" for single session norm or "trial" for each trial norm"""
+        df_norm = pd.DataFrame(columns=df.columns, index=df.index.to_list())
+        trials = df['trial'].unique()
+        if axis == 'trial':
+            for col in df.columns[2:]:
+                trace_alltrials = []
+                for t in trials:
+                    mean_value = df.loc[df['trial'] == t, col].mean(axis=0, skipna=True)
+                    std_value = df.loc[df['trial'] == t, col].std(axis=0, skipna=True)
+                    min_value = df.loc[df['trial'] == t, col].min(axis=0, skipna=True)
+                    max_value = df.loc[df['trial'] == t, col].max(axis=0, skipna=True)
+                    if norm_name == 'zscore':
+                        trace_alltrials.extend(
+                            self.inpaint_nans((df.loc[df['trial'] == t, col] - mean_value) / std_value))
+                    if norm_name == 'min_max':
+                        trace_alltrials.extend((df.loc[df['trial'] == t, col] - min_value) / (max_value - min_value))
+                df_norm[col] = trace_alltrials
+            df_norm.iloc[:, :2] = df.iloc[:, :2]
+        if axis == 'session':
+            for col in df.columns[2:]:
+                mean_value = df[col].mean(axis=0, skipna=True)
+                std_value = df[col].std(axis=0, skipna=True)
+                min_value = df[col].min(axis=0, skipna=True)
+                max_value = df[col].max(axis=0, skipna=True)
+                if norm_name == 'zscore':
+                    df_norm[col] = (df[col] - mean_value) / std_value
+                if norm_name == 'min_max':
+                    df_norm[col] = (df[col] - min_value) / (max_value - min_value)
+            df_norm.iloc[:, :2] = df.iloc[:, :2]
+            for col in df.columns[2:]:
+                if norm_name == 'zscore':
+                    trace_alltrials = []
+                    for t in trials:
+                        trace_alltrials.extend(self.inpaint_nans(df_norm.loc[df_norm['trial'] == t, col]))
+                    df_norm[col] = trace_alltrials
+        return df_norm
+
     def get_animal_id(self):
         animal_name = self.path.split(self.delim)[3]
         return animal_name
@@ -620,6 +627,7 @@ class miniscope_session:
             ax.tick_params(axis='y', labelsize=self.fsize - 6)
             plt.savefig(os.path.join(self.path, 'images', 'corr_trace_motionreg_shifts'),
                             dpi=self.my_dpi)
+
     def get_ref_image(self):
         """Function to get the session reference image from suite2p"""
         path_ops = os.path.join('Suite2p', 'suite2p', 'plane0', 'ops.npy')
@@ -1202,18 +1210,20 @@ class miniscope_session:
             plt.savefig(os.path.join(self.path, 'images', 'rois_fov'), dpi=self.my_dpi)
         return
 
-    def plot_single_roi_ref_image(self, ref_image, coord_cell, roi_plot, roi_list, print_plots):
+    def plot_single_roi_ref_image(self, ref_image, coord_cell, roi_plot, traces_type, roi_list, colors_cluster, idx_roi_cluster_ordered, print_plots):
         """Plot a single ROI on top of reference image.
         Inputs:
             ref_image: reference image
             coord_cell: coordinates for each ROI
             roi_plot: int
             roi_list: list with ROIs
+            colors_cluster: (list) with colors for each cluster
+            idx_roi_cluster_ordered. (list) with the idx for each roi organized medial-lateral
             print_plots (boolean)"""
         roi_list_new = [np.int64(s.strip('ROI')) for s in roi_list]
         roi_idx = np.where(np.array(roi_list_new) == roi_plot)[0][0]
         plt.figure(figsize=(10, 10), tight_layout=True)
-        plt.scatter(coord_cell[roi_idx][:, 0], coord_cell[roi_idx][:, 1], s=1, color='blue')
+        plt.scatter(coord_cell[roi_idx][:, 0], coord_cell[roi_idx][:, 1], s=1, color=colors_cluster[idx_roi_cluster_ordered[roi_idx] - 1])
         plt.imshow(ref_image, cmap='gray',
                    extent=[0, np.shape(ref_image)[1] / self.pixel_to_um, np.shape(ref_image)[0] / self.pixel_to_um, 0])
         plt.title('ROIs grouped by activity', fontsize=self.fsize)
@@ -1222,15 +1232,18 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if print_plots:
-            if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot))):
-                os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot)))
-            plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot), 'roi_fov'), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot))):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot)))
+            plt.savefig(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot), 'roi_fov'), dpi=self.my_dpi)
 
-    def plot_heatmap_baseline(self, df_dFF, plot_data):
+    def plot_heatmap_baseline(self, df_dFF, traces_type, plot_data):
         """Plots the heatmap for all ROIs given the their traces (min-max normalized).
         Plots the first 6 trials - baseline trials or fully tied, depending on the session
         Input:
             df_dFF: dataframe with traces
+            traces_type: (str) raw or deconv
             plot_data: boolean"""
         trials = np.unique(df_dFF['trial'])
         fig, ax = plt.subplots(2, 3, figsize=(25, 12), tight_layout=True)
@@ -1247,15 +1260,16 @@ class miniscope_session:
             ax[t - 1].set_yticklabels(df_dFF.columns[2::2], fontsize=self.fsize - 4)
             ax[t - 1].set_xlabel('Time (s)', fontsize=self.fsize - 4)
         if plot_data:
-            plt.savefig(os.path.join(self.path, 'images', 'heatmap_1st_6trials_minmax_traces_allROIs'),
+            plt.savefig(os.path.join(self.path, 'images', 'heatmap_1st_6trials_minmax_traces_allROIs_' + traces_type),
                             dpi=self.my_dpi)
         return
 
-    def plot_stacked_traces(self, frame_time, df_dFF, trials_plot, print_plots):
+    def plot_stacked_traces(self, frame_time, df_dFF, traces_type, trials_plot, print_plots):
         """"Funtion to compute stacked traces for a single trial or for the transition trials in the session.
         Input:
         frame_time: list with mscope timestamps
         df_dFF: dataframe with calcium trace
+        traces_type: (str) raw or deconv
         trials_plot: int or list
         print_plots: boolean"""
         if isinstance(trials_plot,np.ndarray):
@@ -1299,13 +1313,14 @@ class miniscope_session:
         if print_plots:
             if not os.path.exists(self.path + 'images'):
                 os.mkdir(self.path + 'images')
-            plt.savefig(os.path.join(self.path, 'images', 'dFF_stacked_traces'), dpi=self.my_dpi)
+            plt.savefig(os.path.join(self.path, 'images', 'dFF_stacked_traces_' + traces_type), dpi=self.my_dpi)
 
-    def plot_stacked_traces_singleROI(self, frame_time, df_dFF, roi_plot, session_type, trials, print_plots):
+    def plot_stacked_traces_singleROI(self, frame_time, df_dFF, traces_type, roi_plot, session_type, trials, print_plots):
         """"Funtion to compute stacked traces for all trials in a session for a single ROI.
         Input:
         frame_time: list with mscope timestamps
         df_dFF: dataframe with calcium trace
+        traces_type: (str) raw or deconv
         roi_plot: int or list
         print_plots: boolean"""
         greys = mp.cm.get_cmap('Greys', 14)
@@ -1313,46 +1328,52 @@ class miniscope_session:
         blues = mp.cm.get_cmap('Blues', 23)
         oranges = mp.cm.get_cmap('Oranges', 23)
         purples = mp.cm.get_cmap('Purples', 23)
-        if session_type=='tied':
+        if session_type == 'tied':
             if len(trials) == 6:
-                colors_session = [greys(4), greys(7), greys(12), oranges(7), oranges(13), oranges(23)]
+                colors_session = [greys(12), greys(7), greys(4), oranges(23), oranges(13), oranges(7)]
             if len(trials) == 12:
-                colors_session = [greys(4), greys(7), greys(12), oranges(7), oranges(13), oranges(23), purples(7), purples(13), purples(23)]
+                colors_session = [greys(12), greys(7), greys(4), oranges(23), oranges(13), oranges(7), purples(23),
+                                  purples(13), purples(7)]
             if len(trials) == 18:
-                colors_session = [greys(4), greys(6), greys(8), greys(10), greys(12), greys(14),
-                                  oranges(6), oranges(10), oranges(13), oranges(16), oranges(19), oranges(23),
-                                  purples(6), purples(10), purples(13), purples(16), purples(19), purples(23)]
+                colors_session = [greys(14), greys(12), greys(10), greys(8), greys(6), greys(4), oranges(23),
+                                  oranges(19),
+                                  oranges(16), oranges(13), oranges(10), oranges(6), purples(23), purples(19),
+                                  purples(16), purples(13), purples(10), purples(6)]
         if session_type == 'split':
             if len(trials) == 23:
-                colors_session = [greys(4), greys(7), greys(12), reds(5), reds(7), reds(9), reds(11), reds(13), reds(15),
-                              reds(17), reds(19), reds(21), reds(23), blues(5), blues(7), blues(9), blues(11),
-                              blues(13),
-                              blues(15), blues(17), blues(19), blues(21), blues(23)]
+                colors_session = [greys(12), greys(7), greys(4), reds(23), reds(21), reds(19), reds(17), reds(15),
+                                  reds(13),
+                                  reds(11), reds(9), reds(7), reds(5), blues(23), blues(21), blues(19), blues(17),
+                                  blues(15), blues(13),
+                                  blues(11), blues(9), blues(7), blues(5)]
             if len(trials) == 26:
-                colors_session = [greys(4), greys(6), greys(8), greys(10), greys(12), greys(14), reds(5), reds(7), reds(9), reds(11), reds(13), reds(15),
-                              reds(17), reds(19), reds(21), reds(23), blues(5), blues(7), blues(9), blues(11),
-                              blues(13),
-                              blues(15), blues(17), blues(19), blues(21), blues(23)]
-        fig, ax = plt.subplots(figsize=(15, 30),  tight_layout=True)
-        count_t = 0
-        for t in trials:
-            dFF_trial = df_dFF.loc[df_dFF['trial'] == t,'ROI'+str(roi_plot)]  # get dFF for the desired trial
-            ax.plot(frame_time[t - 1], dFF_trial + count_t, color=colors_session[count_t])
-            ax.set_xlabel('Time (s)', fontsize=self.fsize - 4)
-            ax.set_ylabel('Calcium trace for ROI ' + str(roi_plot), fontsize=self.fsize - 4)
-            plt.xticks(fontsize=self.fsize - 4)
-            plt.yticks(fontsize=self.fsize - 4)
-            plt.setp(ax.get_yticklabels(), visible=False)
-            ax.tick_params(axis='y', which='y', length=0)
+                colors_session = [greys(14), greys(12), greys(10), greys(8), greys(6), greys(4), reds(23), reds(21),
+                                  reds(19), reds(17), reds(15), reds(13),
+                                  reds(11), reds(9), reds(7), reds(5), blues(23), blues(21), blues(19), blues(17),
+                                  blues(15), blues(13),
+                                  blues(11), blues(9), blues(7), blues(5)]
+        fig, ax = plt.subplots(figsize=(15, 20), tight_layout=True)
+        count_t = len(trials)
+        for count_c, t in enumerate(trials):
+            dFF_trial = df_dFF.loc[df_dFF['trial'] == t, 'ROI' + str(roi_plot)]  # get dFF for the desired trial
+            ax.plot(frame_time[t - 1], dFF_trial + count_t, color=colors_session[count_c])
+            ax.set_yticks(trials)
+            ax.set_yticklabels(map(str, trials[::-1]))
+            ax.set_xlabel('Time (s)', fontsize=self.fsize - 2)
+            ax.set_ylabel('Trials', fontsize=self.fsize - 2)
+            ax.set_title('Calcium trace for ROI ' + str(roi_plot), fontsize=self.fsize - 2)
+            ax.spines['left'].set_visible(False)
+            plt.xticks(fontsize=self.fsize - 2)
+            plt.yticks(fontsize=self.fsize - 2)
             ax.spines['right'].set_visible(False)
             ax.spines['top'].set_visible(False)
-            ax.spines['left'].set_visible(False)
-            plt.tick_params(axis='y', labelsize=0, length=0)
-            count_t += 1
+            count_t -= 1
         if print_plots:
-            if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot))):
-                os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot)))
-            plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot), 'dFF_stacked_traces'), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot))):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot)))
+            plt.savefig(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot), 'dFF_stacked_traces_' + traces_type), dpi=self.my_dpi)
         return
 
     def compute_roi_clustering(self, df_dFF, centroid_cell, distance_neurons, trial, th_cluster, colormap_cluster, plot_data):
@@ -1366,7 +1387,6 @@ class miniscope_session:
         colormap: (str) with colormap name
         plot_data: boolean"""
         data = np.transpose(np.array(df_dFF.loc[df_dFF['trial'] == trial].iloc[:, 2:]))
-        xaxis_crosscorr = np.linspace(-len(data[0, :]), len(data[0, :]), len(data[0, :]) * 2 - 1)
         roi_nr = np.shape(data)[0]
         roi_list = np.arange(1, np.shape(data)[0] + 1)
         p_corrcoef = np.zeros((roi_nr, roi_nr))
@@ -1374,9 +1394,6 @@ class miniscope_session:
         for roi1 in roi_list:
             for roi2 in roi_list:
                 idx_nonan = np.where(~np.isnan(data[0, :]))[0]
-                cross_corr = correlate(self.z_score(data[roi1 - 1, idx_nonan], 1),
-                                       self.z_score(data[roi2 - 1, idx_nonan], 1), mode='full',
-                                       method='direct')
                 p_corrcoef[roi1 - 1, roi2 - 1] = np.cov(data[roi1 - 1, idx_nonan], data[roi2 - 1, idx_nonan])[0][
                                                      1] / np.sqrt(
                     np.var(data[roi1 - 1, idx_nonan]) * np.var(data[roi2 - 1, idx_nonan]))
@@ -1413,6 +1430,43 @@ class miniscope_session:
                 os.mkdir(os.path.join(self.path, 'images', 'cluster'))
             plt.savefig(os.path.join(self.path, 'images', 'cluster', 'pcorrcoef_ordered'), dpi=self.my_dpi)
         return colors, idx
+
+    def get_rois_clusters_mediolateral(self, df_traces, idx_roi_cluster, centroid_ext):
+        """Get the ROIs names that belong to which cluster. Clusters organized by their mediolateral distance
+        Inputs:
+            df_traces: dataframe with the traces for all ROIs
+            idx_roi_cluster: list of cluster if for each ROI index
+            centroid_ext: list of coordinates of ROIs centroids"""
+        roi_names = df_traces.columns[2:]
+        clusters_id = np.unique(idx_roi_cluster)
+        clusters_rois = []
+        for i in clusters_id:
+            single_cluster_rois = []
+            for count_r, r in enumerate(roi_names):
+                if idx_roi_cluster[count_r] == i:
+                    single_cluster_rois.append(r)
+            clusters_rois.append(single_cluster_rois)
+        centroid_cluster = []
+        for c in range(len(clusters_rois)):
+            centroid_cluster.append(
+                centroid_ext[np.where(df_traces.columns[2:] == clusters_rois[c][0])[0][0]][
+                    0])  # mediolateral coordinates of a ROI in cluster
+        # order it by their mediolateral distance
+        centroid_cluster_order = np.argsort(centroid_cluster)
+        clusters_rois_ordered = []
+        for i in centroid_cluster_order:
+            clusters_rois_ordered.append(clusters_rois[i])
+        idx_roi_cluster_list = []
+        for c in range(len(clusters_rois_ordered)):
+            idx_roi_cluster_list.append([c + 1] * len(clusters_rois_ordered[c]))
+        idx_roi_cluster_flat = np.array(sum(idx_roi_cluster_list, []))
+        clusters_rois_ordered_flat = sum(clusters_rois_ordered, [])
+        roi_clusters_ordered_flat = []
+        for count_r, r in enumerate(clusters_rois_ordered_flat):
+            roi_clusters_ordered_flat.append(np.int64(r[3:]))
+        idx_roi_cluster_ordered = idx_roi_cluster_flat[np.argsort(roi_clusters_ordered_flat)]
+        np.save(os.path.join(self.path, 'processed files', 'clusters_rois.npy'), clusters_rois_ordered)
+        return [clusters_rois_ordered, idx_roi_cluster_ordered]
 
     def plot_roi_clustering_spatial(self, ref_image, colors, idx, coord_cell, print_plots):
         """Plot ROIs on top of reference image color coded by the result of the hierarchical clustering
@@ -1455,10 +1509,8 @@ class miniscope_session:
         idx_ordered = idx[neuron_order]
         dFF_trial = df_dFF_norm.loc[df_dFF_norm['trial'] == trial_plot]  # get dFF for the desired trial
         fig, ax = plt.subplots(figsize=(10, 20), tight_layout=True)
-        count_r = 0
-        for r in roi_list_ordered:
+        for count_r, r in enumerate(roi_list_ordered):
             plt.plot(frame_time[trial_plot - 1], dFF_trial[r] + count_r, color=colors[idx_ordered[count_r] - 1])
-            count_r += 1
         ax.set_xlabel('Time (s)', fontsize=self.fsize - 4)
         ax.set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=self.fsize - 4)
         plt.xticks(fontsize=self.fsize - 4)
@@ -1547,7 +1599,7 @@ class miniscope_session:
         df_fiji = pd.concat([df_fiji1, df_fiji2], axis=1)
         return [df_fiji, roi_trace_bgsub_arr]
 
-    def save_processed_files(self, df_extract, trials, df_events_extract, df_extract_rawtrace, df_events_extract_rawtrace, coord_ext, th, idx_to_nan):
+    def save_processed_files(self, df_extract, trials, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, th, idx_to_nan):
         """Saves calcium traces, ROI coordinates, trial number and motion frames.
         Saves them under path/processed files
         Inputs:
@@ -1563,6 +1615,8 @@ class miniscope_session:
         df_extract.to_csv(os.path.join(self.path, 'processed files', 'df_extract.csv'), sep=',', index = False)
         df_events_extract.to_csv(os.path.join(self.path, 'processed files', 'df_events_extract.csv'), sep=',', index=False)
         df_extract_rawtrace.to_csv(os.path.join(self.path, 'processed files', 'df_extract_raw.csv'), sep=',', index=False)
+        df_extract_rawtrace_detrended.to_csv(os.path.join(self.path, 'processed files', 'df_extract_rawtrace_detrended.csv'), sep=',',
+                                   index=False)
         df_events_extract_rawtrace.to_csv(os.path.join(self.path, 'processed files', 'df_events_extract_rawtrace.csv'), sep=',', index=False)
         np.save(os.path.join(self.path, 'processed files', 'coord_ext.npy'), coord_ext, allow_pickle = True)
         np.save(os.path.join(self.path, 'processed files', 'trials.npy'), trials)
@@ -1575,12 +1629,13 @@ class miniscope_session:
         df_extract = pd.read_csv(os.path.join(self.path, 'processed files', 'df_extract.csv'))
         df_events_extract = pd.read_csv(os.path.join(self.path, 'processed files', 'df_events_extract.csv'))
         df_extract_rawtrace = pd.read_csv(os.path.join(self.path, 'processed files', 'df_extract_raw.csv'))
+        df_extract_rawtrace_detrended = pd.read_csv(os.path.join(self.path, 'processed files', 'df_extract_rawtrace_detrended.csv'))
         df_events_extract_rawtrace = pd.read_csv(os.path.join(self.path, 'processed files', 'df_events_extract_rawtrace.csv'))
         coord_ext = np.load(os.path.join(self.path, 'processed files', 'coord_ext.npy'), allow_pickle=True)
         trials = np.load(os.path.join(self.path, 'processed files', 'trials.npy'))
         reg_th = np.load(os.path.join(self.path, 'processed files', 'reg_th.npy'))
         reg_bad_frames = np.load(os.path.join(self.path, 'processed files', 'frames_to_exclude.npy'))
-        return df_extract, df_events_extract, df_extract_rawtrace, df_events_extract_rawtrace, trials, coord_ext, reg_th, reg_bad_frames
+        return df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, trials, coord_ext, reg_th, reg_bad_frames
 
     def save_processed_files_ext_fiji(self, df_fiji, df_trace_bgsub, df_extract, df_events_all, df_events_unsync, trials, coord_fiji, coord_ext, th, idx_to_nan):
         """Saves calcium traces, ROI coordinates, trial number and motion frames.
@@ -1702,10 +1757,11 @@ class miniscope_session:
             df_events.to_csv(self.path + '\\processed files\\' + csv_name + '.csv', sep=',', index=False)
         return df_events
 
-    def compute_isi(self, df_events, csv_name):
+    def compute_isi(self, df_events, traces_type, csv_name):
         """Function to compute the inter-spike interval of the dataframe with spikes. Outputs a similiar dataframe
         Inputs: 
             df_events: events (dataframe)
+            traces_type: (str) raw or deconv
             csv_name: (str) filename of the dataframe"""
         isi_all = []
         roi_all = []
@@ -1718,7 +1774,7 @@ class miniscope_session:
                 roi_all.extend(np.repeat(r, len(isi)))
         dict_isi = {'isi': isi_all, 'roi': roi_all, 'trial': trial_all}
         isi_df = pd.DataFrame(dict_isi)  # create dataframe with isi, roi id and trial id
-        isi_df.to_csv(self.path + '\\processed files\\' + csv_name + '.csv', sep=',', index=False)
+        isi_df.to_csv(self.path + '\\processed files\\' + csv_name + '_' + traces_type + '.csv', sep=',', index=False)
         return isi_df
 
     @staticmethod
@@ -1771,12 +1827,13 @@ class miniscope_session:
         isi_ratio_df = pd.DataFrame(dict_isi_ratio) # create dataframe with isi, roi id and trial id
         return isi_ratio_df
 
-    def plot_isi_single_trial(self, trial, roi, isi_df, plot_data):
+    def plot_isi_single_trial(self, trial, roi, isi_df, traces_type, plot_data):
         """Function to plot the ISI distribution of a single trial for a certain ROI
         Inputs:
             trial: (int) trial id
             roi: (int) ROI id
             isi_df: (dataframe) with ISI values
+            traces_type: (str) raw or deconv
             plot_data: boolean"""
         binwidth = 0.05
         barWidth = 0.05
@@ -1797,16 +1854,19 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if plot_data:
-            if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi))):
-                os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi)))
-            plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi), 'isi_hist_roi_' + str(roi) + '_trial_' + str(trial)), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi))):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi)))
+            plt.savefig(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi), 'isi_hist_roi_' + str(roi) + '_trial_' + str(trial)), dpi=self.my_dpi)
         return
 
-    def plot_isi_session(self, roi, isi_df, animal, session_type, trials, trials_ses, plot_data):
+    def plot_isi_session(self, roi, isi_df, traces_type, animal, session_type, trials, trials_ses, plot_data):
         """Function to plot the ISI distribution across the session for a certain ROI
         Inputs:
             roi: (int) ROI id
             isi_df: (dataframe) with ISI values
+            traces_type: (str) raw or deconv
             animal: (str) with animal name
             session_type: (str) split or tied
             trials: list of trials
@@ -1845,10 +1905,11 @@ class miniscope_session:
             plt.xticks(fontsize=self.fsize - 4)
             plt.yticks(fontsize=self.fsize - 4)
             if plot_data:
-                if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi))):
-                    print(os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi))))
-                    os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi)))
-                plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi),  'isi_hist_roi_' + str(roi)), dpi=self.my_dpi)
+                if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+                    os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+                if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi))):
+                    os.mkdir(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi)))
+                plt.savefig(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi),  'isi_hist_roi_' + str(roi)), dpi=self.my_dpi)
         if session_type == 'tied' and animal == 'MC8855':
             isi_data_sp1 = np.array(isi_df.loc[(isi_df['trial'] > 0) & (
                         isi_df['trial'] < trials_ses[0] + 1) & (isi_df['roi'] == 'ROI' + str(roi)), 'isi'])
@@ -1874,9 +1935,11 @@ class miniscope_session:
             plt.xticks(fontsize=self.fsize - 4)
             plt.yticks(fontsize=self.fsize - 4)
             if plot_data:
-                if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi))):
-                    os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi)))
-                plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi), 'isi_hist_roi_' + str(roi)), dpi=self.my_dpi)
+                if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+                    os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+                if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi))):
+                    os.mkdir(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi)))
+                plt.savefig(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi), 'isi_hist_roi_' + str(roi)), dpi=self.my_dpi)
         if session_type == 'tied' and animal != 'MC8855':
             isi_data_sp1 = np.array(isi_df.loc[(isi_all_events['trial'] > 0) & (
                         isi_df['trial'] < trials_ses[0] + 1) & (isi_df['roi'] == 'ROI' + str(roi)), 'isi'])
@@ -1908,37 +1971,51 @@ class miniscope_session:
             plt.xticks(fontsize=self.fsize - 4)
             plt.yticks(fontsize=self.fsize - 4)
             if plot_data:
-                if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi))):
-                    os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi)))
-                plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi), 'isi_hist_roi_' + str(roi)), dpi=self.my_dpi)
+                if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+                    os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+                if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi))):
+                    os.mkdir(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi)))
+                plt.savefig(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi), 'isi_hist_roi_' + str(roi)), dpi=self.my_dpi)
         return
 
-    def plot_isi_boxplots(self, roi, isi_events, session_type, animal, plot_data):
+    def plot_isi_boxplots(self, roi, isi_events, traces_type, session_type, trials, plot_data):
         """Function to plot the all ISI distributions across the session for a certain ROI
         Inputs:
             roi: (int) ROI id
             isi_events: (dataframe) with ISI values
+            traces_type: (str) raw or deconv
             session_type: (str) split or tied
-            animal: (str) with animal name
+            trials: (list)
             plot_data: boolean"""
-        if session_type == 'tied' and animal == 'MC8855':
-            pal = {1: 'darkgray', 2: 'darkgray', 3: 'darkgray', 4: 'crimson', 5: 'crimson', 6: 'crimson'}
-        if session_type == 'split' and animal != 'MC8855:':
-            pal = {1: 'darkgray', 2: 'darkgray', 3: 'darkgray', 4: 'darkgray', 5: 'darkgray', 6: 'darkgray',
-                   7: 'crimson', 8: 'crimson', 9: 'crimson', 10: 'crimson', 11: 'crimson', 12: 'crimson', 13: 'crimson',
-                   14: 'crimson', 15: 'crimson',
-                   16: 'crimson', 17: 'royalblue', 18: 'royalblue', 19: 'royalblue', 20: 'royalblue', 21: 'royalblue',
-                   22: 'royalblue', 23: 'royalblue', 24: 'royalblue', 25: 'royalblue', 26: 'royalblue'}
-        if session_type == 'tied' and animal != 'MC8855':
-            pal = {1: 'darkgray', 2: 'darkgray', 3: 'darkgray', 4: 'darkgray', 5: 'darkgray', 6: 'darkgray',
-                   7: 'crimson',
-                   8: 'crimson', 9: 'crimson', 10: 'crimson', 11: 'crimson', 12: 'crimson', 13: 'green',
-                   14: 'green', 15: 'green', 16: 'green', 17: 'green', 18: 'green'}
-        if session_type == 'split' and animal == 'MC8855':
-            pal = {1: 'darkgray', 2: 'darkgray', 3: 'darkgray', 4: 'crimson', 5: 'crimson', 6: 'crimson', 7: 'crimson',
-                   8: 'crimson', 9: 'crimson', 10: 'crimson', 11: 'crimson', 12: 'crimson',
-                   13: 'crimson', 14: 'royalblue', 15: 'royalblue', 16: 'royalblue', 17: 'royalblue', 18: 'royalblue',
-                   19: 'royalblue', 20: 'royalblue', 21: 'royalblue', 22: 'royalblue', 23: 'royalblue'}
+        greys = mp.cm.get_cmap('Greys', 14)
+        reds = mp.cm.get_cmap('Reds', 23)
+        blues = mp.cm.get_cmap('Blues', 23)
+        oranges = mp.cm.get_cmap('Oranges', 23)
+        purples = mp.cm.get_cmap('Purples', 23)
+        if session_type == 'tied':
+            if len(trials) == 6:
+                pal = {1: greys(12), 2: greys(7), 3: greys(4), 4: oranges(23), 5: oranges(13), 6: oranges(7)}
+            if len(trials) == 12:
+                pal = {1: greys(12), 2: greys(7), 3: greys(4), 4: oranges(23), 5: oranges(13), 6: oranges(7), 7: purples(23),
+                                  8: purples(13), 9: purples(7)}
+            if len(trials) == 18:
+                pal = {1: greys(14), 2: greys(12), 3: greys(10), 4: greys(8), 5: greys(6), 6: greys(4), 7: oranges(23),
+                                  8: oranges(19),
+                                  9: oranges(16), 10: oranges(13), 11: oranges(10), 12: oranges(6), 13: purples(23), 14: purples(19),
+                                  15: purples(16), 16: purples(13), 17: purples(10), 18: purples(6)}
+        if session_type == 'split':
+            if len(trials) == 23:
+                pal = {1: greys(12), 2: greys(7), 3: greys(4), 4: reds(23), 5: reds(21), 6: reds(19), 7: reds(17), 8: reds(15),
+                                  9: reds(13),
+                                  10: reds(11), 11: reds(9), 12: reds(7), 13: reds(5), 14: blues(23), 15: blues(21), 16: blues(19), 17: blues(17),
+                                  18: blues(15), 19: blues(13),
+                                  20: blues(11), 21: blues(9), 22: blues(7), 23: blues(5)}
+            if len(trials) == 26:
+                pal = {1: greys(14), 2: greys(12), 3: greys(10), 4: greys(8), 5: greys(6), 6: greys(4), 7: reds(23), 8: reds(21),
+                                  9: reds(19), 10: reds(17), 11: reds(15), 12: reds(13),
+                                  13: reds(11), 14: reds(9), 15: reds(7), 16: reds(5), 17: blues(23), 18: blues(21), 19: blues(19), 20: blues(17),
+                                  21: blues(15), 22: blues(13),
+                                  23: blues(11), 24: blues(9), 25: blues(7), 26: blues(5)}
         fig, ax = plt.subplots(figsize=(20, 5), tight_layout=True)
         sns.boxplot(x='trial', y='isi', data=isi_events.loc[isi_events['roi'] == 'ROI' + str(roi)], palette=pal)
         ax.set_xlabel('Trial number', fontsize=self.fsize - 4)
@@ -1949,38 +2026,57 @@ class miniscope_session:
         ax.tick_params(axis='x', labelsize=self.fsize - 6)
         ax.tick_params(axis='y', labelsize=self.fsize - 6)
         if plot_data:
-            if not os.path.exists(os.path.join(self.path + 'images', 'events', 'ROI' + str(roi))):
-                os.mkdir(os.path.join(self.path + 'images', 'events', 'ROI' + str(roi)))
-            plt.savefig(os.path.join(self.path + 'images', 'events', 'ROI' + str(roi),
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+            if not os.path.exists(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi))):
+                os.mkdir(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi)))
+            plt.savefig(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi),
                                      'isi_boxplot_' + 'roi_' + str(roi)),
                         dpi=self.my_dpi)
         return
 
-    def plot_cv_session(self, roi, isi_cv, trials, plot_name, plot_data):
+    def plot_cv_session(self, roi, isi_cv, traces_type, session_type, trials, plot_name, plot_data):
         """Function to plot the ISI distribution across the session for a certain ROI
         Inputs:
             roi: (int) ROI id
             isi_cv: (array) with CV values
+            traces_type: (str) raw or deconv
+            session_type: (str) tied or split
             trials: list of trials
             plot_name: such as 'cv' or 'cv2'
             plot_data: boolean"""
-        if len(trials) == 23:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
-                           'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
-                           'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue']
-        if len(trials) == 26:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'crimson', 'crimson',
-                           'crimson', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
-                           'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue']
-        if len(trials) == 6:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'orange', 'orange', 'orange']
-        if len(trials) == 18:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'lightblue', 'lightblue',
-                           'lightblue', 'lightblue', 'lightblue', 'lightblue',
-                           'orange', 'orange', 'orange', 'orange', 'orange', 'orange']
+        greys = mp.cm.get_cmap('Greys', 14)
+        reds = mp.cm.get_cmap('Reds', 23)
+        blues = mp.cm.get_cmap('Blues', 23)
+        oranges = mp.cm.get_cmap('Oranges', 23)
+        purples = mp.cm.get_cmap('Purples', 23)
+        if session_type == 'tied':
+            if len(trials) == 6:
+                colors_session = [greys(12), greys(7), greys(4), oranges(23), oranges(13), oranges(7)]
+            if len(trials) == 12:
+                colors_session = [greys(12), greys(7), greys(4), oranges(23), oranges(13), oranges(7), purples(23),
+                                  purples(13), purples(7)]
+            if len(trials) == 18:
+                colors_session = [greys(14), greys(12), greys(10), greys(8), greys(6), greys(4), oranges(23),
+                                  oranges(19),
+                                  oranges(16), oranges(13), oranges(10), oranges(6), purples(23), purples(19),
+                                  purples(16), purples(13), purples(10), purples(6)]
+        if session_type == 'split':
+            if len(trials) == 23:
+                colors_session = [greys(12), greys(7), greys(4), reds(23), reds(21), reds(19), reds(17), reds(15),
+                                  reds(13),
+                                  reds(11), reds(9), reds(7), reds(5), blues(23), blues(21), blues(19), blues(17),
+                                  blues(15), blues(13),
+                                  blues(11), blues(9), blues(7), blues(5)]
+            if len(trials) == 26:
+                colors_session = [greys(14), greys(12), greys(10), greys(8), greys(6), greys(4), reds(23), reds(21),
+                                  reds(19), reds(17), reds(15), reds(13),
+                                  reds(11), reds(9), reds(7), reds(5), blues(23), blues(21), blues(19), blues(17),
+                                  blues(15), blues(13),
+                                  blues(11), blues(9), blues(7), blues(5)]
         fig, ax = plt.subplots(figsize=(15, 5), tight_layout=True)
         for t in trials:
-            plt.bar(t - 0.5, isi_cv.loc[(isi_cv['roi']=='ROI'+str(roi))&(isi_cv['trial']==t),'isi_cv'], width=1, color=colors_bars[t - 1], edgecolor='white')
+            plt.bar(t - 0.5, isi_cv.loc[(isi_cv['roi']=='ROI'+str(roi))&(isi_cv['trial']==t),'isi_cv'], width=1, color=colors_session[t - 1], edgecolor='white')
         ax.set_xticks(np.arange(0.5, len(trials) + 0.5))
         ax.set_xticklabels(list(map(str, trials)))
         plt.xlim([0, len(trials) + 1])
@@ -1992,40 +2088,58 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if plot_data:
-            if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi))):
-                os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi)))
-            plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi), plot_name + '_roi_' + str(roi)), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi))):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi)))
+            plt.savefig(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi), plot_name + '_roi_' + str(roi)), dpi=self.my_dpi)
         return
 
-    def plot_isi_ratio_session(self, roi, isi_ratio, range_isiratio, trials, plot_data):
+    def plot_isi_ratio_session(self, roi, isi_ratio, traces_type, session_type, range_isiratio, trials, plot_data):
         """Function to plot the ISI ratio between a certain range across the session
         for a certain ROI
         Inputs:
             roi: (int) ROI id
             isi_ratio: (dataframe) with ISI ratio values
+            traces_type: (str) raw or deconv
+            session_type: (str) tied or split
             range_isiratio: list with the range values
             trials: list of trials
             plot_data: boolean"""
-        if len(trials) == 23:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
-                           'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
-                           'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue']
-        if len(trials) == 26:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'crimson', 'crimson',
-                           'crimson', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
-                           'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue']
-        if len(trials) == 6:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'orange', 'orange', 'orange']
-        if len(trials) == 18:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'lightblue',
-                           'lightblue',
-                           'lightblue', 'lightblue', 'lightblue', 'lightblue',
-                           'orange', 'orange', 'orange', 'orange', 'orange', 'orange']
+        greys = mp.cm.get_cmap('Greys', 14)
+        reds = mp.cm.get_cmap('Reds', 23)
+        blues = mp.cm.get_cmap('Blues', 23)
+        oranges = mp.cm.get_cmap('Oranges', 23)
+        purples = mp.cm.get_cmap('Purples', 23)
+        if session_type == 'tied':
+            if len(trials) == 6:
+                colors_session = [greys(12), greys(7), greys(4), oranges(23), oranges(13), oranges(7)]
+            if len(trials) == 12:
+                colors_session = [greys(12), greys(7), greys(4), oranges(23), oranges(13), oranges(7), purples(23),
+                                  purples(13), purples(7)]
+            if len(trials) == 18:
+                colors_session = [greys(14), greys(12), greys(10), greys(8), greys(6), greys(4), oranges(23),
+                                  oranges(19),
+                                  oranges(16), oranges(13), oranges(10), oranges(6), purples(23), purples(19),
+                                  purples(16), purples(13), purples(10), purples(6)]
+        if session_type == 'split':
+            if len(trials) == 23:
+                colors_session = [greys(12), greys(7), greys(4), reds(23), reds(21), reds(19), reds(17), reds(15),
+                                  reds(13),
+                                  reds(11), reds(9), reds(7), reds(5), blues(23), blues(21), blues(19), blues(17),
+                                  blues(15), blues(13),
+                                  blues(11), blues(9), blues(7), blues(5)]
+            if len(trials) == 26:
+                colors_session = [greys(14), greys(12), greys(10), greys(8), greys(6), greys(4), reds(23), reds(21),
+                                  reds(19), reds(17), reds(15), reds(13),
+                                  reds(11), reds(9), reds(7), reds(5), blues(23), blues(21), blues(19), blues(17),
+                                  blues(15), blues(13),
+                                  blues(11), blues(9), blues(7), blues(5)]
         fig, ax = plt.subplots(figsize=(15, 5), tight_layout=True)
         for t in trials:
             plt.bar(t - 0.5, np.array(isi_ratio.loc[(isi_ratio['trial'] == t) & (
                         isi_ratio['roi'] == 'ROI' + str(roi)), 'isi_ratio'])[0], width=1,
-                    color=colors_bars[t - 1], edgecolor='white')
+                    color=colors_session[t - 1], edgecolor='white')
         ax.set_xticks(np.arange(0.5, len(trials) + 0.5))
         ax.set_xticklabels(list(map(str, trials)))
         plt.xlim([0, len(trials) + 1])
@@ -2038,15 +2152,18 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if plot_data:
-            if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi))):
-                os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi)))
-            plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi), 'isi_ratio_roi_' + str(roi)), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi))):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi)))
+            plt.savefig(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi), 'isi_ratio_roi_' + str(roi)), dpi=self.my_dpi)
         return
 
-    def compute_event_waveform(self, df_fiji, df_events, roi_plot, animal, session_type, trials_ses, trials, plot_data):
+    def compute_event_waveform(self, df_fiji, traces_type, df_events, roi_plot, animal, session_type, trials_ses, trials, plot_data):
         """Function to compute the complex-spike waveform from the deconvolution and dFF
         Inputs:
             df_fiji: dataframe with normalized trace
+            traces_type: (str) raw or deconv
             df_events: dataframe with events
             roi_plot: (int) with ROI to plot
             animal: (str) with animal name
@@ -2096,37 +2213,55 @@ class miniscope_session:
             ax[i].tick_params(axis='both', which='major', labelsize=self.fsize - 4)
         plt.suptitle('ROI' + str(roi_plot), fontsize=self.fsize - 2)
         if plot_data:
-            if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot))):
-                os.mkdir(os.path.join(self.path, 'images', 'events', '\ROI' + str(roi_plot)))
-            plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot), 'event_waveform_roi_' + str(roi_plot)), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot))):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot)))
+            plt.savefig(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot), 'event_waveform_roi_' + str(roi_plot)), dpi=self.my_dpi)
         return [cs_waveforms_mean_all, cs_waveforms_sem_all]
     
-    def get_event_count_wholetrial(self, df_events, trials, roi_plot, plot_data):
+    def get_event_count_wholetrial(self, df_events, traces_type, session_type, trials, roi_plot, plot_data):
         """Function to compute the normalized spike count (divided by the number of frames) per trial
         Inputs: 
             df_events: dataframe with events
+            traces_type: (str) raw or deconv
+            session_type: (str) tied or split
             trials: array of recorded trials
             roi_plot: (int) of ROI to plot"""
-        if len(trials) == 23:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
-                           'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
-                           'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue']
-        if len(trials) == 26:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'crimson', 'crimson',
-                           'crimson', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
-                           'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue']
-        if len(trials) == 6:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'orange', 'orange', 'orange']
-        if len(trials) == 18:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'lightblue',
-                           'lightblue',
-                           'lightblue', 'lightblue', 'lightblue', 'lightblue',
-                           'orange', 'orange', 'orange', 'orange', 'orange', 'orange']
+        greys = mp.cm.get_cmap('Greys', 14)
+        reds = mp.cm.get_cmap('Reds', 23)
+        blues = mp.cm.get_cmap('Blues', 23)
+        oranges = mp.cm.get_cmap('Oranges', 23)
+        purples = mp.cm.get_cmap('Purples', 23)
+        if session_type == 'tied':
+            if len(trials) == 6:
+                colors_session = [greys(12), greys(7), greys(4), oranges(23), oranges(13), oranges(7)]
+            if len(trials) == 12:
+                colors_session = [greys(12), greys(7), greys(4), oranges(23), oranges(13), oranges(7), purples(23),
+                                  purples(13), purples(7)]
+            if len(trials) == 18:
+                colors_session = [greys(14), greys(12), greys(10), greys(8), greys(6), greys(4), oranges(23),
+                                  oranges(19),
+                                  oranges(16), oranges(13), oranges(10), oranges(6), purples(23), purples(19),
+                                  purples(16), purples(13), purples(10), purples(6)]
+        if session_type == 'split':
+            if len(trials) == 23:
+                colors_session = [greys(12), greys(7), greys(4), reds(23), reds(21), reds(19), reds(17), reds(15),
+                                  reds(13),
+                                  reds(11), reds(9), reds(7), reds(5), blues(23), blues(21), blues(19), blues(17),
+                                  blues(15), blues(13),
+                                  blues(11), blues(9), blues(7), blues(5)]
+            if len(trials) == 26:
+                colors_session = [greys(14), greys(12), greys(10), greys(8), greys(6), greys(4), reds(23), reds(21),
+                                  reds(19), reds(17), reds(15), reds(13),
+                                  reds(11), reds(9), reds(7), reds(5), blues(23), blues(21), blues(19), blues(17),
+                                  blues(15), blues(13),
+                                  blues(11), blues(9), blues(7), blues(5)]
         fig, ax = plt.subplots(figsize=(15, 5), tight_layout=True)
         for t in trials:
             event_count = df_events.loc[
                 (df_events['ROI' + str(roi_plot)] == 1) & (df_events['trial'] == t)].count()
-            plt.bar(t - 0.5, event_count, width=1, color = colors_bars[t - 1], edgecolor='white')
+            plt.bar(t - 0.5, event_count, width=1, color = colors_session[t - 1], edgecolor='white')
         ax.set_xticks(np.arange(0.5, len(trials) + 0.5))
         ax.set_xticklabels(list(map(str, trials)))
         plt.xlim([0, len(trials) + 1])
@@ -2138,35 +2273,53 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if plot_data:
-            if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot))):
-                os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot)))
-            plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot), 'event_count_roi_' + str(roi_plot)), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot))):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot)))
+            plt.savefig(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot), 'event_count_roi_' + str(roi_plot)), dpi=self.my_dpi)
         return
 
-    def get_event_count_locomotion(self, df_events, trials, bcam_time, st_strides_trials, roi_plot, plot_data):
+    def get_event_count_locomotion(self, df_events, traces_type, session_type, trials, bcam_time, st_strides_trials, roi_plot, plot_data):
         """Function to compute the normalized spike count (divided by the number of frames) per trial
         Inputs:
             df_events: dataframe with events
+            traces_type: (str) raw or deconv
+            session_type: (str) tied or split
             trials: array of recorded trials
             bcam_time: behavioral camera timestamps
             st_strides_trials: list with stride onsets (trials - paws - stridesx2x5)
             roi_plot: (int) of ROI to plot
             plot_data: boolean"""
-        if len(trials) == 23:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
-                           'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
-                           'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue']
-        if len(trials) == 26:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'crimson', 'crimson',
-                           'crimson', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
-                           'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue']
-        if len(trials) == 6:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'orange', 'orange', 'orange']
-        if len(trials) == 18:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'lightblue',
-                           'lightblue',
-                           'lightblue', 'lightblue', 'lightblue', 'lightblue',
-                           'orange', 'orange', 'orange', 'orange', 'orange', 'orange']
+        greys = mp.cm.get_cmap('Greys', 14)
+        reds = mp.cm.get_cmap('Reds', 23)
+        blues = mp.cm.get_cmap('Blues', 23)
+        oranges = mp.cm.get_cmap('Oranges', 23)
+        purples = mp.cm.get_cmap('Purples', 23)
+        if session_type == 'tied':
+            if len(trials) == 6:
+                colors_session = [greys(12), greys(7), greys(4), oranges(23), oranges(13), oranges(7)]
+            if len(trials) == 12:
+                colors_session = [greys(12), greys(7), greys(4), oranges(23), oranges(13), oranges(7), purples(23),
+                                  purples(13), purples(7)]
+            if len(trials) == 18:
+                colors_session = [greys(14), greys(12), greys(10), greys(8), greys(6), greys(4), oranges(23),
+                                  oranges(19),
+                                  oranges(16), oranges(13), oranges(10), oranges(6), purples(23), purples(19),
+                                  purples(16), purples(13), purples(10), purples(6)]
+        if session_type == 'split':
+            if len(trials) == 23:
+                colors_session = [greys(12), greys(7), greys(4), reds(23), reds(21), reds(19), reds(17), reds(15),
+                                  reds(13),
+                                  reds(11), reds(9), reds(7), reds(5), blues(23), blues(21), blues(19), blues(17),
+                                  blues(15), blues(13),
+                                  blues(11), blues(9), blues(7), blues(5)]
+            if len(trials) == 26:
+                colors_session = [greys(14), greys(12), greys(10), greys(8), greys(6), greys(4), reds(23), reds(21),
+                                  reds(19), reds(17), reds(15), reds(13),
+                                  reds(11), reds(9), reds(7), reds(5), blues(23), blues(21), blues(19), blues(17),
+                                  blues(15), blues(13),
+                                  blues(11), blues(9), blues(7), blues(5)]
         event_count_clean = np.zeros((len(trials)))
         for t in trials:
             bcam_trial = bcam_time[t - 1]
@@ -2185,7 +2338,7 @@ class miniscope_session:
             event_count_clean[t - 1] = np.sum(event_clean_list) / time_forwardloco_trial
         fig, ax = plt.subplots(figsize=(15, 5), tight_layout=True)
         for t in trials:
-            plt.bar(t - 0.5, event_count_clean[t - 1], width=1, color=colors_bars[t - 1], edgecolor='white')
+            plt.bar(t - 0.5, event_count_clean[t - 1], width=1, color=colors_session[t - 1], edgecolor='white')
         ax.set_xticks(np.arange(0.5, len(trials) + 0.5))
         ax.set_xticklabels(list(map(str, trials)))
         plt.xlim([0, len(trials) + 1])
@@ -2197,9 +2350,11 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if plot_data:
-            if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot))):
-                os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot)))
-            plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot), 'event_count_loco_roi_' + str(roi_plot)), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot))):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot)))
+            plt.savefig(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot), 'event_count_loco_roi_' + str(roi_plot)), dpi=self.my_dpi)
         return event_count_clean
 
     def events_stride(self, df_events, st_strides_trials, sw_pts_trials, paw, roi_plot, align):
@@ -2247,36 +2402,52 @@ class miniscope_session:
         df_cs_stride = pd.DataFrame(cs_stride, columns=np.arange(1,len(st_strides_trials)+1))
         return df_cs_stride
 
-    def event_proportion_plot(self, df_cs_stride, paw, roi_plot, plot_data):
+    def event_proportion_plot(self, df_cs_stride, traces_type, session_type, paw, roi_plot, plot_data):
         """Compute event probability for CSs aligned to stride period
         (swing, stance or stride)
         Inputs:
             df_cs_stride: dataframe with number of events per stride
+            traces_type: (str) raw or deconv
+            session_type: (str) tied or split
             paw: (str) FR, FL, HR or HL
             roi_plot: (str) ROI to plot
             plot_data: boolean"""
         trials = np.array(df_cs_stride.columns)
-        if len(trials) == 23:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
-                           'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
-                           'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue']
-        if len(trials) == 26:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'crimson', 'crimson',
-                           'crimson', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson', 'crimson',
-                           'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue']
-        if len(trials) == 6:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'orange', 'orange', 'orange']
-        if len(trials) == 18:
-            colors_bars = ['darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'darkgrey', 'lightblue',
-                           'lightblue',
-                           'lightblue', 'lightblue', 'lightblue', 'lightblue',
-                           'orange', 'orange', 'orange', 'orange', 'orange', 'orange']
+        greys = mp.cm.get_cmap('Greys', 14)
+        reds = mp.cm.get_cmap('Reds', 23)
+        blues = mp.cm.get_cmap('Blues', 23)
+        oranges = mp.cm.get_cmap('Oranges', 23)
+        purples = mp.cm.get_cmap('Purples', 23)
+        if session_type == 'tied':
+            if len(trials) == 6:
+                colors_session = [greys(12), greys(7), greys(4), oranges(23), oranges(13), oranges(7)]
+            if len(trials) == 12:
+                colors_session = [greys(12), greys(7), greys(4), oranges(23), oranges(13), oranges(7), purples(23),
+                                  purples(13), purples(7)]
+            if len(trials) == 18:
+                colors_session = [greys(14), greys(12), greys(10), greys(8), greys(6), greys(4), oranges(23),
+                                  oranges(19),
+                                  oranges(16), oranges(13), oranges(10), oranges(6), purples(23), purples(19),
+                                  purples(16), purples(13), purples(10), purples(6)]
+        if session_type == 'split':
+            if len(trials) == 23:
+                colors_session = [greys(12), greys(7), greys(4), reds(23), reds(21), reds(19), reds(17), reds(15),
+                                  reds(13),
+                                  reds(11), reds(9), reds(7), reds(5), blues(23), blues(21), blues(19), blues(17),
+                                  blues(15), blues(13),
+                                  blues(11), blues(9), blues(7), blues(5)]
+            if len(trials) == 26:
+                colors_session = [greys(14), greys(12), greys(10), greys(8), greys(6), greys(4), reds(23), reds(21),
+                                  reds(19), reds(17), reds(15), reds(13),
+                                  reds(11), reds(9), reds(7), reds(5), blues(23), blues(21), blues(19), blues(17),
+                                  blues(15), blues(13),
+                                  blues(11), blues(9), blues(7), blues(5)]
         fig, ax = plt.subplots(figsize=(15, 5), tight_layout=True)
         count_t = 0
         event_proportion = np.zeros(len(trials))
         for t in trials:
             plt.bar(t - 0.5, np.count_nonzero(df_cs_stride[t] > 0) / np.count_nonzero(~np.isnan(df_cs_stride[t])),
-                    width=1, color=colors_bars[t - 1], edgecolor='white')
+                    width=1, color=colors_session[t - 1], edgecolor='white')
             event_proportion[count_t] = np.count_nonzero(df_cs_stride[t] > 0) / np.count_nonzero(~np.isnan(df_cs_stride[t]))
             count_t += 1
         ax.set_xticks(np.arange(0.5, len(trials) + 0.5))
@@ -2290,9 +2461,11 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 4)
         plt.yticks(fontsize=self.fsize - 4)
         if plot_data:
-            if not os.path.exists(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot))):
-                os.mkdir(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot)))
-            plt.savefig(os.path.join(self.path, 'images', 'events', 'ROI' + str(roi_plot), 'event_prob_roi_' + str(roi_plot)), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot))):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot)))
+            plt.savefig(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot), 'event_prob_roi_' + str(roi_plot)), dpi=self.my_dpi)
         return event_proportion
 
     def raw_signal_align_st_sw(self, df_rawtrace, st_strides_trials, sw_strides_trials, time_window, paw, roi_plot, align, session_type, trials_ses, plot_data):
@@ -2367,11 +2540,38 @@ class miniscope_session:
                             dpi=self.my_dpi)
         return event_stride_all
 
-    def events_align_st_sw(self, df_events, st_strides_trials, sw_strides_trials, time_window, bin_size, paw, roi_plot, align, session_type, trials_ses, plot_data):
+    def total_strides_trial(self, st_strides_trials, sw_strides_trials, align, paw):
+        """Computes the cumulative sum of the strides in each trial
+        Inputs:
+            st_strides_trials: list of trials with matrix with stance points
+            sw_strides_trials: list of trials with matrix with swing points
+            align (str): period to align - 'stance','swing'
+            paw (str): 'FR','HR','FL','HL'
+        """
+        if paw == 'FR':
+            p = 0  # paw of tracking
+        if paw == 'HR':
+            p = 1
+        if paw == 'FL':
+            p = 2
+        if paw == 'HL':
+            p = 3
+        trial_length_strides = np.zeros(len(st_strides_trials))
+        for t in np.arange(1, len(st_strides_trials) + 1):
+            if align == 'stance':
+                align_time = st_strides_trials[t - 1][p][:, 0, -1] / self.sr_loco
+            if align == 'swing':
+                align_time = sw_strides_trials[t - 1][p][:, 0, -1] / self.sr_loco
+            trial_length_strides[t - 1] = len(align_time)
+        trial_length_strides_cumsum = np.cumsum(trial_length_strides)
+        return trial_length_strides_cumsum
+
+    def events_align_st_sw(self, df_events, traces_type, st_strides_trials, sw_strides_trials, time_window, bin_size, paw, roi_plot, align, session_type, trials_ses, plot_data):
         """Align events to stance, swing or stride period. It outputs the CS indexes for each
         time period
         Inputs:
             df_events: dataframe with events
+            traces_type: (str) raw or deconv
             st_strides_trials: list of trials with matrix with stance points
             sw_strides_trials: list of trials with matrix with swing points
             time_window: (float) with time_window around event in s
@@ -2440,12 +2640,456 @@ class miniscope_session:
         ax[1].spines['top'].set_visible(False)
         ax[1].spines['left'].set_visible(False)
         if plot_data:
-            if not os.path.exists(os.path.join(self.path + 'images', 'events', 'ROI' + str(roi_plot))):
-                os.mkdir(os.path.join(self.path + 'images', 'events', 'ROI' + str(roi_plot)))
-            plt.savefig(os.path.join(self.path + 'images', 'events', 'ROI' + str(roi_plot), 'event_' + align + '_' + paw + '_binsize_' + str(
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+            if not os.path.exists(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi_plot))):
+                os.mkdir(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi_plot)))
+            plt.savefig(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi_plot), 'event_' + align + '_' + paw + '_binsize_' + str(
                     bin_size) + '_window_' + str(time_window).replace('.', ',') + '_roi_' + str(roi_plot)),
                             dpi=self.my_dpi)
         return event_stride_all
+
+    def event_tuning_distribution(self, df_events_traces, traces_type, align, paw, roi, st_strides_trials, sw_strides_trials, session_type, trials_ses, time_window, bin_size, barWidth, trials):
+        """Plot distribution of events for each of the stages of the session. Plot side-by-side distributions and overlap.
+        Inputs:
+            df_events_traces: (dataframe) with the events of calcium traces
+            traces_type: (str) raw or deconv
+            align: (str) stance or swing
+            paw: (str) FR, HR, FL, HL
+            roi: (int) roi number
+            st_strides_trials: (list) structure with strides aligned to stance onset
+            sw_strides_trials: (list) structure with strides aligned to swing onset
+            session_type: (str) tied or split
+            trials_ses: (list) trials with changes in conditions
+            time_window: (float) how much time around stance or swing
+            bin_size (int) number of bins
+            barWidth: (float)
+            trials: (list) list of trials"""
+        event_stance_paws = self.events_align_st_sw(df_events_traces, traces_type,st_strides_trials,sw_strides_trials, time_window, bin_size, paw, roi, align,session_type,trials_ses, 0)
+        trial_length_strides_cumsum = self.total_strides_trial(st_strides_trials, sw_strides_trials, align,paw)
+        trials_c1 = np.arange(1, trials_ses[0] + 1)
+        trials_c2 = np.arange(trials_ses[1], trials_ses[2] + 1)
+        if len(trials_ses) >= 2:
+            trials_c3 = np.arange(trials_ses[-1], trials[-1] + 1)
+        strides_c1 = np.arange(0, trial_length_strides_cumsum[trials_c1[-1] - 1], dtype='int64')
+        strides_c2 = np.arange(trial_length_strides_cumsum[trials_c1[-1] - 1],
+                                  trial_length_strides_cumsum[trials_c2[-1] - 1], dtype='int64')
+        if len(trials_ses) >= 2:
+            strides_c3 = np.arange(trial_length_strides_cumsum[trials_c2[-1] - 1],
+                                        trial_length_strides_cumsum[trials_c3[-1] - 1], dtype='int64')
+        fig, ax = plt.subplots(2, 3, figsize=(25, 15), tight_layout=True)
+        ax = ax.ravel()
+        for l in strides_c1:
+            event_idx = np.where(event_stance_paws[l, :])[0]
+            if len(event_idx) > 0:
+                ax[0].scatter(event_idx, np.ones(len(event_idx)) + l, s=1, marker='s', color='black')
+        ax[0].set_yticks(np.arange(0, strides_c1[-1], 50))
+        ax[0].set_yticklabels(list(map(str, np.arange(0, strides_c1[-1], 50))))
+        ax[0].set_xticks(np.arange(0, np.shape(event_stance_paws)[1]))
+        ax[0].set_xticklabels(list(map(str, np.round(np.arange(-time_window, time_window, 0.02), 2))),
+                              rotation=45)
+        ax[0].set_xlabel('Time (s)', fontsize=self.fsize - 4)
+        ax[0].set_ylabel('Stride number', fontsize=self.fsize - 4)
+        ax[0].set_title(paw + ' ' + align + ' events baseline', fontsize=self.fsize - 4)
+        ax[0].spines['right'].set_visible(False)
+        ax[0].spines['top'].set_visible(False)
+        plt.xticks(fontsize=self.fsize - 12)
+        plt.yticks(fontsize=self.fsize - 12)
+        ax[3].bar(np.round(np.arange(-time_window, time_window, 0.02), 2),
+                  np.sum(event_stance_paws[strides_c1, :], axis=0), width=0.01,
+                  color='gray')
+        ax[3].spines['right'].set_visible(False)
+        ax[3].spines['top'].set_visible(False)
+        ax[3].spines['left'].set_visible(False)
+        for l in strides_c2:
+            event_idx = np.where(event_stance_paws[l, :])[0]
+            if len(event_idx) > 0:
+                ax[1].scatter(event_idx, np.ones(len(event_idx)) + l, s=1, marker='s', color='black')
+        ax[1].set_yticks(np.arange(strides_c2[0], strides_c2[-1], 50))
+        ax[1].set_xticks(np.arange(0, np.shape(event_stance_paws)[1]))
+        ax[1].set_xticklabels(list(map(str, np.round(np.arange(-time_window, time_window, 0.02), 2))),
+                              rotation=45)
+        ax[1].set_xlabel('Time (s)', fontsize=self.fsize - 4)
+        ax[1].set_title(paw + ' ' + align + ' events split', fontsize=self.fsize - 4)
+        ax[1].spines['right'].set_visible(False)
+        ax[1].spines['top'].set_visible(False)
+        plt.xticks(fontsize=self.fsize - 12)
+        plt.yticks(fontsize=self.fsize - 12)
+        ax[4].bar(np.round(np.arange(-time_window, time_window, 0.02), 2),
+                  np.sum(event_stance_paws[strides_c2, :], axis=0), width=0.01,
+                  color='gray')
+        ax[4].spines['right'].set_visible(False)
+        ax[4].spines['top'].set_visible(False)
+        ax[4].spines['left'].set_visible(False)
+        if len(trials_ses) >= 2:
+            for l in strides_c3:
+                event_idx = np.where(event_stance_paws[l, :])[0]
+                if len(event_idx) > 0:
+                    ax[2].scatter(event_idx, np.ones(len(event_idx)) + l, s=1, marker='s', color='black')
+            ax[2].set_yticks(np.arange(strides_c3[0], strides_c3[-1], 50))
+            ax[2].set_xticks(np.arange(0, np.shape(event_stance_paws)[1]))
+            ax[2].set_xticklabels(list(map(str, np.round(np.arange(-time_window, time_window, 0.02), 2))),
+                                  rotation=45)
+            ax[2].set_xlabel('Time (s)', fontsize=self.fsize - 4)
+            ax[2].set_title(paw + ' ' + align + ' events washout', fontsize=self.fsize - 4)
+            ax[2].spines['right'].set_visible(False)
+            ax[2].spines['top'].set_visible(False)
+            plt.xticks(fontsize=self.fsize - 12)
+            plt.yticks(fontsize=self.fsize - 12)
+            ax[5].bar(np.round(np.arange(-time_window, time_window, 0.02), 2),
+                      np.sum(event_stance_paws[strides_c3, :], axis=0), width=0.01,
+                      color='gray')
+            ax[5].spines['right'].set_visible(False)
+            ax[5].spines['top'].set_visible(False)
+            ax[5].spines['left'].set_visible(False)
+        if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+            os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+        if not os.path.exists(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi))):
+            os.mkdir(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi)))
+        plt.savefig(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi),
+                                 'event_conditions_' + align + '_' + paw + '_binsize_' + str(
+                                     bin_size) + '_window_' + str(time_window).replace('.',
+                                                                                       ',') + '_roi_' + str(
+                                     roi)),
+                    dpi=self.my_dpi)
+
+        fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True)
+        x1 = np.round(np.arange(-time_window, time_window, 0.02), 2)
+        x2 = x1 + barWidth
+        y1 = np.sum(event_stance_paws[strides_c1, :], axis=0) / np.max(
+            np.sum(event_stance_paws[strides_c1, :], axis=0))
+        y2 = np.sum(event_stance_paws[strides_c2, :], axis=0) / np.max(
+            np.sum(event_stance_paws[strides_c2, :], axis=0))
+        if len(trials_ses) >= 2:
+            x3 = x2 + barWidth
+            y3 = np.sum(event_stance_paws[strides_c3, :], axis=0) / np.max(
+                np.sum(event_stance_paws[strides_c3, :], axis=0))
+        ax.bar(x1, y1, width=barWidth, color='gray', label='baseline')
+        ax.bar(x2, y2, width=barWidth, color='crimson', label='split')
+        if len(trials_ses) >= 2:
+            ax.bar(x3, y3, width=barWidth, color='blue', label='washout')
+        ax.legend(frameon=False)
+        ax.set_xticks(x2)
+        ax.set_xticklabels(list(map(str, np.round(x2, 2))), rotation=45)
+        ax.set_xlabel('Time (s)', fontsize=self.fsize - 6)
+        ax.set_ylabel('Normalized counts (to max value)', fontsize=self.fsize - 6)
+        ax.set_title(paw + ' ' + align + ' events', fontsize=self.fsize - 4)
+        plt.xticks(fontsize=self.fsize - 6)
+        plt.yticks(fontsize=self.fsize - 6)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+            os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+        if not os.path.exists(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi))):
+            os.mkdir(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi)))
+        plt.savefig(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi),
+                                 'event_conditions_summary_' + align + '_' + paw + '_binsize_' + str(
+                                     bin_size) + '_window_' + str(time_window).replace('.',
+                                                                                       ',') + '_roi_' + str(
+                                     roi)),
+                    dpi=self.my_dpi)
+        plt.close('all')
+        return
+
+    def event_corridor_distribution(self, df_events, final_tracks_trials, bcam_time, roi, paw, trials_analysis, pixel_step, traces_type, plot_data, print_feature_dist):
+        """Plot distribution of events in relation to the position of a certain tracking feature (one of the four paws).
+        Also plots if desired the feature distribution in the corridor
+        Inputs:
+            df_events: dataframe with events
+            final_tracks_trials: list with the final_tracks for each trial
+            bcam_time: list with the behavioral camera timestamps for each trial
+            roi: (int) roi to plot
+            paw: (str) FR, FL, HR or HL
+            trials_analysis: (list) trials to pool together
+            pixel_step: how many pixels to bin together for distribution plot
+            traces_type: (str) raw or deconv
+            plot_data: boolean
+            print_feature_dist: boolean"""
+        x_pixels = np.arange(0, 300, pixel_step)
+        y_pixels = np.arange(0, 640, pixel_step)
+        frame_image_bins_list = []
+        frame_image_bins_feature_list = []
+        for t in trials_analysis:
+            if paw == 'FR':
+                idx_p = 0
+            if paw == 'HR':
+                idx_p = 1
+            if paw == 'FL':
+                idx_p = 2
+            if paw == 'HL':
+                idx_p = 3
+            feature_X = self.inpaint_nans(final_tracks_trials[t - 1][0, idx_p, :])
+            feature_Y = self.inpaint_nans(final_tracks_trials[t - 1][1, idx_p, :])
+            time = bcam_time[t - 1]
+            events_trial = df_events.loc[df_events['trial'] == t, 'ROI'+str(roi)]
+            events_trial_timestamps = df_events.loc[df_events['trial'] == t, 'time']
+            events_time = np.array(events_trial_timestamps[events_trial[events_trial == 1].index])
+            feature_events_idx = np.zeros(len(events_time))
+            for i, e in enumerate(events_time):
+                feature_events_idx[i] = np.abs(e - time).argmin()
+            feature_values_events_X = np.int64(feature_X[np.int64(feature_events_idx)])
+            feature_values_events_Y = np.int64(feature_Y[np.int64(feature_events_idx)])
+            # for bins
+            frame_image_bins = np.zeros((len(x_pixels), len(y_pixels)))
+            for e in range(len(feature_events_idx)):
+                for x_count, x in enumerate(x_pixels):
+                    for y_count, y in enumerate(y_pixels):
+                        if feature_values_events_X[e] >= y and feature_values_events_X[e] <= y + pixel_step and \
+                                feature_values_events_Y[e] >= x and feature_values_events_Y[e] <= x + pixel_step:
+                            frame_image_bins[x_count, y_count] += 1
+            frame_image_bins_feature = np.zeros((len(x_pixels), len(y_pixels)))
+            for e in range(len(feature_X)):
+                for x_count, x in enumerate(x_pixels):
+                    for y_count, y in enumerate(y_pixels):
+                        if feature_X[e] >= y and feature_X[e] <= y + pixel_step and feature_Y[e] >= x and feature_Y[
+                            e] <= x + pixel_step:
+                            frame_image_bins_feature[x_count, y_count] += 1
+            frame_image_bins_list.append(frame_image_bins)
+            frame_image_bins_feature_list.append(frame_image_bins_feature)
+        frame_image_bins_array = np.sum(np.dstack(frame_image_bins_list), axis=2)
+        frame_image_bins_feature_array = np.sum(np.dstack(frame_image_bins_feature_list), axis=2)
+        frame_image_bins_norm = np.divide(frame_image_bins_array, frame_image_bins_feature_array,
+                                          out=np.zeros_like(frame_image_bins_array),
+                                          where=frame_image_bins_feature_array != 0)
+        if print_feature_dist:
+            fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True)  # feature over time (sanity check with video)
+            h1 = ax.imshow(np.divide(frame_image_bins_feature_array, np.max(frame_image_bins_feature_array)))
+            ax.set_xticklabels(list(map(str, y_pixels)))
+            ax.set_yticklabels(list(map(str, x_pixels)))
+            plt.colorbar(h1)
+            if not os.path.exists(os.path.join(self.path + 'images', 'events')):
+                os.mkdir(os.path.join(self.path + 'images', 'events'))
+            plt.savefig(os.path.join(self.path + 'images', 'events',
+                                     'corridor_bottom_' + paw + '_distribution'),
+                        dpi=self.my_dpi)
+        fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True)  # events in correspondent feature space
+        h2 = ax.imshow(frame_image_bins_norm)
+        ax.set_xticklabels(list(map(str, y_pixels)))
+        ax.set_yticklabels(list(map(str, x_pixels)))
+        plt.colorbar(h2)
+        if plot_data:
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+            if not os.path.exists(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi))):
+                os.mkdir(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi)))
+            plt.savefig(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi),
+                                     'event_corridor_bottom_' + paw + '_distribution'),
+                        dpi=self.my_dpi)
+        return frame_image_bins_norm
+
+    def param_events_plot(self, param_trials, st_strides_trials, df_events, param_name, roi, p1, p2, step_size, trials_compute, trials, traces_type, plot_condition, stride_duration_trials, plot_data):
+        """Compute the proportion of events for bins of a certain gait parameter for each ROI and paw combination.
+        Compared with the dataset shuffled 1000 times.
+        Inputs:
+            param_trials: (list) gait parameter values
+            st_strides_trials: (list) stride structure stance to stance
+            df_events: (dataframe) events for each ROI and trial
+            param_name: (str)
+            roi: (int)
+            p1 and p2: (str) such as FR and FL
+            step_size: (int) step size of gait parameter values
+            trials_compute: (list) trials to do this analysis
+            trials: (list) all the trials in a session
+            traces_type: (str) raw or deconv
+            plot_condition: (str) e.g. baseline
+            stride_duration_trials: (list) stride duration values for each stride
+            plot_data: (boolean)
+        bins_all, sl_p1_events_bin_all, sl_p1_events_bin_all_shuffle, t_stat, p_value
+        Outputs:
+            bins_all: (list) bin values for the gait parameter chosen
+            sl_p1_events_bin_all: (list) distribution of event probability
+            sl_p1_events_bin_all_shuffle: (list) distribution of shuffled event probability
+            t_stat: test statistic value for Kolmogorov-Smirnov test
+            p_value: p-value for Kolmogorov-Smirnov test"""
+        nr_strides = 10
+        if p1 == 'FR':
+            p1_idx = 0
+        if p1 == 'HR':
+            p1_idx = 1
+        if p1 == 'FL':
+            p1_idx = 2
+        if p1 == 'HL':
+            p1_idx = 3
+        if p2 == 'FR':
+            p2_idx = 0
+        if p2 == 'HR':
+            p2_idx = 1
+        if p2 == 'FL':
+            p2_idx = 2
+        if p2 == 'HL':
+            p2_idx = 3
+        bin_vector = np.arange(-50, 50 + step_size, step_size)
+        sl_p1_events_trials = np.zeros((len(trials), len(bin_vector)))
+        sl_p1_events_trials[:] = np.nan
+        sl_sym_all = []
+        trial_id = []
+        sl_event_all = []
+        sl_event_all_shuffle = []
+        stride_duration_all = []
+        isi_all = []
+        df_events_shuffle = df_events
+        for i in range(1000):
+            df_events_shuffle = df_events_shuffle.sample(frac=1, axis=0, random_state=42).reset_index(drop=True)
+        for count_t, t in enumerate(trials_compute):
+            trial_index = np.where(trials == t)[0][0]
+            df_events_trial = df_events.loc[df_events['trial'] == t]
+            # shuffle events for all trials
+            df_events_trial_shuffle = df_events_shuffle.loc[df_events_shuffle['trial'] == t].reset_index(drop=True)
+            isi_all.extend(df_events_trial.loc[(df_events_trial['ROI' + str(roi)] > 0) & (
+                        df_events_trial['trial'] == t), 'time'].diff())
+            sl_p1 = param_trials[trial_index][p1_idx]
+            sl_p2 = param_trials[trial_index][p2_idx]
+            strides_p1 = st_strides_trials[trial_index][p1_idx]
+            strides_p2 = st_strides_trials[trial_index][p2_idx]
+            # get events between the strides
+            sl_p1_events = np.zeros(np.shape(strides_p1)[0])
+            sl_p1_events_shuffle = np.zeros(np.shape(strides_p1)[0])
+            sl_sym = np.zeros(np.shape(strides_p1)[0])
+            sl_sym[:] = np.nan
+            for s in range(np.shape(strides_p1)[0]):
+                events_stride = df_events_trial.loc[(df_events_trial['time'] >= strides_p1[s][0, 0] / 1000) & (
+                        df_events_trial['time'] <= strides_p1[s][1, 0] / 1000), 'ROI' + str(roi)]
+                events_stride_shuffle = df_events_trial_shuffle.loc[
+                    (df_events_trial['time'] >= strides_p1[s][0, 0] / 1000) & (
+                            df_events_trial['time'] <= strides_p1[s][1, 0] / 1000), 'ROI' + str(roi)]
+                stride_contra = \
+                    np.where((strides_p2[:, 0, 0] > strides_p1[s, 0, 0]) & (strides_p2[:, 0, 0] < strides_p1[s, 1, 0]))[
+                        0]
+                if len(stride_contra) == 1:  # one event in the stride
+                    sl_sym[s] = sl_p1[s] - sl_p2[stride_contra]
+                if len(stride_contra) > 1:  # more than two events in a stride
+                    sl_sym[s] = sl_p1[s] - np.nanmean(sl_p2[stride_contra])
+                if len(np.where(events_stride)[0]) > 0:
+                    sl_p1_events[s] = len(np.where(events_stride)[0])
+                    sl_p1_events_shuffle[s] = len(np.where(events_stride_shuffle)[0])
+            sl_sym_all.extend(sl_sym)
+            trial_id.extend(np.repeat(t, len(sl_sym)))
+            sl_event_all.extend(sl_p1_events)
+            sl_event_all_shuffle.extend(sl_p1_events_shuffle)
+            stride_duration_all.extend(stride_duration_trials[trial_index][p1_idx])
+        bins_all = np.histogram(sl_sym_all, bin_vector)[1]
+        sl_event_all_array = np.array(sl_event_all)
+        sl_event_all_shuffle = np.array(sl_event_all_shuffle)
+        stride_duration_all_array = np.array(stride_duration_all)
+        sl_p1_events_bin_all = np.zeros(len(bins_all))
+        sl_p1_events_bin_all[:] = np.nan
+        sl_p1_events_bin_all_shuffle = np.zeros(len(bins_all))
+        sl_p1_events_bin_all_shuffle[:] = np.nan
+        sl_p1_events_bin_count_shuffle = np.zeros(len(bins_all))
+        sl_p1_events_bin_count_shuffle[:] = np.nan
+        stride_duration_bin_all = np.zeros(len(bins_all))
+        stride_duration_bin_all[:] = np.nan
+        stride_duration_bin_avg = np.zeros(len(bins_all))
+        stride_duration_bin_avg[:] = np.nan
+        stride_duration_bin_sem = np.zeros(len(bins_all))
+        stride_duration_bin_sem[:] = np.nan
+        stride_nr_bin = np.zeros(len(bins_all))
+        stride_nr_bin[:] = np.nan
+        sl_p1_events_bin_count = np.zeros(len(bins_all))
+        sl_p1_events_bin_count[:] = np.nan
+        for count_b, b in enumerate(bins_all):
+            if count_b == len(bins_all) - 1:
+                idx_bin = np.where((sl_sym_all >= bins_all[count_b]) & (sl_sym_all < bins_all[-1]))[0]
+            else:
+                idx_bin = np.where((sl_sym_all >= bins_all[count_b]) & (sl_sym_all < bins_all[count_b + 1]))[0]
+            if len(idx_bin) > nr_strides:
+                sl_p1_events_bin_count[count_b] = np.sum(sl_event_all_array[idx_bin])
+                sl_p1_events_bin_count_shuffle[count_b] = np.sum(sl_event_all_shuffle[idx_bin])
+                stride_duration_bin_all[count_b] = np.cumsum(stride_duration_all_array[idx_bin])[-1]
+                stride_duration_bin_avg[count_b] = np.mean(stride_duration_all_array[idx_bin])
+                stride_duration_bin_sem[count_b] = np.std(stride_duration_all_array[idx_bin])/np.sqrt(len(idx_bin))
+                sl_p1_events_bin_all[count_b] = sl_p1_events_bin_count[count_b] / stride_duration_bin_all[count_b]
+                sl_p1_events_bin_all_shuffle[count_b] = sl_p1_events_bin_count_shuffle[count_b] / stride_duration_bin_all[count_b]
+                stride_nr_bin[count_b] = len(idx_bin)
+        if plot_data:
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+            if not os.path.exists(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi))):
+                os.mkdir(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi)))
+            fig, ax = plt.subplots(3, 2, figsize=(30, 20), tight_layout=True)
+            ax = ax.ravel()
+            ax[0].bar(bins_all[~np.isnan(sl_p1_events_bin_all)], sl_p1_events_bin_all[~np.isnan(sl_p1_events_bin_all)],
+                      width=step_size - (step_size * 0.1), color='black')
+            ax[0].bar(bins_all[~np.isnan(sl_p1_events_bin_all_shuffle)] + step_size / 8,
+                      sl_p1_events_bin_all_shuffle[~np.isnan(sl_p1_events_bin_all_shuffle)],
+                      width=step_size - (step_size * 0.1), color='gray')
+            ax[0].set_xlabel(param_name.replace('_', ' ') + ' symmetry', fontsize=self.fsize - 4)
+            ax[0].set_ylabel('Event prob. norm. cum. stride duration',
+                             fontsize=self.fsize - 4)
+            ax[0].set_title(
+                'Event proportion for ' + param_name.replace('_', ' ') + ' symmetry across trials ' + plot_condition,
+                fontsize=self.fsize - 4)
+            ax[0].tick_params(axis='both', which='major', labelsize=self.fsize - 6)
+            ax[0].spines['right'].set_visible(False)
+            ax[0].spines['top'].set_visible(False)
+            ax[1].bar(bins_all[~np.isnan(stride_duration_bin_all)],
+                      stride_duration_bin_all[~np.isnan(stride_duration_bin_all)], width=step_size - (step_size * 0.1),
+                      color='black')
+            ax[1].set_xlabel(param_name.replace('_', ' ') + ' symmetry', fontsize=self.fsize - 4)
+            ax[1].set_ylabel('Cumulative stride duration (ms)', fontsize=self.fsize - 4)
+            ax[1].set_title(
+                'Stride duration for ' + param_name.replace('_', ' ') + ' symmetry across trials ' + plot_condition,
+                fontsize=self.fsize - 4)
+            ax[1].tick_params(axis='both', which='major', labelsize=self.fsize - 6)
+            ax[1].spines['right'].set_visible(False)
+            ax[1].spines['top'].set_visible(False)
+            ax[2].bar(bins_all[~np.isnan(stride_nr_bin)], stride_nr_bin[~np.isnan(stride_nr_bin)],
+                      width=step_size - (step_size * 0.1), color='black')
+            ax[2].set_xlabel(param_name.replace('_', ' ') + ' symmetry', fontsize=self.fsize - 4)
+            ax[2].set_ylabel('Stride count', fontsize=self.fsize - 4)
+            ax[2].set_title(
+                'Stride count for ' + param_name.replace('_', ' ') + ' symmetry across trials ' + plot_condition,
+                fontsize=self.fsize - 4)
+            ax[2].tick_params(axis='both', which='major', labelsize=self.fsize - 6)
+            ax[2].spines['right'].set_visible(False)
+            ax[2].spines['top'].set_visible(False)
+            ax[3].bar(bins_all[~np.isnan(sl_p1_events_bin_count)],
+                      sl_p1_events_bin_count[~np.isnan(sl_p1_events_bin_count)], width=step_size - (step_size * 0.1),
+                      color='black')
+            ax[3].set_xlabel(param_name.replace('_', ' ') + ' symmetry', fontsize=self.fsize - 4)
+            ax[3].set_ylabel('Event count', fontsize=self.fsize - 4)
+            ax[3].set_title(
+                'Event count for ' + param_name.replace('_', ' ') + ' symmetry across trials ' + plot_condition,
+                fontsize=self.fsize - 4)
+            ax[3].tick_params(axis='both', which='major', labelsize=self.fsize - 6)
+            ax[3].spines['right'].set_visible(False)
+            ax[3].spines['top'].set_visible(False)
+            ax[5].bar(bins_all[~np.isnan(stride_duration_bin_avg)],
+                      stride_duration_bin_avg[~np.isnan(stride_duration_bin_avg)], width=step_size - (step_size * 0.1),
+                      color='black')
+            ax[5].errorbar(bins_all[~np.isnan(stride_duration_bin_avg)],
+                           stride_duration_bin_avg[~np.isnan(stride_duration_bin_avg)],
+                           yerr=stride_duration_bin_sem[~np.isnan(stride_duration_bin_sem)], xerr=0, fmt='.',
+                           color='black')
+            ax[5].set_xlabel(param_name.replace('_', ' ') + ' symmetry', fontsize=self.fsize - 4)
+            ax[5].set_ylabel('Stride duration mean + sem (ms)', fontsize=self.fsize - 4)
+            ax[5].set_title(
+                'Stride duration for ' + param_name.replace('_', ' ') + ' symmetry across trials ' + plot_condition,
+                fontsize=self.fsize - 4)
+            ax[5].tick_params(axis='both', which='major', labelsize=self.fsize - 6)
+            ax[5].spines['right'].set_visible(False)
+            ax[5].spines['top'].set_visible(False)
+            binwidth = 0.05
+            barWidth = 0.05
+            binedges = np.arange(0, np.nanmax(isi_all) + 0.5, binwidth)
+            hist_all = np.histogram(isi_all, bins=binedges)
+            hist_norm = hist_all[0] / np.sum(hist_all[0])
+            r1 = binedges[:-1]
+            ax[4].bar(r1, hist_norm, color='black', width=barWidth, edgecolor='white')
+            ax[4].set_xlabel('Time (s)', fontsize=self.fsize - 4)
+            ax[4].set_ylabel('Event count', fontsize=self.fsize - 4)
+            ax[4].set_title('Inter-event interval distribution across trials ' + plot_condition,
+                            fontsize=self.fsize - 4)
+            ax[4].tick_params(axis='both', which='major', labelsize=self.fsize - 6)
+            ax[4].spines['right'].set_visible(False)
+            ax[4].spines['top'].set_visible(False)
+            plt.savefig(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi),
+                                     'event_proportion_' + param_name + '_' + plot_condition),
+                        dpi=self.my_dpi)
+        dist_real = sl_p1_events_bin_all[~np.isnan(sl_p1_events_bin_all)]
+        dist_shuffle = sl_p1_events_bin_all_shuffle[~np.isnan(sl_p1_events_bin_all_shuffle)]
+        [t_stat, p_value] = scipy.stats.kstest(dist_real, dist_shuffle, alternative='two-sided')
+        return bins_all, sl_p1_events_bin_all, sl_p1_events_bin_all_shuffle, t_stat, p_value
 
     def create_registered_tiffs(self, frame_time, trials):
         """Function to create tiffs from the registered stacks that are suite2p output. Each tiff has the same length as the trials.
@@ -2514,10 +3158,11 @@ class miniscope_session:
             tiff.imsave(self.path + path_bgsub + 'T' + tiff_name.split('_')[0][1:] + '_reg_bgsub.tif', image_stack_bgsub, bigtiff=True)
         return
 
-    def events_align_trajectory(self, df_events, bcam_time, final_tracks_trials, trial, roi, plot_data):
+    def events_align_trajectory(self, df_events, traces_type, bcam_time, final_tracks_trials, trial, roi, plot_data):
         """Function to plot average trajectories aligned to calcium event for a certain ROI and trial.
         Input:
             df_events: dataframe with events
+            traces_type: (str) raw or deconv
             bcam_time: behavioral camera timestamps for all trials
             final_tracks_trials: final_tracks list for all trials
             trial: (int) trial to plot
@@ -2555,9 +3200,11 @@ class miniscope_session:
         plt.xticks(fontsize=self.fsize - 12)
         plt.yticks(fontsize=self.fsize - 12)
         if plot_data:
-            if not os.path.exists(os.path.join(self.path + 'images', 'events', 'ROI' + str(roi))):
-                os.mkdir(os.path.join(self.path + 'images', 'events', 'ROI' + str(roi)))
-            plt.savefig(os.path.join(self.path + 'images', 'events', 'ROI' + str(roi), 'event_paw_trajectory_' + '_roi_' + str(roi) + '_trial_' + str(trial)),
+            if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+                os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
+            if not os.path.exists(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi))):
+                os.mkdir(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi)))
+            plt.savefig(os.path.join(self.path + 'images', 'events', traces_type, 'ROI' + str(roi), 'event_paw_trajectory_' + '_roi_' + str(roi) + '_trial_' + str(trial)),
                             dpi=self.my_dpi)
         return
 
@@ -3040,13 +3687,14 @@ class miniscope_session:
                             dpi=self.my_dpi)
         return
 
-    def plot_events_roi_trial(self, trial_plot, roi_plot, frame_time, df_dff, df_events, plot_data):
+    def plot_events_roi_trial(self, trial_plot, roi_plot, frame_time, df_dff, traces_type, df_events, plot_data):
         """Function to plot events on top of traces with and without background subtraction for all ROIs and one trial.
         Input:
         trial_plot: (str)
         roi_plot: (str)
         frame_time: list with mscope timestamps
         df_dff: dataframe with traces
+        traces_type: (str) raw or deconv
         df_events: dataframe with the events
         plot_data: boolean"""
         df_dff_trial = df_dff.loc[df_dff['trial'] == trial_plot, 'ROI' + str(roi_plot)]  # get dFF for the desired trial
@@ -3067,7 +3715,7 @@ class miniscope_session:
         ax.spines['left'].set_visible(False)
         plt.tick_params(axis='y', labelsize=0, length=0)
         if plot_data:
-            plt.savefig(os.path.join(self.path, 'images', 'events', 'events_trial' + str(trial_plot) + '_roi' + str(roi_plot)),
+            plt.savefig(os.path.join(self.path, 'images', 'events', 'events_trial' + str(trial_plot) + '_roi' + str(roi_plot) + '_' + traces_type),
                             dpi=self.my_dpi)
         return
 
@@ -3091,6 +3739,244 @@ class miniscope_session:
             tr_ind = np.where(days_ordered[f] == days_animal)[0][0]
             files_ordered.append(matfiles_animal[tr_ind])
         return files_ordered
+
+    def response_time_population_avg(self, df_norm, time_beg, time_end, clusters_rois, cluster_transition_idx, plot_type, trials_baseline, trials_split, colors_session, save_plot):
+        """Compute the heatmap for ROI calcium activity for a certain time period and its summary. It can do a random order, by distance or by cluster - depending on input data
+        df_norm: dataframe with activity for all ROIs and timepoints
+        time_beg: (int) vector with starting points for time
+        time_end: (int) vector with ending points for time
+        clusters_rois: list with the ROIs belonging to each cluster
+        cluster_transition_idx: list with the ROIs at the end of each cluster
+        plot_type: (str) raw, distance or cluster
+        traces_type: (str) raw or events or deconv
+        trials_baseline: list with trial id for the baseline
+        trials_split: list with trial id for split
+        colors_session: colors for the trials in the session
+        save_plot: boolean"""
+        trials = np.unique(df_norm['trial'])
+        if plot_type == 'cluster':
+            trial_avg = np.zeros((len(time_beg), len(trials), len(clusters_rois)))
+            clusters_rois_flat = np.transpose(sum(clusters_rois, []))
+            clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
+            clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
+        else:
+            trial_avg = np.zeros((len(time_beg), len(trials)))
+        for count_t, t in enumerate(time_beg):
+            data_list = []
+            frames_len = []
+            for count_trial, t in enumerate(trials):
+                data_list.append(np.transpose(
+                    df_norm.loc[df_norm['trial'] == t].iloc[time_beg[count_t] * self.sr:time_end[count_t] * self.sr,
+                    2:]))
+                frames_len.append(np.shape(
+                    df_norm.loc[df_norm['trial'] == t].iloc[time_beg[count_t] * self.sr:time_end[count_t] * self.sr,
+                    2:])[0])
+                if plot_type == 'cluster':
+                    for c in range(len(clusters_rois)):
+                        trial_avg[count_t, count_trial, c] = df_norm.loc[df_norm['trial'] == t].iloc[
+                                                             time_beg[count_t] * self.sr:time_end[
+                                                                                               count_t] * self.sr][
+                                                                 clusters_rois[c]].median().iloc[2:].median()
+                else:
+                    trial_avg[count_t, count_trial] = df_norm.loc[df_norm['trial'] == t].iloc[
+                                                      time_beg[count_t] * self.sr:time_end[
+                                                                                        count_t] * self.sr].median().iloc[
+                                                      2:].median()
+            data = np.concatenate(data_list, axis=1)
+            cum_frames_len = np.cumsum(frames_len)
+            fig, ax = plt.subplots(figsize=(25, 12), tight_layout=True)
+            sns.heatmap(data, cbar='False', cmap='viridis')
+            for t in trials:
+                ax.vlines(cum_frames_len[t - 1], *ax.get_ylim(), color='white', linestyle='dashed')
+            ax.set_yticks(np.arange(0, len(df_norm.columns[2:]), 4))
+            ax.set_yticklabels(df_norm.columns[2::4], rotation=45, fontsize=self.fsize - 12)
+            if plot_type == 'cluster':
+                for c in cluster_transition_idx:
+                    ax.hlines(c + 1, *ax.get_xlim(), color='white', linestyle='dashed')  # +1 puts in beginning of cluster
+                ax.set_yticks(np.arange(0, len(clusters_rois_flat[2:]), 4))
+                ax.set_yticklabels(clusters_rois_flat[2::4], rotation=45, fontsize=self.fsize - 12)
+            ax.set_xlabel('Frames', fontsize=self.fsize - 4)
+            if save_plot:
+                if not os.path.exists(os.path.join(self.path, 'images', plot_type)):
+                    os.mkdir(os.path.join(self.path, 'images', plot_type))
+                plt.savefig(os.path.join(self.path, 'images', plot_type,
+                                         'heatmap_' + str(time_beg[count_t]) + 's_' + str(
+                                             time_end[count_t]) + 's_' + plot_type + '_raw'), dpi=self.my_dpi)
+            if plot_type == 'cluster':
+                colors = []
+                colors.append((0.967671, 0.439703, 0.35981, 1.0))  # orange center
+                colors.append((0.994738, 0.62435, 0.427397, 1.0))  # salmon
+                colors.append((0.390384, 0.100379, 0.501864, 1.0))  # purple dark
+                colors.append((0, 0, 0, 1.0))  # black
+                colors.append((0.716387, 0.214982, 0.47529, 1.0))  # purple light
+                fig, ax = plt.subplots(1, 5, figsize=(15, 5), tight_layout=True, sharey=True)
+                ax = ax.ravel()
+                for c in np.arange(len(clusters_rois)):
+                    ax[c].axhline(y=0, linestyle='dashed', color='black')
+                    ax[c].add_patch(
+                        plt.Rectangle((trials_baseline[-1] + 0.5, np.min(trial_avg[count_t, :])), len(trials_split),
+                                      np.max(trial_avg[count_t, :]) - np.min(trial_avg[count_t, :]),
+                                      fc='lightgray', alpha=0.7, zorder=0))
+                    # trial_median_baseline = np.median(trial_avg[count_t, :trials_baseline[-1]-1, c])
+                    # trial_median_bs = trial_avg[count_t, :, c] - trial_median_baseline
+                    # ax[c].plot(trials, trial_median_bs, color=colors[c])
+                    # ax[c].scatter(trials, trial_median_bs, s=60, color=colors[c])
+                    ax[c].plot(trials, trial_avg[count_t, :, c], color=colors[c])
+                    ax[c].scatter(trials, trial_avg[count_t, :, c], s=60, color=colors[c])
+                    ax[c].set_ylabel(
+                        'Median of activity ' + str(time_beg[count_t]) + '-' + str(time_end[count_t]) + 's',
+                        fontsize=self.fsize - 2)
+                    ax[c].set_xlabel('Trials', fontsize=self.fsize - 2)
+                    ax[c].spines['right'].set_visible(False)
+                    ax[c].spines['top'].set_visible(False)
+                    ax[c].tick_params(axis='both', which='major', labelsize=self.fsize - 2)
+                    if save_plot:
+                        if not os.path.exists(os.path.join(self.path, 'images', plot_type)):
+                            os.mkdir(os.path.join(self.path, 'images', plot_type))
+                        plt.savefig(os.path.join(self.path, 'images', plot_type,
+                                                 'median_bs_activity_' + str(time_beg[count_t]) + 's_' + str(
+                                                     time_end[count_t]) + 's_raw'), dpi=self.my_dpi)
+            else:
+                fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+                ax.axhline(y=0, linestyle='dashed', color='black')
+                ax.add_patch(
+                    plt.Rectangle((trials_baseline[-1] + 0.5, np.min(trial_avg[count_t, :])), 10,
+                                  np.max(trial_avg[count_t, :]) - np.min(trial_avg[count_t, :]),
+                                  fc='lightgray', alpha=0.7, zorder=0))
+                trial_median_baseline = np.median(trial_avg[count_t, :trials_baseline[-1] - 1])
+                trial_median_bs = trial_avg[count_t, :] - trial_median_baseline
+                ax.plot(trials, trial_median_bs, color='black')
+                for i in range(len(colors_session)):
+                    ax.scatter(trials[i], trial_median_bs[i], s=60, color=colors_session[i])
+                # ax.plot(trials, trial_avg[count_t, :], color='black')
+                # for i in range(len(colors_session)):
+                #     ax.scatter(trials[i], trial_avg[count_t, i], s=60, color=colors_session[i])
+                ax.set_ylabel('Median of activity ' + str(time_beg[count_t]) + '-' + str(time_end[count_t]) + 's',
+                              fontsize=self.fsize - 2)
+                ax.set_xlabel('Trials', fontsize=self.fsize - 2)
+                ax.spines['right'].set_visible(False)
+                ax.spines['top'].set_visible(False)
+                ax.tick_params(axis='both', which='major', labelsize=self.fsize - 2)
+                if save_plot:
+                    if not os.path.exists(os.path.join(self.path, 'images', plot_type)):
+                        os.mkdir(os.path.join(self.path, 'images', plot_type))
+                    plt.savefig(os.path.join(self.path, 'images', plot_type,
+                                             'median_bs_activity_' + str(time_beg[count_t]) + 's_' + str(
+                                                 time_end[count_t]) + 's_raw'), dpi=self.my_dpi)
+            plt.close('all')
+        return trial_avg
+
+    def response_time_population_events(self, df_norm, time_beg, time_end, clusters_rois, cluster_transition_idx, plot_type, trials_baseline, trials_split, colors_session, save_plot):
+        """Compute the heatmap for ROI event activity for a certain time period and its summary. It can do a random order, by distance or by cluster - depending on input data
+        df_norm: dataframe with activity for all ROIs and timepoints
+        time_beg: (int) vector with starting points for time
+        time_end: (int) vector with ending points for time
+        clusters_rois: list with the ROIs belonging to each cluster
+        cluster_transition_idx: list with the ROIs at the end of each cluster
+        plot_type: (str) raw, distance or cluster
+        traces_type: (str) raw or events or deconv
+        trials_baseline: list with trial id for the baseline
+        trials_split: list with trial id for split
+        colors_session: colors for the trials in the session
+        save_plot: boolean"""
+        trials = np.unique(df_norm['trial'])
+        if plot_type == 'cluster':
+            trial_avg = np.zeros((len(time_beg), len(trials), len(clusters_rois)))
+        else:
+            trial_avg = np.zeros((len(time_beg), len(trials)))
+        for count_t, t in enumerate(time_beg):
+            data_list = []
+            frames_len = []
+            for count_trial, t in enumerate(trials):
+                data_list.append(np.transpose(
+                    df_norm.loc[df_norm['trial'] == t].iloc[time_beg[count_t] * self.sr:time_end[count_t] * self.sr,
+                    2:]))
+                frames_len.append(np.shape(
+                    df_norm.loc[df_norm['trial'] == t].iloc[time_beg[count_t] * self.sr:time_end[count_t] * self.sr,
+                    2:])[0])
+                if plot_type == 'cluster':
+                    for c in range(len(clusters_rois)):
+                        trial_avg[count_t, count_trial, c] = df_norm.loc[df_norm['trial'] == t].iloc[
+                                                             time_beg[count_t] * self.sr:time_end[
+                                                                                               count_t] * self.sr][
+                                                                 clusters_rois[c]].sum().iloc[2:].sum()/(len(df_norm.columns)-2)
+                else:
+                    trial_avg[count_t, count_trial] = df_norm.loc[df_norm['trial'] == t].iloc[
+                                                      time_beg[count_t] * self.sr:time_end[
+                                                                                        count_t] * self.sr].sum().iloc[
+                                                      2:].sum()/(len(df_norm.columns)-2)
+            data = np.concatenate(data_list, axis=1)
+            cum_frames_len = np.cumsum(frames_len)
+            fig, ax = plt.subplots(figsize=(25, 12), tight_layout=True)
+            sns.heatmap(data, cbar='False', cmap='viridis')
+            for t in trials:
+                ax.vlines(cum_frames_len[t - 1], *ax.get_ylim(), color='white', linestyle='dashed')
+            ax.set_yticklabels(df_norm.columns[2::2], rotation=45,
+                               fontsize=self.fsize - 10)
+            if plot_type == 'cluster':
+                for c in cluster_transition_idx:
+                    ax.hlines(c + 1, *ax.get_xlim(), color='white', linestyle='dashed')  # +1 puts in beginning of cluster
+            ax.set_xlabel('Frames', fontsize=self.fsize - 4)
+            if save_plot:
+                if not os.path.exists(os.path.join(self.path, 'images', plot_type)):
+                    os.mkdir(os.path.join(self.path, 'images', plot_type))
+                plt.savefig(os.path.join(self.path, 'images', plot_type,
+                                         'heatmap_' + str(time_beg[count_t]) + 's_' + str(
+                                             time_end[count_t]) + 's_' + plot_type + '_events'), dpi=self.my_dpi)
+            if plot_type == 'cluster':
+                colors = []
+                colors.append((0.967671, 0.439703, 0.35981, 1.0))  # orange center
+                colors.append((0.994738, 0.62435, 0.427397, 1.0))  # salmon
+                colors.append((0.390384, 0.100379, 0.501864, 1.0))  # purple dark
+                colors.append((0, 0, 0, 1.0))  # black
+                colors.append((0.716387, 0.214982, 0.47529, 1.0))  # purple light
+                fig, ax = plt.subplots(1, 5, figsize=(15, 5), tight_layout=True, sharey=True)
+                ax = ax.ravel()
+                for c in np.arange(len(clusters_rois)):
+                    ax[c].axhline(y=0, linestyle='dashed', color='black')
+                    ax[c].add_patch(
+                        plt.Rectangle((trials_baseline[-1] + 0.5, np.min(trial_avg[count_t, :])), len(trials_split),
+                                      np.max(trial_avg[count_t, :]) - np.min(trial_avg[count_t, :]),
+                                      fc='lightgray', alpha=0.7, zorder=0))
+                    ax[c].plot(trials, trial_avg[count_t, :, c], color=colors[c])
+                    ax[c].scatter(trials, trial_avg[count_t, :, c], s=60, color=colors[c])
+                    ax[c].set_ylabel(
+                        'Sum of activity ' + str(time_beg[count_t]) + '-' + str(time_end[count_t]) + 's',
+                        fontsize=self.fsize - 2)
+                    ax[c].set_xlabel('Trials', fontsize=self.fsize - 2)
+                    ax[c].spines['right'].set_visible(False)
+                    ax[c].spines['top'].set_visible(False)
+                    ax[c].tick_params(axis='both', which='major', labelsize=self.fsize - 2)
+                    if save_plot:
+                        if not os.path.exists(os.path.join(self.path, 'images', plot_type)):
+                            os.mkdir(os.path.join(self.path, 'images', plot_type))
+                        plt.savefig(os.path.join(self.path, 'images', plot_type,
+                                                 'sum_activity_' + str(time_beg[count_t]) + 's_' + str(
+                                                     time_end[count_t]) + 's_events'), dpi=self.my_dpi)
+            else:
+                fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+                ax.axhline(y=0, linestyle='dashed', color='black')
+                ax.add_patch(
+                    plt.Rectangle((trials_baseline[-1] + 0.5, np.min(trial_avg[count_t, :])), 10,
+                                  np.max(trial_avg[count_t, :]) - np.min(trial_avg[count_t, :]),
+                                  fc='lightgray', alpha=0.7, zorder=0))
+                ax.plot(trials, trial_avg[count_t, :], color='black')
+                for i in range(len(colors_session)):
+                    ax.scatter(trials[i], trial_avg[count_t, i], s=60, color=colors_session[i])
+                ax.set_ylabel('Sum of activity ' + str(time_beg[count_t]) + '-' + str(time_end[count_t]) + 's',
+                              fontsize=self.fsize - 2)
+                ax.set_xlabel('Trials', fontsize=self.fsize - 2)
+                ax.spines['right'].set_visible(False)
+                ax.spines['top'].set_visible(False)
+                ax.tick_params(axis='both', which='majsor', labelsize=self.fsize - 2)
+                if save_plot:
+                    if not os.path.exists(os.path.join(self.path, 'images', plot_type)):
+                        os.mkdir(os.path.join(self.path, 'images', plot_type))
+                    plt.savefig(os.path.join(self.path, 'images', plot_type,
+                                             'sum_activity_' + str(time_beg[count_t]) + 's_' + str(
+                                                 time_end[count_t]) + 's_events'), dpi=self.my_dpi)
+            plt.close('all')
+        return trial_avg
 
     # def get_background_signal(self, weight, coord_cell):
     #     """ Get neuropil background signals for each cell coordinates. Low-pass filter of

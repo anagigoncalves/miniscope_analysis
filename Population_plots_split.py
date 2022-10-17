@@ -2,9 +2,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.patches as mp
-import pandas as pd
-import time
+import matplotlib as mp
 import seaborn as sns
 
 # path inputs
@@ -13,10 +11,10 @@ path_loco = 'I:\\TM TRACKING FILES\\split ipsi fast\\split ipsi fast S1 050421\\
 session_type = 'split'
 delim = path[-1]
 version_mscope = 'v4'
-plot_data = 0
+plot_data = 1
 save_data = 1
 paw_colors = ['red', 'magenta', 'blue', 'cyan']
-paws = ['FR','HR','FL','HL']
+paws = ['FR', 'HR', 'FL', 'HL']
 fsize = 24
 
 # import classes
@@ -56,12 +54,26 @@ session_type = path.split(delim)[-4].split(' ')[0]  # tied or split
 if session_type == 'tied' and animal == 'MC8855':
     trials_ses = np.array([3, 6])
     trials_ses_name = ['baseline speed', 'fast speed']
+    idx_plot = [np.arange(1, trials_ses[0] + 1), np.arange(trials_ses[0] + 1, trials_ses[1] + 1)]
+    cond_plot = ['baseline', 'fast']
 if session_type == 'tied' and animal != 'MC8855':
     trials_ses = np.array([6, 12, 18])
     trials_ses_name = ['baseline speed', 'fast speed']
-if session_type == 'split':
+    idx_plot = [np.arange(1, trials_ses[0] + 1), np.arange(trials_ses[0] + 1, trials_ses[1] + 1),
+                np.arange(trials_ses[1] + 1, trials_ses[2] + 1)]
+    cond_plot = ['baseline', 'slow', 'fast']
+if session_type == 'split' and animal == 'MC8855':
     trials_ses = np.array([3, 4, 13, 14])
     trials_ses_name = ['baseline', 'early split', 'late split', 'early washout']
+    idx_plot = [np.arange(1, trials_ses[0] + 1), np.arange(trials_ses[1], trials_ses[2] + 1),
+                np.arange(trials_ses[3], len(trials) + 1)]
+    cond_plot = ['baseline', 'split', 'washout']
+if session_type == 'split' and animal != 'MC8855':
+    trials_ses = np.array([6, 7, 16, 17])
+    trials_ses_name = ['baseline', 'early split', 'late split', 'early washout']
+    idx_plot = [np.arange(1, trials_ses[0] + 1), np.arange(trials_ses[1], trials_ses[2] + 1),
+                np.arange(trials_ses[3], len(trials) + 1)]
+    cond_plot = ['baseline', 'split', 'washout']
 if len(trials) == 23:
     trials_baseline = np.array([1, 2, 3])
     trials_split = np.array([4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
@@ -72,264 +84,259 @@ elif len(trials) == 26:
     trials_washout = np.array([17, 18, 19, 20, 21, 22, 23, 24, 25, 26])
 elif len(trials) < 23:
     trials_baseline = trials
+greys = mp.cm.get_cmap('Greys', 14)
+reds = mp.cm.get_cmap('Reds', 23)
+blues = mp.cm.get_cmap('Blues', 23)
+if len(trials) == 23:
+    colors_session = [greys(12), greys(7), greys(4), reds(23), reds(21), reds(19), reds(17), reds(15),
+                      reds(13),
+                      reds(11), reds(9), reds(7), reds(5), blues(23), blues(21), blues(19), blues(17),
+                      blues(15), blues(13),
+                      blues(11), blues(9), blues(7), blues(5)]
+if len(trials) == 26:
+    colors_session = [greys(14), greys(12), greys(10), greys(8), greys(6), greys(4), reds(23), reds(21),
+                      reds(19), reds(17), reds(15), reds(13),
+                      reds(11), reds(9), reds(7), reds(5), blues(23), blues(21), blues(19), blues(17),
+                      blues(15), blues(13),
+                      blues(11), blues(9), blues(7), blues(5)]
+
+# summary gait parameters
+filelist = loco.get_track_files(animal, session)
+param_sym_name = 'coo_stance'
+st_strides_trials = []
+sw_strides_trials = []
+final_tracks_trials = []
+param_trials = []
+stride_duration_trials = []
+param_sym = np.zeros(len(trials))
+for count_trial, f in enumerate(filelist):
+    [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f, 0.9, int(frames_loco[count_trial]))
+    [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
+    paws_rel = loco.get_paws_rel(final_tracks, 'X')
+    final_tracks_trials.append(final_tracks)
+    st_strides_trials.append(st_strides_mat)
+    sw_strides_trials.append(sw_pts_mat)
+    param_trials.append(loco.compute_gait_param(bodycenter, final_tracks, paws_rel, st_strides_mat, sw_pts_mat, param_sym_name))
+    param_mat = loco.compute_gait_param(bodycenter, final_tracks, paws_rel, st_strides_mat, sw_pts_mat, param_sym_name)
+    param_sym[count_trial] = np.nanmean(param_mat[0]) - np.nanmean(param_mat[2])
+    stride_duration_trials.append(loco.compute_gait_param(bodycenter, final_tracks, paws_rel, st_strides_mat, sw_pts_mat, 'stride_duration'))
+
+# baseline subtracion of parameter
+param_sym_bs = np.zeros(np.shape(param_sym))
+bs_mean = np.nanmean(param_sym[:trials_baseline[-1]-1])
+param_sym_bs = param_sym - bs_mean
 
 # Population plots  split ipsi fast
-[df_extract, df_events_extract, df_extract_rawtrace, df_events_extract_rawtrace, trials, coord_ext, reg_th,
- reg_bad_frames] = mscope.load_processed_files()
+[df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, trials,
+ coord_ext, reg_th, reg_bad_frames] = mscope.load_processed_files()
 df_extract_rawtrace_detrended = mscope.compute_detrended_traces(df_extract_rawtrace, 'df_extract_rawtrace_detrended')
-df_extract_rawtrace_detrended_norm = mscope.norm_traces(df_extract_rawtrace_detrended, 'min_max', 'session')
-df_extract_rawtrace_detrended_zscore = mscope.norm_traces(df_extract_rawtrace_detrended, 'min_max', 'session')
-df_extract_norm = mscope.norm_traces(df_extract, 'min_max', 'session')
+df_extract_rawtrace_detrended_zscore = mscope.norm_traces(df_extract_rawtrace_detrended, 'zscore', 'session')
 
-data_1st_5s_list_raw = []
-frames_len = []
-trial_sum_raw = []
-for t in trials:
-    data_1st_5s_list_raw.append(np.transpose(df_extract_rawtrace_detrended_zscore.loc[df_extract_rawtrace_detrended_zscore['trial']==t].iloc[:5*mscope.sr,2:]))
-    frames_len.append(np.shape(df_extract_rawtrace_detrended_zscore.loc[df_extract_rawtrace_detrended_zscore['trial']==t].iloc[:5*mscope.sr,2:])[0])
-    trial_sum_raw.append(df_extract_rawtrace_detrended_zscore.loc[df_extract_rawtrace_detrended_zscore['trial'] == t].iloc[:5 * mscope.sr, 2:].sum().sum())
-data_1st_5s_raw = np.concatenate(data_1st_5s_list_raw,axis=1)
-cum_frames_len = np.cumsum(frames_len)
-fig, ax = plt.subplots(figsize=(25, 12), tight_layout=True)
-sns.heatmap(data_1st_5s_raw, cbar='False')
-for t in trials:
-    ax.vlines(cum_frames_len[t-1], *ax.get_ylim(), color='white', linestyle='dashed')
-ax.set_title('1st 5s of each trial raw trace', fontsize=mscope.fsize - 4)
-ax.set_yticklabels(df_extract_rawtrace_detrended_zscore.columns[2::2], rotation=45, fontsize=mscope.fsize - 10)
-plt.setp(ax.get_xticklabels(), visible=False)
-ax.tick_params(axis='x', which='x', length=0)
-ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-if save_data:
-    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_raw', dpi=mscope.my_dpi)
-fig, ax = plt.subplots(figsize=(25, 5), tight_layout=True)
-# ax.plot(np.arange(0,np.shape(data_1st_5s_raw)[1]),np.sum(data_1st_5s_raw,axis=0), color='black', linewidth=2)
-ax.bar(np.arange(0,np.shape(data_1st_5s_raw)[1]),np.sum(data_1st_5s_raw,axis=0), color='black', linewidth=2)
-for t in trials:
-    ax.vlines(cum_frames_len[t-1], ymin = 0, ymax = 110, color='black', linestyle='dashed')
-ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-plt.xticks(fontsize=mscope.fsize - 8)
-plt.yticks(fontsize=mscope.fsize - 8)
-if save_data:
-    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_raw_sum_frames_bar', dpi=mscope.my_dpi)
-fig, ax = plt.subplots(figsize=(25, 5), tight_layout=True)
-ax.bar(np.arange(75,trials_ses[0]*150,150),trial_sum_raw[:trials_ses[0]], width = 150, color='darkgrey')
-ax.bar(np.arange(trials_ses[0]*150+75,trials_ses[2]*150,150),trial_sum_raw[trials_ses[0]:trials_ses[2]], width = 150, color='crimson')
-ax.bar(np.arange(trials_ses[2]*150+75,np.shape(data_1st_5s_raw)[1],150),trial_sum_raw[trials_ses[2]:], width = 150, color='blue')
-for t in trials:
-    ax.vlines(cum_frames_len[t-1], ymin = 0, ymax = 6000, color='black', linestyle='dashed')
-ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-plt.xticks(fontsize=mscope.fsize - 8)
-plt.yticks(fontsize=mscope.fsize - 8)
-if save_data:
-    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_raw_sum_all_bar', dpi=mscope.my_dpi)
-fig, ax = plt.subplots(figsize=(25, 5), tight_layout=True)
-ax.plot(np.arange(75,np.shape(data_1st_5s_raw)[1],150),trial_sum_raw, color='black', marker='o', linewidth=2)
-for t in trials:
-    ax.vlines(cum_frames_len[t-1], ymin = 1000, ymax = 7000, color='black', linestyle='dashed')
-ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-plt.xticks(fontsize=mscope.fsize - 8)
-plt.yticks(fontsize=mscope.fsize - 8)
-if save_data:
-    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_raw_sum_all_line', dpi=mscope.my_dpi)
-fig, ax = plt.subplots(figsize=(7, 10), tight_layout=True)
-ax.plot(np.arange(0,np.shape(data_1st_5s_raw)[1]),np.sum(data_1st_5s_raw,axis=0), color='black', linewidth=2)
-for t in np.array([3,13]):
-    ax.vlines(cum_frames_len[t-1], ymin = -140, ymax = 400, color='black', linestyle='dashed')
-ax.set_ylim(ax.get_ylim()[::-1])
-ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-plt.xticks(fontsize=mscope.fsize - 8)
-plt.yticks(fontsize=mscope.fsize - 8)
-if save_data:
-    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_raw_sum_revyaxis', dpi=mscope.my_dpi)
-fig, ax1 = plt.subplots(figsize=(5, 10), tight_layout=True)
-ax1.plot(np.arange(75,np.shape(data_1st_5s_raw)[1],150),trial_sum_raw, color='black', marker='o', linewidth=2)
-for t in np.array([3,13]):
-    ax1.vlines(cum_frames_len[t-1], ymin = -5600, ymax = 12700, color='black', linestyle='dashed')
-ax1.set_ylim(ax1.get_ylim()[::-1])
-ax1.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-ax1.spines['right'].set_visible(False)
-ax1.spines['top'].set_visible(False)
-plt.xticks(fontsize=mscope.fsize - 8)
-plt.yticks(fontsize=mscope.fsize - 8)
-if save_data:
-    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_raw_sum_all_revyaxis', dpi=mscope.my_dpi)
-
-data_1st_5s_list_dconv = []
-frames_len = []
-trial_sum_dconv = []
-for t in trials:
-    data_1st_5s_list_dconv.append(np.transpose(df_extract_norm.loc[df_extract_norm['trial']==t].iloc[:5*mscope.sr,2:]))
-    frames_len.append(np.shape(df_extract_norm.loc[df_extract_norm['trial']==t].iloc[:5*mscope.sr,2:])[0])
-    trial_sum_dconv.append(df_extract_norm.loc[df_extract_norm['trial'] == t].iloc[:5 * mscope.sr, 2:].sum().sum())
-data_1st_5s_dconv = np.concatenate(data_1st_5s_list_dconv,axis=1)
-cum_frames_len = np.cumsum(frames_len)
-fig, ax = plt.subplots(figsize=(25, 12), tight_layout=True)
-sns.heatmap(data_1st_5s_dconv, cbar='False')
-for t in trials:
-    ax.vlines(cum_frames_len[t-1], *ax.get_ylim(), color='white', linestyle='dashed')
-ax.set_title('1st 5s of each trial deconvolved trace', fontsize=mscope.fsize - 4)
-ax.set_yticklabels(df_extract_norm[2::2], rotation=45, fontsize=mscope.fsize - 10)
-plt.setp(ax.get_xticklabels(), visible=False)
-ax.tick_params(axis='x', which='x', length=0)
-ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-if save_data:
-    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s', dpi=mscope.my_dpi)
-fig, ax = plt.subplots(figsize=(25, 5), tight_layout=True)
-ax.bar(np.arange(0,np.shape(data_1st_5s_dconv)[1]),np.sum(data_1st_5s_dconv,axis=0), color='black')
-for t in trials:
-    ax.vlines(cum_frames_len[t-1], ymin = 0, ymax = 14, color='black', linestyle='dashed')
-ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-plt.xticks(fontsize=mscope.fsize - 8)
-plt.yticks(fontsize=mscope.fsize - 8)
-if save_data:
-    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_sum_frames_bar', dpi=mscope.my_dpi)
-fig, ax = plt.subplots(figsize=(25, 5), tight_layout=True)
-ax.plot(np.arange(0,np.shape(data_1st_5s_dconv)[1]),np.sum(data_1st_5s_dconv,axis=0), color='black', linewidth=2)
-for t in trials:
-    ax.vlines(cum_frames_len[t-1], ymin = 0, ymax = 20, color='black', linestyle='dashed')
-ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-plt.xticks(fontsize=mscope.fsize - 8)
-plt.yticks(fontsize=mscope.fsize - 8)
-if save_data:
-    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_sum_frames_line', dpi=mscope.my_dpi)
-fig, ax = plt.subplots(figsize=(25, 5), tight_layout=True)
-ax.bar(np.arange(75,np.shape(data_1st_5s_dconv)[1],150),trial_sum_dconv, color='black', width=140)
-for t in trials:
-    ax.vlines(cum_frames_len[t-1], ymin = 400, ymax = 1200, color='black', linestyle='dashed')
-ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-plt.xticks(fontsize=mscope.fsize - 8)
-plt.yticks(fontsize=mscope.fsize - 8)
-if save_data:
-    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_sum_all_bar', dpi=mscope.my_dpi)
-fig, ax = plt.subplots(figsize=(25, 5), tight_layout=True)
-ax.plot(np.arange(75,np.shape(data_1st_5s_dconv)[1],150),trial_sum_dconv, color='black', marker='o', linewidth=2)
-for t in trials:
-    ax.vlines(cum_frames_len[t-1], ymin = 0, ymax = 800, color='black', linestyle='dashed')
-ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-plt.xticks(fontsize=mscope.fsize - 8)
-plt.yticks(fontsize=mscope.fsize - 8)
-if save_data:
-    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_sum_all_line', dpi=mscope.my_dpi)
-fig, ax = plt.subplots(figsize=(10, 10), tight_layout=True)
-ax.plot(np.arange(0,np.shape(data_1st_5s_dconv)[1]),np.sum(data_1st_5s_dconv,axis=0), color='black', linewidth=2)
-for t in np.array([3,13]):
-    ax.vlines(cum_frames_len[t-1], ymin = 0, ymax = 14, color='black', linestyle='dashed')
-ax.set_ylim(ax.get_ylim()[::-1])
-ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-plt.xticks(fontsize=mscope.fsize - 8)
-plt.yticks(fontsize=mscope.fsize - 8)
-if save_data:
-    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_sum_revyaxis', dpi=mscope.my_dpi)
-fig, ax = plt.subplots(figsize=(5, 10), tight_layout=True)
-ax.plot(np.arange(75,np.shape(data_1st_5s_dconv)[1],150),trial_sum_dconv, color='black', marker='o', linewidth=2)
-for t in np.array([3,13]):
-    ax.vlines(cum_frames_len[t-1], ymin = 400, ymax = 1200, color='black', linestyle='dashed')
-ax.set_ylim(ax.get_ylim()[::-1])
-ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-plt.xticks(fontsize=mscope.fsize - 8)
-plt.yticks(fontsize=mscope.fsize - 8)
-if save_data:
-    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_raw_sum_all_revyaxis', dpi=mscope.my_dpi)
-
-
-data_1st_5s_list_raw_events = []
-frames_len = []
-trial_sum_raw_events = []
-for t in trials:
-    data_1st_5s_list_raw_events.append(np.transpose(df_events_extract_rawtrace.loc[df_events_extract_rawtrace['trial']==t].iloc[:5*mscope.sr,2:]))
-    frames_len.append(np.shape(df_events_extract_rawtrace.loc[df_events_extract_rawtrace['trial']==t].iloc[:5*mscope.sr,2:])[0])
-    trial_sum_raw_events.append(df_events_extract_rawtrace.loc[df_events_extract_rawtrace['trial'] == t].iloc[:5 * mscope.sr, 2:].sum().sum())
-data_1st_5s_raw_events = np.concatenate(data_1st_5s_list_raw_events,axis=1)
-cum_frames_len = np.cumsum(frames_len)
-fig, ax = plt.subplots(figsize=(25, 12), tight_layout=True)
-sns.heatmap(data_1st_5s_raw_events, cbar='False')
-for t in trials:
-    ax.vlines(cum_frames_len[t-1], *ax.get_ylim(), color='white', linestyle='dashed')
-ax.set_title('1st 5s of each trial raw events', fontsize=mscope.fsize - 4)
-ax.set_yticklabels(df_events_extract_rawtrace[2::2], rotation=45, fontsize=mscope.fsize - 10)
-plt.setp(ax.get_xticklabels(), visible=False)
-ax.tick_params(axis='x', which='x', length=0)
-ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-if save_data:
-    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_raw_events', dpi=mscope.my_dpi)
-fig, ax = plt.subplots(figsize=(25, 5), tight_layout=True)
-ax.bar(np.arange(75,trials_ses[0]*150,150),trial_sum_raw_events[:trials_ses[0]], width = 150, color='darkgrey')
-ax.bar(np.arange(trials_ses[0]*150+75,trials_ses[2]*150,150),trial_sum_raw_events[trials_ses[0]:trials_ses[2]], width = 150, color='crimson')
-ax.bar(np.arange(trials_ses[2]*150+75,np.shape(data_1st_5s_raw)[1],150),trial_sum_raw_events[trials_ses[2]:], width = 150, color='blue')
-for t in trials:
-    ax.vlines(cum_frames_len[t-1], ymin = 0, ymax = 2300, color='black', linestyle='dashed')
-ax.set_xlabel('Frames', fontsize=mscope.fsize - 4)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-plt.xticks(fontsize=mscope.fsize - 8)
-plt.yticks(fontsize=mscope.fsize - 8)
-if save_data:
-    plt.savefig(mscope.path+ '\\images\\'+ 'heatmap_1st_5s_raw_events_sum_all_bar', dpi=mscope.my_dpi)
-
-plt.figure(figsize=(10, 10), tight_layout=True)
-for r in range(len(coord_ext)):
-    plt.scatter(coord_ext[r][:, 0], coord_ext[r][:, 1], s=1, alpha=0.6)
-    plt.text(coord_ext[r][0, 0], coord_ext[r][0, 1], str(r))
-plt.imshow(ref_image, cmap='gray',
-           extent=[0, np.shape(ref_image)[1] / mscope.pixel_to_um, np.shape(ref_image)[0] / mscope.pixel_to_um, 0])
-
-
+# Clustering
 centroid_ext = mscope.get_roi_centroids(coord_ext)
 distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-th_cluster = 0.5
-colormap_cluster = 'magma'
-cmap = plt.get_cmap(colormap_cluster)
-colors_new = [cmap(i) for i in np.linspace(0, 1, int(np.floor(20 + 1)))]
+th_cluster = 0.6
+colormap_cluster = 'hsv'
 trial_plot = 3
-[colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended_zscore, centroid_ext, distance_neurons, trial_plot, th_cluster, colormap_cluster, plot_data)
+[colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
+                                                                  distance_neurons, trial_plot, th_cluster,
+                                                                  colormap_cluster, plot_data)
+[clusters_rois, idx_roi_cluster_ordered] = mscope.get_rois_clusters_mediolateral(df_extract_rawtrace_detrended,
+                                                                                 idx_roi_cluster, centroid_ext)
 furthest_neuron = np.argmax(np.array(centroid_ext)[:, 0])
-furthest_neuron = 183
 neuron_order = np.argsort(distance_neurons[furthest_neuron, :])
-roi_list = df_extract_rawtrace_detrended_zscore.columns[2:]
-roi_list_ordered = roi_list[neuron_order]
-idx_ordered = idx_roi_cluster[neuron_order]
-dFF_trial = df_extract_rawtrace_detrended_zscore.loc[df_extract_rawtrace_detrended_zscore['trial'] == trial_plot]  # get dFF for the desired trial
-colors = []
-colors.append((0.390384, 0.100379, 0.501864, 1.0)) #purple dark
-colors.append((0, 0, 0, 1.0)) #black
-colors.append((0.716387, 0.214982, 0.47529, 1.0)) #purple light
-colors.append((0.967671, 0.439703, 0.35981, 1.0)) #salmon
-colors.append((0.994738, 0.62435, 0.427397, 1.0)) #orange center
-colors.append((0.967671, 0.439703, 0.35981, 1.0))
-fig, ax = plt.subplots(figsize=(10, 20), tight_layout=True)
-count_r = 0
-for r in roi_list_ordered:
-    plt.plot(frame_time[trial_plot - 1], dFF_trial[r] + (count_r/2), color='black')
-    plt.plot(np.arange(-3,0), np.ones(3)*count_r/2, color=colors[idx_ordered[count_r] - 1], linewidth=4)
-    count_r += 1
-ax.set_xlabel('Time (s)', fontsize=mscope.fsize - 4)
-ax.set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=mscope.fsize - 4)
-plt.xticks(fontsize=mscope.fsize - 4)
-plt.yticks(fontsize=mscope.fsize - 4)
-plt.setp(ax.get_yticklabels(), visible=False)
-ax.tick_params(axis='y', which='y', length=0)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-ax.spines['left'].set_visible(False)
-plt.tick_params(axis='y', labelsize=0, length=0)
-plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'traces_ncmposter'), dpi=mscope.my_dpi)
+roi_list = df_extract_rawtrace.columns[2:]
+roi_list_ordered = roi_list[neuron_order].insert(0, 'time').insert(0, 'trial')
+df_extract_rawtrace_detrended_zscore_distance = df_extract_rawtrace_detrended_zscore[roi_list_ordered]
+cluster_transition_idx = np.cumsum([len(clusters_rois[c]) for c in range(len(clusters_rois))])-1
+
+# Order ROIs by cluster
+clusters_rois_flat = np.transpose(sum(clusters_rois, []))
+clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
+clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
+df_extract_rawtrace_detrended_zscore_clustered = df_extract_rawtrace_detrended_zscore[clusters_rois_flat]
+df_events_extract_rawtrace_clustered = df_events_extract_rawtrace[clusters_rois_flat]
+
+time_beg = np.arange(0, 60, 5)
+time_end = np.arange(5, 65, 5)
+# # raw signal unclustered
+# traces_type = 'raw'
+# plot_type = 'raw'
+# trial_avg_raw = mscope.response_time_population_avg(df_extract_rawtrace_detrended_zscore, time_beg, time_end, clusters_rois, cluster_transition_idx, plot_type, trials_baseline, trials_split, colors_session, save_data)
+# # raw signal clustered
+# traces_type = 'raw'
+# plot_type = 'cluster'
+# trial_avg_cluster = mscope.response_time_population_avg(df_extract_rawtrace_detrended_zscore_clustered, time_beg, time_end, clusters_rois, cluster_transition_idx, plot_type, trials_baseline, trials_split, colors_session, save_data)
+# # raw signal distance order
+# traces_type = 'raw'
+# plot_type = 'distance'
+# trial_avg_distance = mscope.response_time_population_avg(df_extract_rawtrace_detrended_zscore_distance, time_beg, time_end, clusters_rois, cluster_transition_idx, plot_type, trials_baseline, trials_split, colors_session, save_data)
+
+# if save_data:
+#     # Median activity for all ROIs and all trials
+#     fig, ax = plt.subplots(3, 2, figsize=(30,20), tight_layout=True)
+#     ax = ax.ravel()
+#     ax[0].add_patch(
+#         plt.Rectangle((np.where(df_extract_rawtrace_detrended_zscore_clustered['trial']==trials_baseline[-1])[0][-1], -2),
+#                       np.where(df_extract_rawtrace_detrended_zscore_clustered['trial']==trials_split[-1])[0][-1] - np.where(df_extract_rawtrace_detrended_zscore_clustered['trial']==trials_baseline[-1])[0][-1],
+#                       10,
+#                       fc='lightgray', alpha=0.7))
+#     ax[0].plot(df_extract_rawtrace_detrended_zscore_clustered.iloc[:,2:].median(axis=1), color='black')
+#     for t in trials:
+#         ax[0].axvline(x = np.where(df_extract_rawtrace_detrended_zscore_clustered['trial']==t)[0][-1], color='red', linestyle = 'dashed')
+#         ax[0].set_title('All ROIs', fontsize=mscope.fsize - 2)
+#         ax[0].set_ylabel('Median DeltaF/F', fontsize=mscope.fsize - 4)
+#         ax[0].set_xlabel('Frames', fontsize=mscope.fsize - 4)
+#         ax[0].spines['right'].set_visible(False)
+#         ax[0].spines['top'].set_visible(False)
+#         ax[0].tick_params(axis='both', which='major', labelsize=mscope.fsize - 4)
+#     for c in range(len(clusters_rois)):
+#         df_rois_plot = df_extract_rawtrace_detrended_zscore_clustered[clusters_rois[c]]
+#         ax[c+1].add_patch(
+#             plt.Rectangle(
+#                 (np.where(df_extract_rawtrace_detrended_zscore_clustered['trial'] == trials_baseline[-1])[0][-1], -2),
+#                 np.where(df_extract_rawtrace_detrended_zscore_clustered['trial'] == trials_split[-1])[0][-1] -
+#                 np.where(df_extract_rawtrace_detrended_zscore_clustered['trial'] == trials_baseline[-1])[0][-1],
+#                 10,
+#                 fc='lightgray', alpha=0.7))
+#         ax[c+1].plot(df_rois_plot.iloc[:, 2:].median(axis=1), color='black')
+#         for t in trials:
+#             ax[c+1].axvline(x=np.where(df_extract_rawtrace_detrended_zscore_clustered['trial'] == t)[0][-1], color='red',
+#                           linestyle='dashed')
+#         ax[c+1].set_title('Cluster '+str(c+1), fontsize=mscope.fsize - 2)
+#         ax[c+1].set_ylabel('Median DeltaF/F', fontsize=mscope.fsize - 4)
+#         ax[c+1].set_xlabel('Frames', fontsize=mscope.fsize - 4)
+#         ax[c+1].spines['right'].set_visible(False)
+#         ax[c+1].spines['top'].set_visible(False)
+#         ax[c+1].tick_params(axis='both', which='major', labelsize=mscope.fsize - 4)
+#     plt.savefig(os.path.join(mscope.path, 'images', 'raw','median_activity_all_trials_clusters'), dpi=mscope.my_dpi)
+
+# # event signal unclustered
+# traces_type = 'events'
+# plot_type = 'raw'
+# trial_avg_events_raw = mscope.response_time_population_events(df_events_extract_rawtrace, time_beg, time_end, cluster_rois_ordered, cluster_transition_idx, plot_type, trials_baseline, trials_split, colors_session, 1)
+# # event signal clustered
+# traces_type = 'events'
+# plot_type = 'cluster'
+# trial_avg_events_cluster = mscope.response_time_population_events(df_events_extract_rawtrace_clustered, time_beg, time_end, cluster_rois_ordered, cluster_transition_idx, plot_type, trials_baseline, trials_split, colors_session, 1)
+
+# Step length symmetry analysis
+traces_type = 'raw'
+step_size = 2
+p1 = 'FR'
+p2 = 'FL'
+roi_list = df_extract_rawtrace_detrended.columns[2:]
+roi_plot = []
+for r in range(len(roi_list)):
+    roi_plot.append(np.int64(roi_list[r][3:]))
+sl_front_events_baseline = np.zeros((len(roi_plot),51))
+sl_front_events_split = np.zeros((len(roi_plot),51))
+sl_front_events_washout = np.zeros((len(roi_plot),51))
+for count_r, roi in enumerate(roi_plot):
+    for count_t, trials_compute in enumerate(idx_plot):
+        [bins, sl_p1_events_trials, sl_p1_events_trials_shuffled, t_stat, p_value] = mscope.param_events_plot(param_trials, st_strides_trials,
+                                                               df_events_extract_rawtrace, param_sym_name, roi, p1,
+                                                               p2, step_size, trials_compute, trials,
+                                                               traces_type, cond_plot[count_t], stride_duration_trials,
+                                                               0)
+        if count_t == 0:
+            sl_front_events_baseline[count_r,:] = sl_p1_events_trials
+        if count_t == 1:
+            sl_front_events_split[count_r,:] = sl_p1_events_trials
+        if count_t == 2:
+            sl_front_events_washout[count_r,:] = sl_p1_events_trials
+
+clusters_rois_flat_idx = [np.where(i == df_extract_rawtrace_detrended.columns[2:])[0][0] for i in clusters_rois_flat[2:]]
+sl_front_events_baseline_clustered = sl_front_events_baseline[clusters_rois_flat_idx, :]
+sl_front_events_split_clustered = sl_front_events_split[clusters_rois_flat_idx, :]
+sl_front_events_washout_clustered = sl_front_events_washout[clusters_rois_flat_idx, :]
+fig, ax = plt.subplots(figsize=(15, 5), tight_layout = True)
+sns.heatmap(sl_front_events_baseline[:, ~np.isnan(sl_front_events_baseline[0,:])], cmap='viridis')
+ax.set_title(param_sym_name.replace('_', ' ') + ' symmetry event proportion (stride duration normalized) unclustered for baseline',
+             fontsize=mscope.fsize - 4)
+ax.set_yticks(np.arange(0, len(df_events_extract_rawtrace.columns[2:]), 6))
+ax.set_yticklabels(df_events_extract_rawtrace.columns[2::6], rotation=45, fontsize=mscope.fsize - 12)
+ax.set_xticklabels(map(str, bins[~np.isnan(sl_front_events_baseline[0,:])]), fontsize=mscope.fsize - 10)
+ax.set_xlabel(param_sym_name.replace('_', ' ') + ' symmetry', fontsize=mscope.fsize - 8)
+if save_data:
+    if not os.path.exists(os.path.join(mscope.path, 'images','events','raw')):
+        os.mkdir(os.path.join(mscope.path, 'images','events','raw'))
+    plt.savefig(os.path.join(mscope.path, 'images','events','raw',
+                             'heatmap_' + param_sym_name + '_baseline_unclustered'),
+                dpi=mscope.my_dpi)
+fig, ax = plt.subplots(figsize=(15, 5), tight_layout = True)
+sns.heatmap(sl_front_events_baseline_clustered[:, ~np.isnan(sl_front_events_baseline_clustered[0,:])], cmap='viridis')
+for c in cluster_transition_idx:
+    ax.hlines(c+1, *ax.get_xlim(), color='white', linestyle='dashed')  # +1 puts in beginning of cluster
+ax.set_title(param_sym_name.replace('_', ' ') + ' symmetry event proportion (stride duration normalized) clustered for baseline',
+             fontsize=mscope.fsize - 4)
+ax.set_yticks(np.arange(0, len(df_events_extract_rawtrace.columns[2:]), 6))
+ax.set_yticklabels(clusters_rois_flat[2::6], rotation=45, fontsize=mscope.fsize - 12)
+ax.set_xticklabels(map(str, bins[~np.isnan(sl_front_events_baseline[0,:])]), fontsize=mscope.fsize - 10)
+ax.set_xlabel(param_sym_name.replace('_', ' ') + ' symmetry', fontsize=mscope.fsize - 8)
+if save_data:
+    if not os.path.exists(os.path.join(mscope.path, 'images','events','raw')):
+        os.mkdir(os.path.join(mscope.path, 'images','events','raw'))
+    plt.savefig(os.path.join(mscope.path, 'images','events','raw',
+                             'heatmap_' + param_sym_name + '_baseline_clustered'),
+                dpi=mscope.my_dpi)
+fig, ax = plt.subplots(figsize=(15, 5), tight_layout = True)
+sns.heatmap(sl_front_events_split[:, ~np.isnan(sl_front_events_split[0,:])], cmap='viridis')
+ax.set_title(param_sym_name.replace('_', ' ') + ' symmetry event proportion (stride duration normalized) unclustered for split',
+             fontsize=mscope.fsize - 4)
+ax.set_yticks(np.arange(0, len(df_events_extract_rawtrace.columns[2:]), 6))
+ax.set_yticklabels(df_events_extract_rawtrace.columns[2::6], rotation=45, fontsize=mscope.fsize - 12)
+ax.set_xticklabels(map(str, bins[~np.isnan(sl_front_events_split[0,:])]), fontsize=mscope.fsize - 10)
+ax.set_xlabel(param_sym_name.replace('_', ' ') + ' symmetry', fontsize=mscope.fsize - 8)
+if save_data:
+    if not os.path.exists(os.path.join(mscope.path, 'images','events','raw')):
+        os.mkdir(os.path.join(mscope.path, 'images','events','raw'))
+    plt.savefig(os.path.join(mscope.path, 'images','events','raw',
+                             'heatmap_' + param_sym_name + '_split_unclustered'),
+                dpi=mscope.my_dpi)
+fig, ax = plt.subplots(figsize=(15, 5), tight_layout = True)
+sns.heatmap(sl_front_events_split_clustered[:, ~np.isnan(sl_front_events_split_clustered[0,:])], cmap='viridis')
+for c in cluster_transition_idx:
+    ax.hlines(c+1, *ax.get_xlim(), color='white', linestyle='dashed')  # +1 puts in beginning of cluster
+ax.set_title(param_sym_name.replace('_', ' ') + ' symmetry event proportion (stride duration normalized) clustered for split',
+             fontsize=mscope.fsize - 4)
+ax.set_yticks(np.arange(0, len(df_events_extract_rawtrace.columns[2:]), 6))
+ax.set_yticklabels(clusters_rois_flat[2::6], rotation=45, fontsize=mscope.fsize - 12)
+ax.set_xticklabels(map(str, bins[~np.isnan(sl_front_events_split[0,:])]), fontsize=mscope.fsize - 10)
+ax.set_xlabel(param_sym_name.replace('_', ' ') + ' symmetry', fontsize=mscope.fsize - 8)
+if save_data:
+    if not os.path.exists(os.path.join(mscope.path, 'images','events','raw')):
+        os.mkdir(os.path.join(mscope.path, 'images','events','raw'))
+    plt.savefig(os.path.join(mscope.path, 'images','events','raw',
+                             'heatmap_' + param_sym_name + '_split_clustered'),
+                dpi=mscope.my_dpi)
+fig, ax = plt.subplots(figsize=(15, 5), tight_layout = True)
+sns.heatmap(sl_front_events_washout[:, ~np.isnan(sl_front_events_washout[0,:])], cmap='viridis')
+ax.set_title(param_sym_name.replace('_', ' ') + ' symmetry event proportion (stride duration normalized) unclustered for washout',
+             fontsize=mscope.fsize - 4)
+ax.set_yticks(np.arange(0, len(df_events_extract_rawtrace.columns[2:]), 6))
+ax.set_yticklabels(df_events_extract_rawtrace.columns[2::6], rotation=45, fontsize=mscope.fsize - 12)
+ax.set_xticklabels(map(str, bins[~np.isnan(sl_front_events_washout[0,:])]), fontsize=mscope.fsize - 10)
+ax.set_xlabel(param_sym_name.replace('_', ' ') + ' symmetry', fontsize=mscope.fsize - 8)
+if save_data:
+    if not os.path.exists(os.path.join(mscope.path, 'images','events','raw')):
+        os.mkdir(os.path.join(mscope.path, 'images','events','raw'))
+    plt.savefig(os.path.join(mscope.path, 'images','events','raw',
+                             'heatmap_' + param_sym_name + '_washout_unclustered'),
+                dpi=mscope.my_dpi)
+fig, ax = plt.subplots(figsize=(15, 5), tight_layout = True)
+sns.heatmap(sl_front_events_washout_clustered[:, ~np.isnan(sl_front_events_washout_clustered[0,:])], cmap='viridis')
+for c in cluster_transition_idx:
+    ax.hlines(c+1, *ax.get_xlim(), color='white', linestyle='dashed')  # +1 puts in beginning of cluster
+ax.set_title(param_sym_name.replace('_', ' ') + ' symmetry event proportion (stride duration normalized) clustered for washout',
+             fontsize=mscope.fsize - 4)
+ax.set_yticks(np.arange(0, len(df_events_extract_rawtrace.columns[2:]), 6))
+ax.set_yticklabels(clusters_rois_flat[2::6], rotation=45, fontsize=mscope.fsize - 12)
+ax.set_xticklabels(map(str, bins[~np.isnan(sl_front_events_washout[0,:])]), fontsize=mscope.fsize - 10)
+ax.set_xlabel(param_sym_name.replace('_', ' ') + ' symmetry', fontsize=mscope.fsize - 8)
+if save_data:
+    if not os.path.exists(os.path.join(mscope.path, 'images','events','raw')):
+        os.mkdir(os.path.join(mscope.path, 'images','events','raw'))
+    plt.savefig(os.path.join(mscope.path, 'images','events','raw',
+                             'heatmap_' + param_sym_name + '_washout_clustered'),
+                dpi=mscope.my_dpi)

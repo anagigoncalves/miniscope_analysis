@@ -54,7 +54,78 @@ class loco_class:
         x  = np.isnan(A).ravel().nonzero()[0]
         A[np.isnan(A)] = np.interp(x, xp, fp)
         return A
-    
+
+    @staticmethod
+    def param_continuous_sym(param_trials, st_strides_trials, trials, p1, p2, sym, remove_nan):
+        """Compute a parameter across all trials and correspondent time, if wanted compute symmetry using another paw
+        Inputs:
+        param_trials. list with the param values for each trial all strides
+        st_strides_trials: list with strides for all trials
+        trials: trial list
+        p1: paw to compute the parameter (FR, HR, FL, HL)
+        p2: paw to relate to p1, to compute the parameter as symmetry (FR, HR, FL, HL)
+        sym: boolean
+        remove_nan: boolean"""
+        if p1 == 'FR':
+            p1_idx = 0
+        if p1 == 'HR':
+            p1_idx = 1
+        if p1 == 'FL':
+            p1_idx = 2
+        if p1 == 'HL':
+            p1_idx = 3
+        if p2 == 'FR':
+            p2_idx = 0
+        if p2 == 'HR':
+            p2_idx = 1
+        if p2 == 'FL':
+            p2_idx = 2
+        if p2 == 'HL':
+            p2_idx = 3
+        param_all = []
+        param_all_time = []
+        cumulative_idx = []
+        for count_t, t in enumerate(trials):
+            trial_index = np.where(trials == t)[0][0]
+            sl_p1 = param_trials[trial_index][p1_idx]
+            sl_p2 = param_trials[trial_index][p2_idx]
+            strides_p1 = st_strides_trials[trial_index][p1_idx]
+            strides_p2 = st_strides_trials[trial_index][p2_idx]
+            # get events between the strides
+            param = np.zeros(np.shape(strides_p1)[0])
+            param[:] = np.nan
+            param_time = np.zeros(np.shape(strides_p1)[0])
+            param_time[:] = np.nan
+            for s in range(np.shape(strides_p1)[0]):
+                stride_contra = \
+                np.where((strides_p2[:, 0, 0] > strides_p1[s, 0, 0]) & (strides_p2[:, 0, 0] < strides_p1[s, 1, 0]))[0]
+                if sym:
+                    if len(stride_contra) == 1:  # one event in the stride
+                        param[s] = sl_p1[s] - sl_p2[stride_contra]
+                    if len(stride_contra) > 1:  # more than two events in a stride
+                        param[s] = sl_p1[s] - np.nanmean(sl_p2[stride_contra])
+                else:
+                    param[s] = sl_p1[s]
+                param_time[s] = strides_p1[s, 0, 0] / 1000
+                if count_t == 0 and s == 0:
+                    cumulative_idx.append(1)
+                else:
+                    cumulative_idx.append(cumulative_idx[-1] + 1)
+            param_all.extend(param)
+            if count_t > 0:  # cumulative time
+                param_all_time.extend(param_time + param_all_time[-1])
+            else:
+                param_all_time.extend(param_time)
+        if remove_nan:
+            param_all_notnan = np.array(param_all)[~np.isnan(param_all)]
+            param_all_time_notnan = np.array(param_all_time)[~np.isnan(param_all)]
+            cumulative_idx_array = np.array(cumulative_idx)[~np.isnan(param_all)]
+        else:
+            param_all_notnan = np.array(param_all)
+            param_all_time_notnan = np.array(param_all_time)
+            cumulative_idx_array = np.array(cumulative_idx)
+        return cumulative_idx_array, param_all_time_notnan, param_all_notnan
+
     def get_session_id(self):
         session = int(self.path.split(self.delim)[-2].split()[-2][1:])
         return session
@@ -212,6 +283,44 @@ class loco_class:
             st_strides_mat_new = st_strides_mat
             sw_pts_mat_new = sw_pts_mat
         return st_strides_mat_new, sw_pts_mat_new
+
+    @staticmethod
+    def final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials, phase_type):
+        """Transform the final tracks trials in phase
+        Inputs:
+        final_tracks_trials: (list) final tracks for each trial
+        trials: (list) trials in the session
+        st_strides_trials: (list) with stride structure st to st
+        sw_strides_trials: (list) with stride structure sw to sw
+        phase_type: (str) st-st or st-sw-st
+        """
+        final_tracks_trials_phase = []
+        for t in trials:
+            final_tracks_phase = np.zeros(np.shape(final_tracks_trials[t - 1]))
+            final_tracks_phase[:] = np.nan
+            for a in range(4):
+                for p in range(5):
+                    if p == 4:  # if nose, do the phase in relation to the FR paw
+                        p = 0
+                    excursion_phase = np.zeros(len(final_tracks_trials[t - 1][0, p, :]))
+                    excursion_phase[:] = np.nan
+                    for s in range(len(st_strides_trials[t - 1][p][:, 0, -1])):
+                        st_on = np.int64(st_strides_trials[t - 1][p][s, 0, -1])
+                        sw_on = np.int64(sw_strides_trials[t - 1][p][s, 0, -1])
+                        st_off = np.int64(st_strides_trials[t - 1][p][s, 1, -1])
+                        if phase_type == 'st-sw-st':
+                            nr_st = len(final_tracks_trials[t - 1][0, p, st_on:sw_on])
+                            nr_sw = len(final_tracks_trials[t - 1][0, p, sw_on:st_off])
+                            excursion_phase[st_on - 1:sw_on] = np.linspace(0, 0.5, nr_st + 1)
+                            excursion_phase[sw_on - 1:st_off] = np.linspace(0.5, 1, nr_sw + 1)
+                            excursion_phase[st_off] = 0  # put it there -1
+                        if phase_type == 'st-st':
+                            nr_st = len(final_tracks_trials[t - 1][0, p, st_on:st_off])
+                            excursion_phase[st_on - 1:st_off] = np.linspace(0, 1, nr_st + 1)
+                            excursion_phase[st_off] = 0  # put it there -1
+                    final_tracks_phase[a, p, :] = excursion_phase
+            final_tracks_trials_phase.append(final_tracks_phase)
+        return final_tracks_trials_phase
 
     def get_sw_st_matrices_JR(self,final_tracks,dict_swst,exclusion):
         """Computes swing and stance points of a trial from x axis of the bottom view tracking.
@@ -460,7 +569,7 @@ class loco_class:
                     phase_st_paw.append(phase_st_radians)
                 param_mat.append(phase_st_paw)
         return param_mat
-    
+
     def animals_within_session(self):
         """See which animals and sessions are in the folder with tracks"""
         delim = self.path[-1]
@@ -500,7 +609,7 @@ class loco_class:
             files_ordered.append(filelist[tr_ind])
         return files_ordered
 
-    def plot_gait_adaptation(self,param_sym,param,animal,session,print_plots):
+    def plot_gait_adaptation(self, param_sym, param, animal, session, print_plots):
         """Plots nicely the symmetry parameter that was computed for the whole session
         Input: param_sym - array with gait symmetry value across trials
                param - gait parameter (string with _)
@@ -522,11 +631,7 @@ class loco_class:
         if print_plots:
             if not os.path.exists(self.path+'images'):
                 os.mkdir(self.path+'images')
-            delim = self.path[-1]
-            if delim == '/':
-                plt.savefig(self.path+'images/'+ param+'_'+animal+'_'+str(session), dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path+'images\\'+ param+'_'+animal+'_'+str(session), dpi=self.my_dpi)                
+            plt.savefig(os.path.join(self.path, 'images', param+'_'+animal+'_'+str(session)), dpi=self.my_dpi)
     
     def get_stride_trajectories(self,excursion,align_array,paw,axis,interpolation,stride_points):
         """Gets the trajectories of a joint aligned to the stance or swing onset of that paw
@@ -715,7 +820,21 @@ class loco_class:
                     trials_speed.append(t+1)
             speed_trials_idx.append(trials_speed)
         return speed_unique,speed_trials_idx
-    
+
+    def final_tracks_forwardlocomotion(self, final_tracks, st_strides_mat):
+        """Retains in final tracks only the periods of forward locomotion that were good strides
+        Inputs:
+        final_tracks (array)
+        st_strides_mat (list)"""
+        final_tracks_FR_interp = self.inpaint_nans(final_tracks[:, :, :])
+        final_tracks_FR_interp_forwadloco = np.zeros(np.shape(final_tracks))
+        final_tracks_FR_interp_forwadloco[:] = np.nan
+        idx_keep = []
+        for s in range(np.shape(st_strides_mat[0])[0]):
+            idx_keep.extend(np.int64(np.arange(st_strides_mat[0][s, 0, -1], st_strides_mat[0][s, 1, -1])))
+        final_tracks_FR_interp_forwadloco[:, :, idx_keep] = final_tracks_FR_interp[:, :, idx_keep]
+        return final_tracks_FR_interp_forwadloco
+
     def z_score(self,A):
         """Normalizes a vector by z-scoring it"""        
         A_norm = (A-np.nanmean(A))/np.nanstd(A)

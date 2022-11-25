@@ -145,7 +145,9 @@ def DerivGauss_NoiseEstim(data, thres=2):
     # By differencing the data, it is possible to clean the features and keep only the noise.
     # Then, is possible to estimate the noise by finding the joint distribution of sequential
     # points which corresponds to the multiplication of the gaussians noise distribution
-    # (by applying Bayes Theorem).
+    # (by applying Bayes Theorem). This because the joint distribution of two independent distributions is their multiplication.
+    # The std of the derivative of a gaussian is the mt.sqrt((deriv_std**2)/2) as indicated below
+    # (the derivative being the X1-X2 of a gaussian distribution)
     # Validated by: https://stats.stackexchange.com/a/186545
 
     diff = np.diff(data)

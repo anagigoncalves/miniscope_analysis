@@ -60,8 +60,7 @@ centroid_ext = mscope.get_roi_centroids(coord_ext)
 distance_neurons = mscope.distance_neurons(centroid_ext, 0)
 th_cluster = 0.6
 colormap_cluster = 'hsv'
-trial_plot = 3
-[colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext, distance_neurons, trial_plot, th_cluster, colormap_cluster, plot_data, print_plots)
+[colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext, distance_neurons, trials_baseline, th_cluster, colormap_cluster, plot_data, print_plots)
 [clusters_rois, idx_roi_cluster_ordered] = mscope.get_rois_clusters_mediolateral(df_extract_rawtrace_detrended, idx_roi_cluster, centroid_ext)
 [df_events_extract_rawtrace_clustered, df_extract_rawtrace_detrended_clustered] = mscope.compute_clustered_traces_events_correlations(df_events_extract_rawtrace, df_extract_rawtrace_detrended, clusters_rois, trials_baseline, plot_data, print_plots)
 if load_data == 0:

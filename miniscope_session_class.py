@@ -486,7 +486,9 @@ class miniscope_session:
             trials_split = np.array([7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
             trials_washout = np.array([17, 18, 19, 20, 21, 22, 23, 24, 25, 26])
         elif len(trials) < 23:
-            trials_baseline = trials
+            trials_baseline = np.arange(trials_ses[0, 0], trials_ses[0, -1]+1)
+            trials_split = trials
+            trials_washout = trials
         return trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout
 
     @staticmethod
@@ -709,7 +711,7 @@ class miniscope_session:
             ax[1].set_title('ROIs height and Y max and min offsets', fontsize=self.fsize - 4)
         return [coord_ext_nomotion, df_extract]
 
-    def correlation_signal_motion(self, df_extract, x_offset, y_offset, trial, idx_to_nan, plot_data):
+    def correlation_signal_motion(self, df_extract, x_offset, y_offset, trial, idx_to_nan, plot_data, print_plots):
         """Function to compute the ROIs signal correlation with the shift of the FOV done during motion correction-
         It outputs the correlation plot between the traces and the FOV offsets and an example ROI trace with the shifts.
         Inputs:
@@ -718,7 +720,8 @@ class miniscope_session:
             y_offset: y shift of frames during motion correction
             trial: (int) example trial to do this computation
             idx_to_nan: indices of frames to make nan, parts where motion was large
-            plot_data: boolean"""
+            plot_data: boolean
+            print_plots: boolean"""
         data = np.transpose(np.array(df_extract.loc[df_extract['trial'] == trial].iloc[:, 2:]))
         roi_nr = len(df_extract.columns[2:])
         p_corrcoef = np.zeros((roi_nr, 2))
@@ -780,8 +783,10 @@ class miniscope_session:
             ax.spines['top'].set_visible(False)
             ax.tick_params(axis='x', labelsize=self.fsize - 6)
             ax.tick_params(axis='y', labelsize=self.fsize - 6)
-            plt.savefig(os.path.join(self.path, 'images', 'corr_trace_motionreg_shifts'),
-                        dpi=self.my_dpi)
+            if print_plots:
+                plt.savefig(os.path.join(self.path, 'images', 'corr_trace_motionreg_shifts'),
+                            dpi=self.my_dpi)
+        return p_corrcoef
 
     def get_ref_image(self):
         """Function to get the session reference image from suite2p"""
@@ -1527,14 +1532,17 @@ class miniscope_session:
                 ax.spines['top'].set_visible(False)
                 count_t -= 1
             if print_plots:
-                if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
-                    os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
                 if df_type == 'ROI':
+                    if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
+                        os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
                     if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot))):
                         os.mkdir(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot)))
                     plt.savefig(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot),
                                              'dFF_stacked_traces_' + traces_type), dpi=self.my_dpi)
                 if df_type == 'cluster':
+                    if not os.path.exists(
+                            os.path.join(self.path, 'images', 'cluster', traces_type)):
+                        os.mkdir(os.path.join(self.path, 'images', 'cluster', traces_type))
                     if not os.path.exists(
                             os.path.join(self.path, 'images', 'cluster', traces_type, 'Cluster' + str(roi_plot))):
                         os.mkdir(os.path.join(self.path, 'images', 'cluster', traces_type, 'Cluster' + str(roi_plot)))
@@ -1543,19 +1551,19 @@ class miniscope_session:
                                 dpi=self.my_dpi)
         return
 
-    def compute_roi_clustering(self, df_dFF, centroid_cell, distance_neurons, trial, th_cluster, colormap_cluster,
+    def compute_roi_clustering(self, df_dFF, centroid_cell, distance_neurons, trials, th_cluster, colormap_cluster,
                                plot_data, print_plots):
         """Function to get colors of ROIs according to its cluster id
         Input:
         data_arr: dataframe with calcium trace
         centroid_cell: list with ROIs centroids
         distance_neurons: matrix with distance from the first ROI
-        trial: (int) trial to compute roi clustering
+        trials: (list) trials to compute roi clustering
         th_cluster: float, threshold for clustering
         colormap: (str) with colormap name
         plot_data: boolean
         print_plots: boolean"""
-        data = np.transpose(np.array(df_dFF.loc[df_dFF['trial'] == trial].iloc[:, 2:]))
+        data = np.transpose(np.array(df_dFF.loc[(df_dFF['trial'] >= trials[0])&(df_dFF['trial'] >= trials[-1])].iloc[:, 2:]))
         roi_nr = np.shape(data)[0]
         roi_list = np.arange(1, np.shape(data)[0] + 1)
         p_corrcoef = np.zeros((roi_nr, roi_nr))
@@ -1694,6 +1702,9 @@ class miniscope_session:
                 plt.yticks(fontsize=self.fsize - 4)
                 if print_plots:
                     if not os.path.exists(
+                            os.path.join(self.path, 'images', 'cluster', traces_type)):
+                        os.mkdir(os.path.join(self.path, 'images', 'cluster', traces_type))
+                    if not os.path.exists(
                             os.path.join(self.path, 'images', 'cluster', traces_type, 'Cluster' + str(c + 1))):
                         os.mkdir(os.path.join(self.path, 'images', 'cluster', traces_type, 'Cluster' + str(c + 1)))
                     plt.savefig(os.path.join(self.path, 'images', 'cluster', traces_type, 'Cluster' + str(c + 1),
@@ -1702,7 +1713,7 @@ class miniscope_session:
         return
 
     def plot_roi_clustering_temporal(self, df_dFF_norm, frame_time, centroid_cell, distance_neurons, trial_plot, colors,
-                                     idx, plot_data, print_plots):
+                                     idx, plot_ratio, plot_data, print_plots):
         """Plot ROIs on top of reference image color coded by the result of the hierarchical clustering
         Ordered by distance between ROIs.
         Inputs:
@@ -1711,6 +1722,7 @@ class miniscope_session:
             trial_plot: (int) trial to plot
             colors: colors for each cluster
             idx: to which cluster each ROI belongs to
+            plot_ratio: if 1 plot all ROIs, if 2, plot every other ROI...
             plot_data: boolean
             print_plots (boolean)"""
         furthest_neuron = np.argmax(np.array(centroid_cell)[:, 0])
@@ -1721,8 +1733,9 @@ class miniscope_session:
         dFF_trial = df_dFF_norm.loc[df_dFF_norm['trial'] == trial_plot]  # get dFF for the desired trial
         if plot_data:
             fig, ax = plt.subplots(figsize=(10, 20), tight_layout=True)
-            for count_r, r in enumerate(roi_list_ordered):
-                plt.plot(frame_time[trial_plot - 1], dFF_trial[r] + count_r, color=colors[idx_ordered[count_r] - 1])
+            for count_line, r in enumerate(roi_list_ordered[::plot_ratio]):
+                count_r = np.where(r == roi_list_ordered)[0][0]
+                plt.plot(frame_time[trial_plot - 1], dFF_trial[r] + count_line, color=colors[idx_ordered[count_r] - 1])
             ax.set_xlabel('Time (s)', fontsize=self.fsize - 4)
             ax.set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=self.fsize - 4)
             plt.xticks(fontsize=self.fsize - 4)
@@ -1739,47 +1752,57 @@ class miniscope_session:
                 plt.savefig(os.path.join(self.path, 'images', 'cluster', 'roi_clustering_trace'), dpi=self.my_dpi)
         return
 
-    def compute_clustered_traces_events_correlations(self, df_events, df_traces, clusters_rois, trials_baseline, plot_data, print_plots):
+    def compute_clustered_traces_events_correlations(self, df_events, df_traces, clusters_rois, colors_cluster, trials, plot_data, print_plots):
         """From the traces and events dataframes computes the correlation between ROIs and saves the clustered dataframes
         Input.
             df_events: (dataframe) with the events
             df_traces: (dataframe) with the traces
             clusters_rois: (list) ROIs clusters ordered medio-lateral
-            trials_baseline (list) baseline trials"""
+            colors_cluster: (list) with the colors for each cluster
+            trials (list) trials in the session
+            plot_data, print_plots: boolean"""
         # Order ROIs by cluster
+        cluster_transition_idx = np.cumsum([len(clusters_rois[c]) for c in range(len(clusters_rois))])
         clusters_rois_flat = np.transpose(sum(clusters_rois, []))
         clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
         clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
         df_events_clustered = df_events[clusters_rois_flat]
         df_traces_clustered = df_traces[clusters_rois_flat]
         if plot_data:
-            fig, ax = plt.subplots(1, 2, figsize=(25, 10), tight_layout=True)
-            ax = ax.ravel()
-            sns.heatmap(df_events_clustered.loc[
-                            df_events_clustered['trial'] == trials_baseline[-1]].iloc[:, 2:].corr(), ax=ax[0])
-            ax[0].set_xticks(np.arange(0, len(df_events_clustered.columns[2:]), 4))
-            ax[0].set_xticklabels(df_events_clustered.columns[2::4], rotation=45, fontsize=self.fsize - 8)
-            ax[0].set_yticks(np.arange(0, len(df_events_clustered.columns[2:]), 4))
-            ax[0].set_yticklabels(df_events_clustered.columns[2::4], rotation=45, fontsize=self.fsize - 8)
-            ax[0].set_title('Events correlation by cluster', fontsize=self.fsize - 4)
-            sns.heatmap(df_traces_clustered.loc[
-                            df_traces_clustered['trial'] == trials_baseline[-1]].iloc[:, 2:].corr(),
-                        ax=ax[1])
-            ax[1].set_xticks(np.arange(0, len(df_traces_clustered.columns[2:]), 4))
-            ax[1].set_xticklabels(df_traces_clustered.columns[2::4], rotation=45, fontsize=self.fsize - 8)
-            ax[1].set_yticks(np.arange(0, len(df_traces_clustered.columns[2:]), 4))
-            ax[1].set_yticklabels(df_traces_clustered.columns[2::4], rotation=45, fontsize=self.fsize - 8)
-            ax[1].set_title('Traces correlation by cluster', fontsize=self.fsize - 4)
-        if print_plots:
-            if not os.path.exists(os.path.join(self.path, 'images', 'cluster')):
-                os.mkdir(os.path.join(self.path, 'images', 'cluster'))
-            plt.savefig(os.path.join(self.path, 'images', 'cluster', 'cluster_events_trace'), dpi=self.my_dpi)
-            if not os.path.exists(self.path + 'processed files'):
-                os.mkdir(self.path + 'processed files')
-            df_events_clustered.to_csv(self.path + '\\processed files\\df_events_extract_rawtrace_clustered.csv', sep=',',
-                                       index=False)
-            df_traces_clustered.to_csv(self.path + '\\processed files\\df_extract_rawtrace_detrended_clustered.csv',
-                                       sep=',', index=False)
+            for trial_plot in trials:
+                fig, ax = plt.subplots(1, 2, figsize=(25, 10), tight_layout=True)
+                ax = ax.ravel()
+                sns.heatmap(df_events_clustered.loc[
+                                df_events_clustered['trial'] == trial_plot].iloc[:, 2:].corr(), ax=ax[0])
+                ax[0].set_xticks(np.arange(0, len(df_events_clustered.columns[2:]), 4))
+                ax[0].set_xticklabels(df_events_clustered.columns[2::4], rotation=45, fontsize=self.fsize - 8)
+                ax[0].set_yticks(np.arange(0, len(df_events_clustered.columns[2:]), 4))
+                ax[0].set_yticklabels(df_events_clustered.columns[2::4], rotation=45, fontsize=self.fsize - 8)
+                ax[0].set_title('Events correlation by cluster', fontsize=self.fsize - 4)
+                sns.heatmap(df_traces_clustered.loc[
+                                df_traces_clustered['trial'] == trial_plot].iloc[:, 2:].corr(),
+                            ax=ax[1])
+                ax[1].set_xticks(np.arange(0, len(df_traces_clustered.columns[2:]), 4))
+                ax[1].set_xticklabels(df_traces_clustered.columns[2::4], rotation=45, fontsize=self.fsize - 8)
+                ax[1].set_yticks(np.arange(0, len(df_traces_clustered.columns[2:]), 4))
+                ax[1].set_yticklabels(df_traces_clustered.columns[2::4], rotation=45, fontsize=self.fsize - 8)
+                ax[1].set_title('Traces correlation by cluster', fontsize=self.fsize - 4)
+                for c in range(len(clusters_rois)):
+                    ax[0].axvline(cluster_transition_idx[c], color=colors_cluster[c], linewidth=2)
+                    ax[1].axvline(cluster_transition_idx[c], color=colors_cluster[c], linewidth=2)
+                    ax[0].axhline(cluster_transition_idx[c], color=colors_cluster[c], linewidth=2)
+                    ax[1].axhline(cluster_transition_idx[c], color=colors_cluster[c], linewidth=2)
+                plt.suptitle('Trial ' + str(trial_plot))
+                if print_plots:
+                    if not os.path.exists(os.path.join(self.path, 'images', 'cluster')):
+                        os.mkdir(os.path.join(self.path, 'images', 'cluster'))
+                    plt.savefig(os.path.join(self.path, 'images', 'cluster', 'cluster_events_trace_trial' + str(trial_plot)), dpi=self.my_dpi)
+        if not os.path.exists(self.path + 'processed files'):
+            os.mkdir(self.path + 'processed files')
+        df_events_clustered.to_csv(self.path + '\\processed files\\df_events_extract_rawtrace_clustered.csv', sep=',',
+                                   index=False)
+        df_traces_clustered.to_csv(self.path + '\\processed files\\df_extract_rawtrace_detrended_clustered.csv',
+                                   sep=',', index=False)
         return df_events_clustered, df_traces_clustered
 
     def compute_bg_roi_fiji(self, coord_cell, trials, frame_time, df_dFF, coeff_sub):
@@ -2842,7 +2865,7 @@ class miniscope_session:
 
     @staticmethod
     def event_swst_stride(df_events, st_strides_trials, sw_strides_trials, align, trials, p1, roi, time_window, traj):
-        #TODO missing phase raster
+        #TODO missing phase raster - put spikes in phase on a stride in phase, plot raster st-st for example with spikes in phase in between
         """Get the event times for each stride of a certain paw for one ROI/cluster.
         Can get the events in phase
         Inputs:
@@ -4114,7 +4137,7 @@ class miniscope_session:
                 dpi=self.my_dpi)
 
     def plot_events_roi_trial_bgsub(self, trial_plot, frame_time, df_fiji_norm, df_fiji_bgsub_norm, df_events_all,
-                                    df_events_unsync, plot_data):
+                                    df_events_unsync, plot_data, print_plots):
         """Function to plot events on top of traces with and without background subtraction for all ROIs and one trial.
         Input:
         trial_plot: (str)
@@ -4124,58 +4147,58 @@ class miniscope_session:
         df_fiji_bgsub_norm: dataframe with traces background subtracted
         df_events_all: dataframe with all the events
         df_events_unsync: dataframe with unsynchronous the events
-        plot_data: boolean"""
+        plot_data, print_plots: boolean"""
         df_fiji_trial_norm = df_fiji_norm.loc[df_fiji_norm['trial'] == trial_plot]  # get dFF for the desired trial
         df_fiji_bgsub_trial_norm = df_fiji_bgsub_norm.loc[
             df_fiji_bgsub_norm['trial'] == trial_plot]  # get dFF for the desired trial
-        fig, ax = plt.subplots(1, 2, figsize=(20, 20), tight_layout=True)
-        ax = ax.ravel()
-        for r in range(df_fiji_trial_norm.shape[1] - 2):
-            ax[0].plot(frame_time[trial_plot - 1], df_fiji_trial_norm['ROI' + str(r + 1)] + (r * 10), color='black')
-            events_plot = np.where(df_events_all.loc[df_fiji_norm['trial'] == trial_plot, 'ROI' + str(r + 1)])[0]
-            for e in events_plot:
-                ax[0].scatter(frame_time[trial_plot - 1][e], df_fiji_trial_norm.iloc[e, r + 2] + (r * 10), s=20,
-                              color='gray')
-            events_unsync_plot = \
-                np.where(df_events_unsync.loc[df_fiji_bgsub_norm['trial'] == trial_plot, 'ROI' + str(r + 1)])[0]
-            for e in events_unsync_plot:
-                ax[0].scatter(frame_time[trial_plot - 1][e], df_fiji_bgsub_trial_norm.iloc[e, r + 2] + (r * 10), s=20,
-                              color='orange')
-        ax[0].set_xlabel('Time (s)', fontsize=self.fsize - 4)
-        ax[0].set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=self.fsize - 4)
-        plt.xticks(fontsize=self.fsize - 4)
-        plt.yticks(fontsize=self.fsize - 4)
-        plt.setp(ax[0].get_yticklabels(), visible=False)
-        ax[0].tick_params(axis='y', which='y', length=0)
-        ax[0].spines['right'].set_visible(False)
-        ax[0].spines['top'].set_visible(False)
-        ax[0].spines['left'].set_visible(False)
-        plt.tick_params(axis='y', labelsize=0, length=0)
-        for r in range(df_fiji_bgsub_trial_norm.shape[1] - 2):
-            ax[1].plot(frame_time[trial_plot - 1], df_fiji_bgsub_trial_norm['ROI' + str(r + 1)] + (r * 10),
-                       color='black')
-            events_unsync_plot = \
-                np.where(df_events_unsync.loc[df_fiji_bgsub_norm['trial'] == trial_plot, 'ROI' + str(r + 1)])[0]
-            for e in events_unsync_plot:
-                ax[1].scatter(frame_time[trial_plot - 1][e], df_fiji_bgsub_trial_norm.iloc[e, r + 2] + (r * 10), s=20,
-                              color='gray')
-        ax[1].set_xlabel('Time (s)', fontsize=self.fsize - 4)
-        ax[1].set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=self.fsize - 4)
-        plt.xticks(fontsize=self.fsize - 4)
-        plt.yticks(fontsize=self.fsize - 4)
-        plt.setp(ax[1].get_yticklabels(), visible=False)
-        ax[1].tick_params(axis='y', which='y', length=0)
-        ax[1].spines['right'].set_visible(False)
-        ax[1].spines['top'].set_visible(False)
-        ax[1].spines['left'].set_visible(False)
-        plt.tick_params(axis='y', labelsize=0, length=0)
         if plot_data:
-            plt.savefig(os.path.join(self.path, 'images', 'events', 'events_trial' + str(trial_plot)),
-                        dpi=self.my_dpi)
+            fig, ax = plt.subplots(1, 2, figsize=(20, 20), tight_layout=True)
+            ax = ax.ravel()
+            for r in range(df_fiji_trial_norm.shape[1] - 2):
+                ax[0].plot(frame_time[trial_plot - 1], df_fiji_trial_norm['ROI' + str(r + 1)] + (r * 10), color='black')
+                events_plot = np.where(df_events_all.loc[df_fiji_norm['trial'] == trial_plot, 'ROI' + str(r + 1)])[0]
+                for e in events_plot:
+                    ax[0].scatter(frame_time[trial_plot - 1][e], df_fiji_trial_norm.iloc[e, r + 2] + (r * 10), s=20,
+                                  color='gray')
+                events_unsync_plot = \
+                    np.where(df_events_unsync.loc[df_fiji_bgsub_norm['trial'] == trial_plot, 'ROI' + str(r + 1)])[0]
+                for e in events_unsync_plot:
+                    ax[0].scatter(frame_time[trial_plot - 1][e], df_fiji_bgsub_trial_norm.iloc[e, r + 2] + (r * 10), s=20,
+                                  color='orange')
+            ax[0].set_xlabel('Time (s)', fontsize=self.fsize - 4)
+            ax[0].set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=self.fsize - 4)
+            plt.xticks(fontsize=self.fsize - 4)
+            plt.yticks(fontsize=self.fsize - 4)
+            plt.setp(ax[0].get_yticklabels(), visible=False)
+            ax[0].tick_params(axis='y', which='y', length=0)
+            ax[0].spines['right'].set_visible(False)
+            ax[0].spines['top'].set_visible(False)
+            ax[0].spines['left'].set_visible(False)
+            plt.tick_params(axis='y', labelsize=0, length=0)
+            for r in range(df_fiji_bgsub_trial_norm.shape[1] - 2):
+                ax[1].plot(frame_time[trial_plot - 1], df_fiji_bgsub_trial_norm['ROI' + str(r + 1)] + (r * 10),
+                           color='black')
+                events_unsync_plot = \
+                    np.where(df_events_unsync.loc[df_fiji_bgsub_norm['trial'] == trial_plot, 'ROI' + str(r + 1)])[0]
+                for e in events_unsync_plot:
+                    ax[1].scatter(frame_time[trial_plot - 1][e], df_fiji_bgsub_trial_norm.iloc[e, r + 2] + (r * 10), s=20,
+                                  color='gray')
+            ax[1].set_xlabel('Time (s)', fontsize=self.fsize - 4)
+            ax[1].set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=self.fsize - 4)
+            plt.xticks(fontsize=self.fsize - 4)
+            plt.yticks(fontsize=self.fsize - 4)
+            plt.setp(ax[1].get_yticklabels(), visible=False)
+            ax[1].tick_params(axis='y', which='y', length=0)
+            ax[1].spines['right'].set_visible(False)
+            ax[1].spines['top'].set_visible(False)
+            ax[1].spines['left'].set_visible(False)
+            plt.tick_params(axis='y', labelsize=0, length=0)
+            if print_plots:
+                plt.savefig(os.path.join(self.path, 'images', 'events', 'events_trial' + str(trial_plot)),
+                            dpi=self.my_dpi)
         return
 
-    def plot_events_roi_trial(self, trial_plot, roi_plot, frame_time, df_dff, traces_type, df_events, plot_data,
-                              print_plots):
+    def plot_events_roi_trial(self, trial_plot, roi_plot, frame_time, df_dff, traces_type, df_events, plot_data, print_plots):
         """Function to plot events on top of traces with and without background subtraction for all ROIs and one trial.
         Input:
         trial_plot: (str)

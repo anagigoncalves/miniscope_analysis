@@ -2,17 +2,13 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="519ae963-bddf-4c2f-b361-f79fcd409ff4" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/Cluster_1st_pass.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Cluster_analysis.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/test_medina.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Population_plots_split.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cluster_1st_pass.py" beforeDir="false" afterPath="$PROJECT_DIR$/Cluster_1st_pass.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cluster_analysis.py" beforeDir="false" afterPath="$PROJECT_DIR$/Cluster_analysis.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/ROI_analysis.py" beforeDir="false" afterPath="$PROJECT_DIR$/ROI_analysis.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/SlopeThreshold.py" beforeDir="false" afterPath="$PROJECT_DIR$/SlopeThreshold.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/analytic_wavelet/ridge_analysis.py" beforeDir="false" afterPath="$PROJECT_DIR$/analytic_wavelet/ridge_analysis.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/locomotion_class.py" beforeDir="false" afterPath="$PROJECT_DIR$/locomotion_class.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/concat_tiffs.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/miniscope_session_class.py" beforeDir="false" afterPath="$PROJECT_DIR$/miniscope_session_class.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test_shuffle.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/run_extract_downsample.m" beforeDir="false" afterPath="$PROJECT_DIR$/run_extract_downsample.m" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

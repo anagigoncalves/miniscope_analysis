@@ -1,11 +1,13 @@
 %% tiff to h5 - trial videos
-clear; clc; close all;
+path_ses = 'E:\TM RAW FILES\split ipsi fast\MC8855\2021_04_07';
+clearvars -except path_ses; clc; close all;
 cd('C:\Users\Ana\Documents\PhD\Code\EXTRACT-public-master\')
-path_data = 'I:\TM RAW FILES\tied baseline\MC8855\2021_04_04\';
-mkdir(strcat(path_data,'Registered video\EXTRACT\'))
+path_data = strcat(path_ses,'\Registered video\');
+mkdir(strcat(path_data,'EXTRACT\'))
 filelist = dir(strcat(path_data,'*.tif'));
 for f=1:length(filelist)
     filename = filelist(f).name;
+    disp(strcat('Creating h5 for', {' '}, filename))
     tiff_info = imfinfo([path_data, filename]); % return tiff structure, one element per image
     datasetname = '/data';
     h5create([path_data, '\EXTRACT\', filename(1:end-4), '.h5'],datasetname,[608 608 size(tiff_info, 1)],'Datatype','single','ChunkSize',[608,608,1]);
@@ -17,11 +19,13 @@ for f=1:length(filelist)
 end
 
 %% tiff to h5 - downsampled video
-clear; clc; close all;
+clearvars -except path_ses; clc; close all;
 cd('C:\Users\Ana\Documents\PhD\Code\EXTRACT-public-master\')
-mkdir(strcat(path_data,'Registered downsampled session\EXTRACT\'))
+path_data = strcat(path_ses,'\Registered downsampled session\');
+mkdir(strcat(path_data,'EXTRACT\'))
 filelist = dir(strcat(path_data,'*.tif'));
 filename = filelist(1).name;
+disp(strcat('Creating h5 for', {' '}, filename))
 tiff_info = imfinfo([path_data, filename]); % return tiff structure, one element per image
 datasetname = '/data';
 h5create([path_data, '\EXTRACT\', filename(1:end-4), '.h5'],datasetname,[608 608 size(tiff_info, 1)],'Datatype','single','ChunkSize',[608,608,1]);
@@ -32,11 +36,10 @@ for ii = 1 : size(tiff_info, 1)
 end
 
 %% inputs to run
-clear; clc; close all;
-path_data = 'I:\TM RAW FILES\split ipsi fast\MC8855\2021_04_05\';
+clearvars -except path_ses; clc; close all;
 addpath(genpath('C:\Users\Ana\Documents\PhD\Code\EXTRACT-public-master\'))
-filename = dir(strcat(path_data,'Registered downsampled session\EXTRACT\','*.h5'));
-M = single(hdf5read(strcat(path_data,'Registered downsampled session\EXTRACT\',filename(1).name),'/data'));
+filename = dir(strcat(path_ses,'\Registered downsampled session\EXTRACT\','*.h5'));
+M = single(hdf5read(strcat(path_ses,'\Registered downsampled session\EXTRACT\',filename(1).name),'/data'));
 
 %% EXTRACT settings
 config=[];
@@ -56,7 +59,7 @@ config.avg_cell_radius=1.5; %output gives avg_cell_radius around 5 for input of 
 config.num_partitions_x=1;
 config.num_partitions_y=1; 
 config.dendrite_aware=1;
-config.use_gpu=1; % This is a small dataset, will be fast on cpu anyways.
+config.use_gpu=1; 
 config.cellfind_max_steps=1000;
 config.cellfind_min_snr=0;
 config.cellfind_filter_type='none'; %spatial smoothing filter for ROI
@@ -67,6 +70,7 @@ config.thresholds.T_min_snr = 2; %choose more or less cells
 config.trace_output_option = 'nonneg';
 config.adaptive_kappa = 0;
 
+disp(strcat('Running EXTRACT for', {' '}, filename))
 output=extractor(M,config);
 
 %% Cell check
@@ -93,18 +97,19 @@ end
 %% save data
 trace_nonneg = output.temporal_weights;
 spatial_weights = output.spatial_weights;
-save(strcat(path_data,'Registered downsampled session\EXTRACT\','\extract_output'),'trace_nonneg','spatial_weights','config','-v7.3')
+save(strcat(path_ses,'\Registered downsampled session\EXTRACT\','\extract_output'),'trace_nonneg','spatial_weights','config','-v7.3')
 
 %% apply it to each trial
-filelist = dir(strcat(path_data,'Registered video\','*.tif'));
+filelist = dir(strcat(path_ses,'\Registered video\','*.tif'));
 trials_notordered = zeros(1,length(filelist));
 for f=1:length(filelist)
     filename = filelist(f).name;
     trials_notordered(f) = str2double(filename(2:strfind(filelist(f).name,'_')-1));
 end
 trials = sort(trials_notordered);
-path_data_trials = strcat(path_data,'Registered video\EXTRACT\');
+path_data_trials = strcat(path_ses,'\Registered video\EXTRACT\');
 for t=1:length(trials)
+    disp(strcat('Running EXTRACT with downsampled masks for  T', num2str(trials(t))))
     M_trial = single(hdf5read(strcat(path_data_trials,'T',num2str(trials(t)),'_reg'),'/data'));
     S_in=output.spatial_weights;
     config.max_iter=0;

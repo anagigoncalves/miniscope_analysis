@@ -8,12 +8,12 @@ import statsmodels.api as sm
 warnings.filterwarnings('ignore')
 
 # path inputs
-path = 'E:\\TM RAW FILES\\split ipsi fast\\MC9194\\2021_07_01\\'
-path_loco = 'E:\\TM TRACKING FILES\\split ipsi fast S3 010721\\'
+path = 'G:\\TM RAW FILES\\split ipsi fast\\MC8855\\2021_04_07\\'
+path_loco = 'G:\\TM TRACKING FILES\\split ipsi fast S2 070421\\'
 session_type = path.split('\\')[2].split(' ')[0]
 version_mscope = 'v4'
 plot_data = 1
-load_data = 0
+load_data = 1
 print_plots = 1
 save_data = 1
 paw_colors = ['red', 'magenta', 'blue', 'cyan']
@@ -66,7 +66,7 @@ if load_data == 0:
 
     # Good periods after motion correction
     [x_offset, y_offset, corrXY] = mscope.get_reg_data() # registration bad moments - correct
-    th = 0.0085 # change with the notes from EXCEL
+    th = 0.0065 # change with the notes from EXCEL
     [idx_to_nan, df_extract] = mscope.corr_FOV_movement(th, df_extract_allframes, corrXY)
     [width_roi_ext, height_roi_ext, aspect_ratio_ext] = mscope.get_roi_stats(coord_ext)
     [coord_ext, df_extract] = mscope.rois_larger_motion(df_extract, coord_ext, idx_to_nan, x_offset, y_offset, width_roi_ext, height_roi_ext, 1)
@@ -95,10 +95,9 @@ if load_data == 0:
     mscope.save_processed_files(df_extract_curated, trials, df_events_extract,  df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext_curated, th, idx_to_nan)
 
     # Data as clusters
-    time_cumulative = mscope.cumulative_time(df_extract_rawtrace_detrended, trials)
     centroid_ext = mscope.get_roi_centroids(coord_ext_curated)
     distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 0.6
+    th_cluster = 0.5
     colormap_cluster = 'hsv'
     [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
                                                                       distance_neurons, trials_baseline, th_cluster,
@@ -121,7 +120,7 @@ if load_data:
     time_cumulative = mscope.cumulative_time(df_extract_rawtrace_detrended, trials)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
     distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 1
+    th_cluster = 0.5
     colormap_cluster = 'hsv'
     [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
                                                                       distance_neurons, trials_baseline, th_cluster,
@@ -381,7 +380,7 @@ for cluster_plot in np.arange(1, len(clusters_rois)+1):
 window = 50
 if plot_data:
     if len(clusters_rois) > 1:
-        fig, ax = plt.subplots(len(clusters_rois), 1, figsize=(30, 35), tight_layout=True)
+        fig, ax = plt.subplots(len(clusters_rois), 1, figsize=(30, 35), tight_layout=True, sharey=True)
         ax = ax.ravel()
         for count_c, c in enumerate(np.arange(1, len(clusters_rois)+1)):
             isi_events_cluster = mscope.compute_isi(df_events_trace_clusters, traces_type, 'isi_events_clusters')
@@ -404,9 +403,10 @@ if plot_data:
             param_trial_norm = (param_trial-np.nanmean(param_trial))/np.nanstd(param_trial)
             isi_notnan = mscope.inpaint_nans(np.array(isi_events_cluster_singlecluster.isi))
             isi_norm = (isi_notnan - np.nanmean(isi_notnan)) / np.nanstd(isi_notnan)
-            ax[count_c].plot(np.convolve(param_trial_norm, np.ones(window), 'same'), linewidth=2, color='black', label='step length front symmetry')
-            ax[count_c].plot(np.convolve(isi_norm, np.ones(window), 'same'), linewidth=2, color=colors_cluster[count_c], label='Cluster'+str(c))
+            ax[count_c].plot(time_cumulative_isi/60, np.convolve(param_trial_norm, np.ones(window), 'same'), linewidth=2, color='black', label='step length front symmetry')
+            ax[count_c].plot(time_cumulative_isi/60, np.convolve(isi_norm, np.ones(window), 'same'), linewidth=2, color=colors_cluster[count_c], label='Cluster'+str(c))
             ax[count_c].legend(frameon=False)
+            ax[count_c].set_xlabel('Time (min)')
             ax[count_c].set_title('ISI and SL rolling mean', fontsize=mscope.fsize - 4)
             ax[count_c].spines['right'].set_visible(False)
             ax[count_c].spines['top'].set_visible(False)
@@ -436,9 +436,10 @@ if plot_data:
             param_trial_norm = (param_trial-np.nanmean(param_trial))/np.nanstd(param_trial)
             isi_notnan = mscope.inpaint_nans(np.array(isi_events_cluster_singlecluster.isi))
             isi_norm = (isi_notnan - np.nanmean(isi_notnan)) / np.nanstd(isi_notnan)
-            ax.plot(np.convolve(param_trial_norm, np.ones(window), 'same'), linewidth=2, color='black', label='step length front symmetry')
-            ax.plot(np.convolve(isi_norm, np.ones(window), 'same'), linewidth=2, color=colors_cluster[count_c], label='Cluster'+str(c))
+            ax.plot(time_cumulative_isi/60, np.convolve(param_trial_norm, np.ones(window), 'same'), linewidth=2, color='black', label='step length front symmetry')
+            ax.plot(time_cumulative_isi/60, np.convolve(isi_norm, np.ones(window), 'same'), linewidth=2, color=colors_cluster[count_c], label='Cluster'+str(c))
             ax.legend(frameon=False)
+            ax.set_xlabel('Time (min)')
             ax.set_title('ISI and SL rolling mean', fontsize=mscope.fsize - 4)
             ax.spines['right'].set_visible(False)
             ax.spines['top'].set_visible(False)

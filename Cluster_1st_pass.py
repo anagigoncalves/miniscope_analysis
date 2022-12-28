@@ -379,31 +379,29 @@ for cluster_plot in np.arange(1, len(clusters_rois)+1):
 # Correlation of ISI with step length
 window = 50
 if plot_data:
+    isi_events_cluster = mscope.compute_isi(df_events_trace_clusters, traces_type, 'isi_events_clusters')
+    param_trials = []
+    st_strides_trials = []
+    for count_trial, f in enumerate(filelist):
+        [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f, 0.9, int(
+            frames_loco[count_trial]))
+        bodycenter_paws = loco.compute_bodycenter(final_tracks, 'X')
+        [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
+        paws_rel = loco.get_paws_rel(final_tracks, 'X')
+        param_trials.append(
+            loco.compute_gait_param(bodycenter_paws, final_tracks, paws_rel, st_strides_mat, sw_pts_mat, 'step_length'))
+        st_strides_trials.append(st_strides_mat)
+    [param_all_idx, param_all_time, param_all] = loco.param_continuous_sym(param_trials, st_strides_trials, trials, 'FR', 'FL', 1, 1)
+    param_trial_norm = (param_all - np.nanmean(param_all)) / np.nanstd(param_all)
     if len(clusters_rois) > 1:
         fig, ax = plt.subplots(len(clusters_rois), 1, figsize=(30, 35), tight_layout=True, sharey=True)
         ax = ax.ravel()
         for count_c, c in enumerate(np.arange(1, len(clusters_rois)+1)):
-            isi_events_cluster = mscope.compute_isi(df_events_trace_clusters, traces_type, 'isi_events_clusters')
-            isi_events_cluster_singlecluster = isi_events_cluster.loc[isi_events_cluster['roi'] == 'cluster'+str(c)]
+            isi_events_cluster_singlecluster = isi_events_cluster.loc[isi_events_cluster['roi'] == 'cluster' + str(c)]
             time_cumulative_isi = mscope.cumulative_time(isi_events_cluster_singlecluster.reset_index(), trials)
-            param_trials = []
-            st_strides_trials = []
-            for count_trial, f in enumerate(filelist):
-                [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f, 0.9, int(
-                    frames_loco[count_trial]))
-                bodycenter_paws = loco.compute_bodycenter(final_tracks, 'X')
-                [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
-                paws_rel = loco.get_paws_rel(final_tracks, 'X')
-                param_trials.append(loco.compute_gait_param(bodycenter_paws, final_tracks, paws_rel, st_strides_mat, sw_pts_mat, 'step_length'))
-                st_strides_trials.append(st_strides_mat)
-            [param_all_idx, param_all_time, param_all] = loco.param_continuous_sym(param_trials, st_strides_trials, trials, 'FR', 'FL', 1, 1)
-            param_trial = np.zeros(len(time_cumulative_isi))
-            for count_i, i in enumerate(time_cumulative_isi):
-                param_trial[count_i] = param_all[np.argmin(np.abs(param_all_time-i))]
-            param_trial_norm = (param_trial-np.nanmean(param_trial))/np.nanstd(param_trial)
             isi_notnan = mscope.inpaint_nans(np.array(isi_events_cluster_singlecluster.isi))
             isi_norm = (isi_notnan - np.nanmean(isi_notnan)) / np.nanstd(isi_notnan)
-            ax[count_c].plot(time_cumulative_isi/60, np.convolve(param_trial_norm, np.ones(window), 'same'), linewidth=2, color='black', label='step length front symmetry')
+            ax[count_c].plot(param_all_time/60, np.convolve(param_trial_norm, np.ones(window), 'same'), linewidth=2, color='black', label='step length front symmetry')
             ax[count_c].plot(time_cumulative_isi/60, np.convolve(isi_norm, np.ones(window), 'same'), linewidth=2, color=colors_cluster[count_c], label='Cluster'+str(c))
             ax[count_c].legend(frameon=False)
             ax[count_c].set_xlabel('Time (min)')
@@ -416,27 +414,11 @@ if plot_data:
     else:
         fig, ax = plt.subplots(figsize=(30, 7), tight_layout=True)
         for count_c, c in enumerate(np.arange(1, len(clusters_rois)+1)):
-            isi_events_cluster = mscope.compute_isi(df_events_trace_clusters, traces_type, 'isi_events_clusters')
             isi_events_cluster_singlecluster = isi_events_cluster.loc[isi_events_cluster['roi'] == 'cluster'+str(c)]
             time_cumulative_isi = mscope.cumulative_time(isi_events_cluster_singlecluster.reset_index(), trials)
-            param_trials = []
-            st_strides_trials = []
-            for count_trial, f in enumerate(filelist):
-                [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f, 0.9, int(
-                    frames_loco[count_trial]))
-                bodycenter_paws = loco.compute_bodycenter(final_tracks, 'X')
-                [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
-                paws_rel = loco.get_paws_rel(final_tracks, 'X')
-                param_trials.append(loco.compute_gait_param(bodycenter_paws, final_tracks, paws_rel, st_strides_mat, sw_pts_mat, 'step_length'))
-                st_strides_trials.append(st_strides_mat)
-            [param_all_idx, param_all_time, param_all] = loco.param_continuous_sym(param_trials, st_strides_trials, trials, 'FR', 'FL', 1, 1)
-            param_trial = np.zeros(len(time_cumulative_isi))
-            for count_i, i in enumerate(time_cumulative_isi):
-                param_trial[count_i] = param_all[np.argmin(np.abs(param_all_time-i))]
-            param_trial_norm = (param_trial-np.nanmean(param_trial))/np.nanstd(param_trial)
             isi_notnan = mscope.inpaint_nans(np.array(isi_events_cluster_singlecluster.isi))
             isi_norm = (isi_notnan - np.nanmean(isi_notnan)) / np.nanstd(isi_notnan)
-            ax.plot(time_cumulative_isi/60, np.convolve(param_trial_norm, np.ones(window), 'same'), linewidth=2, color='black', label='step length front symmetry')
+            ax.plot(param_all_time/60, np.convolve(param_trial_norm, np.ones(window), 'same'), linewidth=2, color='black', label='step length front symmetry')
             ax.plot(time_cumulative_isi/60, np.convolve(isi_norm, np.ones(window), 'same'), linewidth=2, color=colors_cluster[count_c], label='Cluster'+str(c))
             ax.legend(frameon=False)
             ax.set_xlabel('Time (min)')

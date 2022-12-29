@@ -296,26 +296,27 @@ class loco_class:
         """
         final_tracks_trials_phase = []
         for t in trials:
-            final_tracks_phase = np.zeros(np.shape(final_tracks_trials[t - 1]))
+            idx_trial = np.where(trials==t)[0][0]
+            final_tracks_phase = np.zeros(np.shape(final_tracks_trials[idx_trial]))
             final_tracks_phase[:] = np.nan
             for a in range(4):
                 for p in range(5):
                     if p == 4:  # if nose, do the phase in relation to the FR paw
                         p = 0
-                    excursion_phase = np.zeros(len(final_tracks_trials[t - 1][0, p, :]))
+                    excursion_phase = np.zeros(len(final_tracks_trials[idx_trial][0, p, :]))
                     excursion_phase[:] = np.nan
-                    for s in range(len(st_strides_trials[t - 1][p][:, 0, -1])):
-                        st_on = np.int64(st_strides_trials[t - 1][p][s, 0, -1])
-                        sw_on = np.int64(sw_strides_trials[t - 1][p][s, 0, -1])
-                        st_off = np.int64(st_strides_trials[t - 1][p][s, 1, -1])
+                    for s in range(len(st_strides_trials[idx_trial][p][:, 0, -1])):
+                        st_on = np.int64(st_strides_trials[idx_trial][p][s, 0, -1])
+                        sw_on = np.int64(sw_strides_trials[idx_trial][p][s, 0, -1])
+                        st_off = np.int64(st_strides_trials[idx_trial][p][s, 1, -1])
                         if phase_type == 'st-sw-st':
-                            nr_st = len(final_tracks_trials[t - 1][0, p, st_on:sw_on])
-                            nr_sw = len(final_tracks_trials[t - 1][0, p, sw_on:st_off])
+                            nr_st = len(final_tracks_trials[idx_trial][0, p, st_on:sw_on])
+                            nr_sw = len(final_tracks_trials[idx_trial][0, p, sw_on:st_off])
                             excursion_phase[st_on - 1:sw_on] = np.linspace(0, 0.5, nr_st + 1)
                             excursion_phase[sw_on - 1:st_off] = np.linspace(0.5, 1, nr_sw + 1)
                             excursion_phase[st_off] = 0  # put it there -1
                         if phase_type == 'st-st':
-                            nr_st = len(final_tracks_trials[t - 1][0, p, st_on:st_off])
+                            nr_st = len(final_tracks_trials[idx_trial][0, p, st_on:st_off])
                             excursion_phase[st_on - 1:st_off] = np.linspace(0, 1, nr_st + 1)
                             excursion_phase[st_off] = 0  # put it there -1
                     final_tracks_phase[a, p, :] = excursion_phase

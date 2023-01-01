@@ -4,16 +4,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pickle
 import warnings
-import statsmodels.api as sm
 warnings.filterwarnings('ignore')
 
 # path inputs
-path = 'G:\\TM RAW FILES\\split contra fast\\MC10221\\2021_09_24\\'
-path_loco = 'G:\\TM TRACKING FILES\\split contra fast S3 240921\\'
+path = 'H:\\TM RAW FILES\\split contra fast\\MC9194\\2021_07_02\\'
+path_loco = 'H:\\TM TRACKING FILES\\split contra fast S3 020721\\'
 session_type = path.split('\\')[2].split(' ')[0]
 version_mscope = 'v4'
 plot_data = 1
-load_data = 1
+load_data = 0
 print_plots = 1
 save_data = 1
 paw_colors = ['red', 'magenta', 'blue', 'cyan']
@@ -47,29 +46,31 @@ frames_dFF = mscope.get_black_frames()  # black frames removed before ROI segmen
 strobe_nr_txt = loco.bcam_strobe_number()
 trial_start_blip_nr = loco.trial_start_blips()
 frame_time = mscope.get_miniscope_frame_time(trials, frames_dFF, version_mscope)  # get frame time for each trial
+trial_length_cumsum = mscope.cumulative_trial_length(frame_time)
 ref_image = mscope.get_ref_image()
 ops_s2p = mscope.get_s2p_parameters()
 print(ops_s2p)
 session_type = path.split(mscope.delim)[-4].split(' ')[0]  # tied or split
-[trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal)
 colors_session = mscope.colors_session(session_type, trials, 1)
+[trials, trial_start, strobe_nr, bcam_time, colors_session, frame_time, frames_dFF, frames_loco, del_trials_index] = mscope.correct_for_deleted_trials(trials, trial_start, strobe_nr, bcam_time, colors_session, frame_time, frames_dFF, frames_loco)
+[trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal)
 if session_type == 'split':
     colors_phases = ['black', 'crimson', 'teal']
 if session_type == 'tied':
     colors_phases = ['black', 'orange', 'purple']
 traces_type = 'raw'
 
-import matplotlib as mp
-greys = mp.cm.get_cmap('Greys', 14)
-reds = mp.cm.get_cmap('Reds', 23)
-blues = mp.cm.get_cmap('Blues', 23)
-colors_session = {1: greys(14), 2: greys(12), 3: greys(10), 4: greys(8), 5: greys(6), 6: greys(4),
-                  7: reds(23),
-                  8: reds(21),
-                  9: reds(19), 10: reds(17), 11: reds(15), 12: reds(13),
-                  13: reds(11), 14: reds(9), 15: reds(7), 16: reds(5), 17: blues(23), 18: blues(21),
-                  19: blues(19), 20: blues(17),
-                  21: blues(15), 22: blues(13), 24: blues(9), 25: blues(7), 26: blues(5)}
+# import matplotlib as mp
+# greys = mp.cm.get_cmap('Greys', 14)
+# reds = mp.cm.get_cmap('Reds', 23)
+# blues = mp.cm.get_cmap('Blues', 23)
+# colors_session = {1: greys(14), 2: greys(12), 3: greys(10), 4: greys(8), 5: greys(6), 6: greys(4),
+#                   7: reds(23),
+#                   8: reds(21),
+#                   9: reds(19), 11: reds(15), 12: reds(13),
+#                   13: reds(11), 14: reds(9), 15: reds(7), 16: reds(5), 17: blues(23), 18: blues(21),
+#                   19: blues(19), 20: blues(17),
+#                   21: blues(15), 22: blues(13), 23: blues(11), 24: blues(9), 25: blues(7), 26: blues(5)}
 
 if load_data == 0:
     # Load ROIs and traces - EXTRACT
@@ -77,8 +78,15 @@ if load_data == 0:
     [coord_ext, df_extract_allframes] = mscope.read_extract_output(thrs_spatial_weights, frame_time, trials)
 
     # Good periods after motion correction
-    [x_offset, y_offset, corrXY] = mscope.get_reg_data() # registration bad moments - correct
-    th = 0.010 # change with the notes from EXCEL
+    th = 0.0095 # change with the notes from EXCEL
+    [x_offset, y_offset, corrXY] = mscope.get_reg_data()  # registration bad moments
+    if len(del_trials_index)>0:
+        trial_beg = np.insert(trial_length_cumsum[:-1], 0, 0)
+        trial_end = trial_length_cumsum[1:]
+        for t in del_trials_index:
+            x_offset = np.delete(x_offset, np.arange(trial_beg[t], trial_end[t]))
+            y_offset = np.delete(y_offset, np.arange(trial_beg[t], trial_end[t]))
+            corrXY = np.delete(corrXY, np.arange(trial_beg[t], trial_end[t]))
     [idx_to_nan, df_extract] = mscope.corr_FOV_movement(th, df_extract_allframes, corrXY)
     [width_roi_ext, height_roi_ext, aspect_ratio_ext] = mscope.get_roi_stats(coord_ext)
     [coord_ext, df_extract] = mscope.rois_larger_motion(df_extract, coord_ext, idx_to_nan, x_offset, y_offset, width_roi_ext, height_roi_ext, 1)
@@ -98,7 +106,7 @@ if load_data == 0:
     df_events_extract_rawtrace = mscope.get_events(df_extract_rawtrace, 1, 'df_events_extract_rawtrace') # 1 for detrending"
     roi_plot = np.int64(np.random.choice(roi_list)[3:])
     trial_plot = np.random.choice(trials)
-    mscope.plot_events_roi_trial(trial_plot, roi_plot, frame_time, df_extract_rawtrace, traces_type, df_events_extract_rawtrace, plot_data, print_plots)
+    mscope.plot_events_roi_trial(trial_plot, roi_plot, frame_time, df_extract_rawtrace, traces_type, df_events_extract_rawtrace, trials, plot_data, print_plots)
 
     # Detrend calcium trace
     df_extract_rawtrace_detrended = mscope.compute_detrended_traces(df_extract_rawtrace, 'df_extract_rawtrace_detrended')
@@ -109,7 +117,7 @@ if load_data == 0:
     # Data as clusters
     centroid_ext = mscope.get_roi_centroids(coord_ext_curated)
     distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 0.82
+    th_cluster = 0.8
     colormap_cluster = 'hsv'
     [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
                                                                       distance_neurons, trials_baseline, th_cluster,
@@ -132,14 +140,13 @@ if load_data:
     time_cumulative = mscope.cumulative_time(df_extract_rawtrace_detrended, trials)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
     distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 0.82
+    th_cluster = 0.8
     colormap_cluster = 'hsv'
     [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
                                                                       distance_neurons, trials_baseline, th_cluster,
                                                                       colormap_cluster, plot_data, print_plots)
     [clusters_rois, idx_roi_cluster_ordered] = mscope.get_rois_clusters_mediolateral(df_extract_rawtrace_detrended,
                                                                                      idx_roi_cluster, centroid_ext)
-
 
 # ROI map and ID and some ROIs with high correlation with motion to see in GUI
 fig = plt.figure(figsize=(25, 25), tight_layout=True)
@@ -208,7 +215,7 @@ if session_type == 'split':
     trials_plot = np.array([trials_baseline[-1], trials_split[0], trials_split[-1], trials_washout[0]])
 if session_type == 'tied':
     trials_plot = np.array(trials_ses[:, 1])
-mscope.plot_stacked_traces(frame_time, df_trace_clusters_ave, traces_type, trials_plot, plot_data, print_plots)  # input can be one trial or trials_ses
+mscope.plot_stacked_traces(frame_time, df_trace_clusters_ave, traces_type, trials, trials_plot, plot_data, print_plots)  # input can be one trial or trials_ses
 
 # Order ROIs by cluster
 clusters_rois_flat = np.transpose(sum(clusters_rois, []))
@@ -440,3 +447,5 @@ if plot_data:
             ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 8)
         if print_plots:
             plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'step_length_isi_rolling_mean_window_'+str(window)), dpi=mscope.my_dpi)
+
+

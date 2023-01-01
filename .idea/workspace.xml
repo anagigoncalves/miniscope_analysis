@@ -4,8 +4,8 @@
     <list default="true" id="519ae963-bddf-4c2f-b361-f79fcd409ff4" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cluster_1st_pass.py" beforeDir="false" afterPath="$PROJECT_DIR$/Cluster_1st_pass.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/locomotion_class.py" beforeDir="false" afterPath="$PROJECT_DIR$/locomotion_class.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/miniscope_session_class.py" beforeDir="false" afterPath="$PROJECT_DIR$/miniscope_session_class.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/preprocess_tiff_registered.py" beforeDir="false" afterPath="$PROJECT_DIR$/preprocess_tiff_registered.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

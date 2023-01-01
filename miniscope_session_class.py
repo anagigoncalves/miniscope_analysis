@@ -392,6 +392,7 @@ class miniscope_session:
         oranges = mp.cm.get_cmap('Oranges', 23)
         purples = mp.cm.get_cmap('Purples', 23)
         if bar_boolean:
+            colors_session = []
             if session_type == 'tied':
                 if len(trials) == 6:
                     colors_session = [greys(12), greys(7), greys(4), oranges(23), oranges(13), oranges(7)]
@@ -452,6 +453,8 @@ class miniscope_session:
                                       19: blues(19), 20: blues(17),
                                       21: blues(15), 22: blues(13),
                                       23: blues(11), 24: blues(9), 25: blues(7), 26: blues(5)}
+        if len(colors_session) == 0:
+            print('Define colors_session by hand')
         return colors_session
 
     @staticmethod
@@ -467,7 +470,7 @@ class miniscope_session:
             cond_plot = ['baseline', 'fast']
         if session_type == 'tied' and animal != 'MC8855':
             trials_ses = np.array([[1, 6], [7, 12], [13, 18]])
-            trials_ses_name = ['baseline speed', 'fast speed']
+            trials_ses_name = ['baseline speed', 'slow speed', 'fast speed']
             cond_plot = ['baseline', 'slow', 'fast']
         if session_type == 'split' and animal == 'MC8855':
             trials_ses = np.array([[1, 3], [4, 13], [14, 23]])
@@ -477,15 +480,15 @@ class miniscope_session:
             trials_ses = np.array([[1, 6], [7, 16], [17, 26]])
             trials_ses_name = ['baseline', 'early split', 'late split', 'early washout']
             cond_plot = ['baseline', 'split', 'washout']
-        if len(trials) == 23:
+        if (len(trials)>18) and (len(trials)<24):
             trials_baseline = np.array([1, 2, 3])
             trials_split = np.array([4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
             trials_washout = np.array([14, 15, 16, 17, 18, 19, 20, 21, 22, 23])
-        elif len(trials) == 26:
+        elif (len(trials)>23) and (len(trials)<27):
             trials_baseline = np.array([1, 2, 3, 4, 5, 6])
             trials_split = np.array([7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
             trials_washout = np.array([17, 18, 19, 20, 21, 22, 23, 24, 25, 26])
-        elif len(trials) < 23:
+        elif len(trials) < 24:
             trials_baseline = np.arange(trials_ses[0, 0], trials_ses[0, -1]+1)
             trials_split = trials
             trials_washout = trials
@@ -502,7 +505,8 @@ class miniscope_session:
             df_data.loc[(df_data['trial'] == 1), 'time'])
         for t in trials[1:]:
             idx_trial = df_data.loc[(df_data['trial'] == t)].index
-            idx_trial_minus1 = df_data.loc[(df_data['trial'] == t - 1)].index
+            idx_trial_minus1 = np.where(trials==t)[0][0]-1
+            idx_trial_minus1 = df_data.loc[(df_data['trial'] == trials[idx_trial_minus1])].index
             time_trial = np.array(df_data.loc[(df_data['trial'] == t), 'time'])
             time_cumulative[idx_trial] = time_trial + time_cumulative[idx_trial_minus1][-1]
         return time_cumulative
@@ -616,7 +620,8 @@ class miniscope_session:
             count_t += 1
         return trial_order
 
-    def trial_length(self, df_extract):
+    @staticmethod
+    def trial_length(df_extract):
         """ Get number of frames for each trial based on traces dataframe
         Input:
         df_extract: dataframe with traces and the usual structure"""
@@ -625,6 +630,17 @@ class miniscope_session:
         for count, t in enumerate(trials):
             trial_length[count] = len(df_extract.loc[df_extract['trial'] == t].index)
         return trial_length
+
+    @staticmethod
+    def cumulative_trial_length(frame_time):
+        """ Get number of frames for each trial based on mscope timestamps
+        Input:
+        frame_time: list of mscope timestamps"""
+        trial_length = []
+        for count_t in range(len(frame_time)):
+            trial_length.append(len(frame_time[count_t]))
+        trial_length_cumsum = np.cumsum(trial_length)
+        return trial_length_cumsum
 
     def get_s2p_parameters(self):
         """Function to get the parameters used to run suite2p
@@ -795,6 +811,30 @@ class miniscope_session:
         ref_image = ops[()]['meanImg']
         return ref_image
 
+    def correct_for_deleted_trials(self, trials, trial_start, strobe_nr, bcam_time, colors_session, frame_time, frames_dFF, frames_loco):
+        path_extract = os.path.join(self.path, 'Registered video', 'EXTRACT')
+        files_extract = glob.glob(path_extract + self.delim + '*.mat')
+        trials_in = []
+        for f in range(len(files_extract)):
+            filename = files_extract[f][files_extract[f].rfind(self.delim):]
+            trials_in.append(np.int64(filename[filename.find('T') + 1:filename.rfind('_')]))
+        trials_out_idx = []
+        for count_t, t in enumerate(trials):
+            if t not in list(np.sort(trials_in)):
+                trials_out_idx.append(count_t)
+                print('Deleted trials ' + str(t))
+        if len(trials_out_idx)>0:
+            for k in trials_out_idx:
+                trials = np.delete(trials, k)
+                trial_start = np.delete(trial_start, k)
+                strobe_nr = np.delete(strobe_nr, k)
+                bcam_time = np.delete(bcam_time, k)
+                colors_session = np.delete(colors_session, k)
+                frame_time = np.delete(frame_time, k)
+                frames_dFF = np.delete(frames_dFF, k)
+                frames_loco = np.delete(frames_loco, k)
+        return trials, trial_start, strobe_nr, bcam_time, colors_session, frame_time, frames_dFF, frames_loco, trials_out_idx
+
     def read_extract_output(self, threshold_spatial_weights, frame_time, trials):
         """Function to get the pixel coordinates (list of arrays) and calcium trace
          (dataframe) for each ROI giving a threshold on the spatial weights
@@ -828,8 +868,9 @@ class miniscope_session:
         trial_ext = []
         frame_time_ext = []
         for t in trials:
-            trial_ext.extend(np.repeat(t, len(frame_time[t - 1])))
-            frame_time_ext.extend(frame_time[t - 1])
+            idx_trial = np.where(trials == t)[0][0]
+            trial_ext.extend(np.repeat(t, len(frame_time[idx_trial])))
+            frame_time_ext.extend(frame_time[idx_trial])
         data_ext1 = {'trial': trial_ext, 'time': frame_time_ext}
         df_ext1 = pd.DataFrame(data_ext1)
         df_ext2 = pd.DataFrame(trace_ext_arr, columns=roi_list)
@@ -847,9 +888,10 @@ class miniscope_session:
         trial_length = self.trial_length(df_extract)
         ext_trace_trials = []
         for t in trials:
+            idx_trial = np.where(trials == t)[0][0]
             tiff_stack = tiff.imread(
                 os.path.join(self.path, 'Registered video') + self.delim + 'T' + str(t) + '_reg.tif')  # read tiffs
-            ext_trace = np.zeros((int(trial_length[t - 1]), np.shape(df_extract.iloc[:, 2:])[1]))
+            ext_trace = np.zeros((int(trial_length[idx_trial]), np.shape(df_extract.iloc[:, 2:])[1]))
             for c in range(len(coord_ext)):
                 ext_trace_tiffmean = np.zeros((np.shape(tiff_stack)[0]))
                 for f in range(np.shape(tiff_stack)[0]):
@@ -862,8 +904,9 @@ class miniscope_session:
         trial_ext = []
         frame_time_ext = []
         for t in trials:
-            trial_ext.extend(np.repeat(t, len(frame_time[t - 1])))
-            frame_time_ext.extend(frame_time[t - 1])
+            idx_trial = np.where(trials==t)[0][0]
+            trial_ext.extend(np.repeat(t, len(frame_time[idx_trial])))
+            frame_time_ext.extend(frame_time[idx_trial])
         dict_ext = {'trial': trial_ext, 'time': frame_time_ext}
         df_ext1 = pd.DataFrame(dict_ext)
         df_ext2 = pd.DataFrame(np.transpose(ext_trace_arr), columns=roi_list)
@@ -1432,12 +1475,13 @@ class miniscope_session:
                         dpi=self.my_dpi)
         return
 
-    def plot_stacked_traces(self, frame_time, df_dFF, traces_type, trials_plot, plot_data, print_plots):
+    def plot_stacked_traces(self, frame_time, df_dFF, traces_type, trials, trials_plot, plot_data, print_plots):
         """"Funtion to compute stacked traces for a single trial or for the transition trials in the session.
         Input:
         frame_time: list with mscope timestamps
         df_dFF: dataframe with calcium trace
         traces_type: (str) raw or deconv
+        trials: list of trials in the session
         trials_plot: int or list
         plot_data: boolean
         print_plots: boolean"""
@@ -1453,10 +1497,11 @@ class miniscope_session:
                 fig, ax = plt.subplots(2, 2, figsize=(25, 30), tight_layout=True)
                 ax = ax.ravel()
                 for t in trials_plot:
+                    idx_trial = np.where(trials==t)[0][0]
                     dFF_trial = df_dFF.loc[df_dFF['trial'] == t]  # get dFF for the desired trial
                     count_r = 0
                     for r in df_dFF.columns[2:]:
-                        ax[count_t].plot(frame_time[t - 1], dFF_trial[r] + (count_r / 2), color='black')
+                        ax[count_t].plot(frame_time[idx_trial], dFF_trial[r] + (count_r / 2), color='black')
                         count_r += 1
                     ax[count_t].set_xlabel('Time (s)', fontsize=self.fsize - 4)
                     ax[count_t].set_ylabel('Calcium trace for trial ' + str(t), fontsize=self.fsize - 4)
@@ -1519,7 +1564,8 @@ class miniscope_session:
             count_t = len(trials)
             for count_c, t in enumerate(trials):
                 dFF_trial = df_dFF.loc[df_dFF['trial'] == t, idx_nr]  # get dFF for the desired trial
-                ax.plot(frame_time[t - 1], dFF_trial + count_t, color=colors_session[count_c])
+                idx_trial = np.where(trials==t)[0][0]
+                ax.plot(frame_time[idx_trial], dFF_trial + count_t, color=colors_session[count_c])
                 ax.set_yticks(trials)
                 ax.set_yticklabels(map(str, trials[::-1]))
                 ax.set_xlabel('Time (s)', fontsize=self.fsize - 2)
@@ -4198,7 +4244,7 @@ class miniscope_session:
                             dpi=self.my_dpi)
         return
 
-    def plot_events_roi_trial(self, trial_plot, roi_plot, frame_time, df_dff, traces_type, df_events, plot_data, print_plots):
+    def plot_events_roi_trial(self, trial_plot, roi_plot, frame_time, df_dff, traces_type, df_events, trials, plot_data, print_plots):
         """Function to plot events on top of traces with and without background subtraction for all ROIs and one trial.
         Input:
         trial_plot: (str)
@@ -4207,6 +4253,7 @@ class miniscope_session:
         df_dff: dataframe with traces
         traces_type: (str) raw or deconv
         df_events: dataframe with the events
+        trials: list of trials in a session
         plot_data: boolean
         print_plots: boolean"""
         int_find = ''.join(x for x in df_dff.columns[2] if x.isdigit())
@@ -4219,7 +4266,8 @@ class miniscope_session:
         df_dff_trial = df_dff.loc[df_dff['trial'] == trial_plot, idx_nr]  # get dFF for the desired trial
         if plot_data:
             fig, ax = plt.subplots(figsize=(20, 10), tight_layout=True)
-            ax.plot(frame_time[trial_plot - 1], df_dff_trial, color='black')
+            idx_trial = np.where(trials==trial_plot)[0][0]
+            ax.plot(frame_time[idx_trial], df_dff_trial, color='black')
             events_plot = np.where(df_events.loc[df_events['trial'] == trial_plot, idx_nr])[0]
             for e in events_plot:
                 ax.scatter(frame_time[trial_plot - 1][e], df_dff_trial.iloc[e], s=60,
@@ -4361,8 +4409,9 @@ class miniscope_session:
                 ax.add_patch(rectangle)
             ax.hlines(0, 1, len(param_sym_bs), colors='grey', linestyles='--')
             ax.plot(trials, param_sym_bs, color='black')
-            for t in trials:
-                ax.scatter(t, param_sym_bs[t-1], s=80, color=colors_session[t-1])
+            for count_t, t in enumerate(trials):
+                idx_trial = np.where(trials==t)[0][0]
+                ax.scatter(t, param_sym_bs[idx_trial], s=80, color=colors_session[count_t])
             ax.set_xlabel('Trials', fontsize=20)
             ax.set_ylabel('Step length symmetry', fontsize=20)
             plt.xticks(fontsize=16)
@@ -4408,7 +4457,8 @@ class miniscope_session:
                 fig, ax = plt.subplots(figsize=(25, 12), tight_layout=True)
                 sns.heatmap(data, cbar='False', cmap='viridis')
                 for t in trials:
-                    ax.vlines(cum_frames_len[t - 1], *ax.get_ylim(), color='white', linestyle='dashed')
+                    idx_trial = np.where(trials==t)[0][0]
+                    ax.vlines(cum_frames_len[idx_trial], *ax.get_ylim(), color='white', linestyle='dashed')
                 ax.set_yticks(np.arange(0, len(df_norm.columns[2:]), 4))
                 ax.set_yticklabels(df_norm.columns[2::4], rotation=45, fontsize=self.fsize - 12)
                 if plot_type == 'cluster':

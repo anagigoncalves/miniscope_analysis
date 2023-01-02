@@ -7,8 +7,8 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # path inputs
-path = 'H:\\TM RAW FILES\\split contra fast\\MC9194\\2021_07_02\\'
-path_loco = 'H:\\TM TRACKING FILES\\split contra fast S3 020721\\'
+path = 'E:\\TM RAW FILES\\split ipsi fast\\MC9194\\2021_07_01\\'
+path_loco = 'E:\\TM TRACKING FILES\\split ipsi fast S3 010721\\'
 session_type = path.split('\\')[2].split(' ')[0]
 version_mscope = 'v4'
 plot_data = 1
@@ -60,25 +60,13 @@ if session_type == 'tied':
     colors_phases = ['black', 'orange', 'purple']
 traces_type = 'raw'
 
-# import matplotlib as mp
-# greys = mp.cm.get_cmap('Greys', 14)
-# reds = mp.cm.get_cmap('Reds', 23)
-# blues = mp.cm.get_cmap('Blues', 23)
-# colors_session = {1: greys(14), 2: greys(12), 3: greys(10), 4: greys(8), 5: greys(6), 6: greys(4),
-#                   7: reds(23),
-#                   8: reds(21),
-#                   9: reds(19), 11: reds(15), 12: reds(13),
-#                   13: reds(11), 14: reds(9), 15: reds(7), 16: reds(5), 17: blues(23), 18: blues(21),
-#                   19: blues(19), 20: blues(17),
-#                   21: blues(15), 22: blues(13), 23: blues(11), 24: blues(9), 25: blues(7), 26: blues(5)}
-
 if load_data == 0:
     # Load ROIs and traces - EXTRACT
     thrs_spatial_weights = 0
     [coord_ext, df_extract_allframes] = mscope.read_extract_output(thrs_spatial_weights, frame_time, trials)
 
     # Good periods after motion correction
-    th = 0.0095 # change with the notes from EXCEL
+    th = 0.0085 # change with the notes from EXCEL
     [x_offset, y_offset, corrXY] = mscope.get_reg_data()  # registration bad moments
     if len(del_trials_index)>0:
         trial_beg = np.insert(trial_length_cumsum[:-1], 0, 0)

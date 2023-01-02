@@ -395,28 +395,28 @@ class miniscope_session:
             colors_session = []
             if session_type == 'tied':
                 if len(trials) == 6:
-                    colors_session = [greys(12), greys(7), greys(4), oranges(23), oranges(13), oranges(7)]
+                    colors_session = {1: greys(12), 2: greys(7), 3: greys(4), 4: oranges(23), 5: oranges(13), 6: oranges(7)}
                 if len(trials) == 12:
-                    colors_session = [greys(12), greys(7), greys(4), oranges(23), oranges(13), oranges(7), purples(23),
-                                      purples(13), purples(7)]
+                    colors_session = {1: greys(12), 2: greys(7), 3: greys(4), 4: oranges(23), 5: oranges(13), 6: oranges(7), 7: purples(23),
+                                      8: purples(13), 9: purples(7)}
                 if len(trials) == 18:
-                    colors_session = [greys(14), greys(12), greys(10), greys(8), greys(6), greys(4), oranges(23),
-                                      oranges(19),
-                                      oranges(16), oranges(13), oranges(10), oranges(6), purples(23), purples(19),
-                                      purples(16), purples(13), purples(10), purples(6)]
+                    colors_session = {1: greys(14), 2: greys(12), 3: greys(10), 4: greys(8), 5: greys(6), 6: greys(4), 7: oranges(23),
+                                      8: oranges(19),
+                                      9: oranges(16), 10: oranges(13), 11: oranges(10), 12: oranges(6), 13: purples(23), 14: purples(19),
+                                      15: purples(16), 16: purples(13), 17: purples(10), 18: purples(6)}
             if session_type == 'split':
                 if len(trials) == 23:
-                    colors_session = [greys(12), greys(7), greys(4), reds(23), reds(21), reds(19), reds(17), reds(15),
-                                      reds(13),
-                                      reds(11), reds(9), reds(7), reds(5), blues(23), blues(21), blues(19), blues(17),
-                                      blues(15), blues(13),
-                                      blues(11), blues(9), blues(7), blues(5)]
+                    colors_session = {1: greys(12), 2: greys(7), 3: greys(4), 4: reds(23), 5: reds(21), 6: reds(19), 7: reds(17), 8: reds(15),
+                                      9: reds(13),
+                                      10: reds(11), 11: reds(9), 12: reds(7), 13: reds(5), 14: blues(23), 15: blues(21), 16: blues(19), 17: blues(17),
+                                      18: blues(15), 19: blues(13),
+                                      20: blues(11), 21: blues(9), 22: blues(7), 23: blues(5)}
                 if len(trials) == 26:
-                    colors_session = [greys(14), greys(12), greys(10), greys(8), greys(6), greys(4), reds(23), reds(21),
-                                      reds(19), reds(17), reds(15), reds(13),
-                                      reds(11), reds(9), reds(7), reds(5), blues(23), blues(21), blues(19), blues(17),
-                                      blues(15), blues(13),
-                                      blues(11), blues(9), blues(7), blues(5)]
+                    colors_session = {1: greys(14), 2: greys(12), 3: greys(10), 4: greys(8), 5: greys(6), 6: greys(4), 7: reds(23), 8: reds(21),
+                                      9: reds(19), 10: reds(17), 11: reds(15), 12: reds(13),
+                                      13: reds(11), 14: reds(9), 15: reds(7), 16: reds(5), 17: blues(23), 18: blues(21), 19: blues(19), 20: blues(17),
+                                      21: blues(15), 22: blues(13),
+                                      23: blues(11), 24: blues(9), 25: blues(7), 26: blues(5)}
         else:
             if session_type == 'tied':
                 if len(trials) == 6:
@@ -819,9 +819,11 @@ class miniscope_session:
             filename = files_extract[f][files_extract[f].rfind(self.delim):]
             trials_in.append(np.int64(filename[filename.find('T') + 1:filename.rfind('_')]))
         trials_out_idx = []
+        trials_out = []
         for count_t, t in enumerate(trials):
             if t not in list(np.sort(trials_in)):
                 trials_out_idx.append(count_t)
+                trials_out.append(t)
                 print('Deleted trials ' + str(t))
         if len(trials_out_idx)>0:
             for k in trials_out_idx:
@@ -829,10 +831,11 @@ class miniscope_session:
                 trial_start = np.delete(trial_start, k)
                 strobe_nr = np.delete(strobe_nr, k)
                 bcam_time = np.delete(bcam_time, k)
-                colors_session = np.delete(colors_session, k)
                 frame_time = np.delete(frame_time, k)
                 frames_dFF = np.delete(frames_dFF, k)
                 frames_loco = np.delete(frames_loco, k)
+            for t in trials_out:
+                colors_session.pop(t)
         return trials, trial_start, strobe_nr, bcam_time, colors_session, frame_time, frames_dFF, frames_loco, trials_out_idx
 
     def read_extract_output(self, threshold_spatial_weights, frame_time, trials):
@@ -1565,7 +1568,7 @@ class miniscope_session:
             for count_c, t in enumerate(trials):
                 dFF_trial = df_dFF.loc[df_dFF['trial'] == t, idx_nr]  # get dFF for the desired trial
                 idx_trial = np.where(trials==t)[0][0]
-                ax.plot(frame_time[idx_trial], dFF_trial + count_t, color=colors_session[count_c])
+                ax.plot(frame_time[idx_trial], dFF_trial + count_t, color=colors_session[t])
                 ax.set_yticks(trials)
                 ax.set_yticklabels(map(str, trials[::-1]))
                 ax.set_xlabel('Time (s)', fontsize=self.fsize - 2)
@@ -4411,7 +4414,7 @@ class miniscope_session:
             ax.plot(trials, param_sym_bs, color='black')
             for count_t, t in enumerate(trials):
                 idx_trial = np.where(trials==t)[0][0]
-                ax.scatter(t, param_sym_bs[idx_trial], s=80, color=colors_session[count_t])
+                ax.scatter(t, param_sym_bs[idx_trial], s=80, color=colors_session[t])
             ax.set_xlabel('Trials', fontsize=20)
             ax.set_ylabel('Step length symmetry', fontsize=20)
             plt.xticks(fontsize=16)

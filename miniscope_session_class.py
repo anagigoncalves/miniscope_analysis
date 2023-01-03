@@ -399,7 +399,7 @@ class miniscope_session:
                 if len(trials) == 12:
                     colors_session = {1: greys(12), 2: greys(7), 3: greys(4), 4: oranges(23), 5: oranges(13), 6: oranges(7), 7: purples(23),
                                       8: purples(13), 9: purples(7)}
-                if len(trials) == 18:
+                if len(trials) > 17:
                     colors_session = {1: greys(14), 2: greys(12), 3: greys(10), 4: greys(8), 5: greys(6), 6: greys(4), 7: oranges(23),
                                       8: oranges(19),
                                       9: oranges(16), 10: oranges(13), 11: oranges(10), 12: oranges(6), 13: purples(23), 14: purples(19),
@@ -411,7 +411,7 @@ class miniscope_session:
                                       10: reds(11), 11: reds(9), 12: reds(7), 13: reds(5), 14: blues(23), 15: blues(21), 16: blues(19), 17: blues(17),
                                       18: blues(15), 19: blues(13),
                                       20: blues(11), 21: blues(9), 22: blues(7), 23: blues(5)}
-                if len(trials) == 26:
+                if len(trials) > 23:
                     colors_session = {1: greys(14), 2: greys(12), 3: greys(10), 4: greys(8), 5: greys(6), 6: greys(4), 7: reds(23), 8: reds(21),
                                       9: reds(19), 10: reds(17), 11: reds(15), 12: reds(13),
                                       13: reds(11), 14: reds(9), 15: reds(7), 16: reds(5), 17: blues(23), 18: blues(21), 19: blues(19), 20: blues(17),
@@ -453,8 +453,6 @@ class miniscope_session:
                                       19: blues(19), 20: blues(17),
                                       21: blues(15), 22: blues(13),
                                       23: blues(11), 24: blues(9), 25: blues(7), 26: blues(5)}
-        if len(colors_session) == 0:
-            print('Define colors_session by hand')
         return colors_session
 
     @staticmethod

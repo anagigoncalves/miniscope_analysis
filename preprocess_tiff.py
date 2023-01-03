@@ -10,7 +10,7 @@ import glob
 import os
 import matplotlib.pyplot as plt
 
-path = 'H:\\TM RAW FILES\\split contra fast\\MC9194\\2021_07_02\\'
+path = 'D:\\TM RAW FILES\\split contra fast\\MC9194\\2021_07_02\\'
 delim = path[-1]
 if delim == '/':
     path_output = path+'/Suite2p'
@@ -23,7 +23,7 @@ if not os.path.exists(path_output):
 if not os.path.exists(path_images):
     os.mkdir(path_images)
 
-heat_bool = input ("Correct for heating issue? 1 for yes, 0 for no: ") 
+heat_bool = input("Correct for heating issue? 1 for yes, 0 for no: ")
 
 tiflist = glob.glob(path+'*.tif') #get list of tifs
 tiff_boolean = 0

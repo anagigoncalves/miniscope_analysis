@@ -7,12 +7,12 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # path inputs
-path = 'E:\\TM RAW FILES\\split ipsi fast\\MC9194\\2021_07_01\\'
-path_loco = 'E:\\TM TRACKING FILES\\split ipsi fast S3 010721\\'
+path = 'D:\\TM RAW FILES\\split contra fast\\MC9194\\2021_07_02\\'
+path_loco = 'D:\\TM TRACKING FILES\\split contra fast S3 020721\\'
 session_type = path.split('\\')[2].split(' ')[0]
 version_mscope = 'v4'
 plot_data = 1
-load_data = 0
+load_data = 1
 print_plots = 1
 save_data = 1
 paw_colors = ['red', 'magenta', 'blue', 'cyan']
@@ -66,7 +66,7 @@ if load_data == 0:
     [coord_ext, df_extract_allframes] = mscope.read_extract_output(thrs_spatial_weights, frame_time, trials)
 
     # Good periods after motion correction
-    th = 0.0085 # change with the notes from EXCEL
+    th = 0.0095 # change with the notes from EXCEL
     [x_offset, y_offset, corrXY] = mscope.get_reg_data()  # registration bad moments
     if len(del_trials_index)>0:
         trial_beg = np.insert(trial_length_cumsum[:-1], 0, 0)
@@ -83,6 +83,7 @@ if load_data == 0:
     # ROI spatial stats
     [width_roi_rois_nomotion, height_roi_rois_nomotion, aspect_ratio_rois_nomotion] = mscope.get_roi_stats(coord_ext)
     # ROI curation
+    #TODO REPEAT CURATION FOR THIS SESSION
     [coord_ext_curated, df_extract_curated] = mscope.roi_curation(ref_image, df_extract, coord_ext, aspect_ratio_rois_nomotion, trials_baseline[-1])
 
     # Get raw trace from EXTRACT ROIs
@@ -203,7 +204,6 @@ if session_type == 'split':
     trials_plot = np.array([trials_baseline[-1], trials_split[0], trials_split[-1], trials_washout[0]])
 if session_type == 'tied':
     trials_plot = np.array(trials_ses[:, 1])
-mscope.plot_stacked_traces(frame_time, df_trace_clusters_ave, traces_type, trials, trials_plot, plot_data, print_plots)  # input can be one trial or trials_ses
 
 # Order ROIs by cluster
 clusters_rois_flat = np.transpose(sum(clusters_rois, []))
@@ -212,9 +212,10 @@ clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
 cluster_transition_idx = np.cumsum([len(clusters_rois[c]) for c in range(len(clusters_rois))])-1
 df_extract_rawtrace_detrended_zscore = mscope.norm_traces(df_extract_rawtrace_detrended, 'zscore', 'session')
 df_extract_rawtrace_detrended_zscore_clustered = df_extract_rawtrace_detrended_zscore[clusters_rois_flat]
+df_events_extract_rawtrace_cluster_order = df_events_extract_rawtrace[clusters_rois_flat]
 
 # raw signal clustered
-mscope.response_time_population_avg(df_extract_rawtrace_detrended_zscore_clustered, [0], [5], clusters_rois, cluster_transition_idx, 'cluster', plot_data, print_plots)
+mscope.response_time_population_avg(df_events_extract_rawtrace_cluster_order, [0], [5], clusters_rois, cluster_transition_idx, 'cluster', plot_data, print_plots)
 time_beg_vec = np.arange(0, 60, 5)
 time_end_vec = np.arange(5, 60+5, 5)
 if plot_data:
@@ -251,7 +252,8 @@ if plot_data:
             std_data_trials = np.zeros((len(trials), len(time_beg_vec)))
             for w in range(len(time_beg_vec)):
                 for count_t, t in enumerate(trials):
-                    data_trials = df_extract_rawtrace_detrended_zscore_clustered.loc[df_extract_rawtrace_detrended_zscore_clustered['trial'] == t, clusters_rois[c]].iloc[time_beg_vec[w] * mscope.sr:time_end_vec[w] * mscope.sr].mean(axis=0)
+                    data_trials = df_events_extract_rawtrace_cluster_order.loc[df_events_extract_rawtrace_cluster_order['trial'] == t, clusters_rois[c]].iloc[time_beg_vec[w] * mscope.sr:time_end_vec[w] * mscope.sr].mean(axis=0)
+                    # data_trials = df_extract_rawtrace_detrended_zscore_clustered.loc[df_extract_rawtrace_detrended_zscore_clustered['trial'] == t, clusters_rois[c]].iloc[time_beg_vec[w] * mscope.sr:time_end_vec[w] * mscope.sr].mean(axis=0)
                     mean_data_trials[count_t, w] = data_trials.mean()
                     std_data_trials[count_t, w] = data_trials.std()
             ax[c].add_patch(plt.Rectangle((trials_baseline[-1] + 0.5, np.min(mean_data_trials[:, 0] - std_data_trials[:, 0])), len(trials_split), np.max(mean_data_trials[:, 0] + std_data_trials[:, 0]) - np.min(mean_data_trials[:, 0] - std_data_trials[:, 0]), fc='grey', alpha=0.3))

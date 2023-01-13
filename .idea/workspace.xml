@@ -7,8 +7,6 @@
 <<<<<<< Updated upstream
     <list default="true" id="519ae963-bddf-4c2f-b361-f79fcd409ff4" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cluster_1st_pass.py" beforeDir="false" afterPath="$PROJECT_DIR$/Cluster_1st_pass.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/miniscope_session_class.py" beforeDir="false" afterPath="$PROJECT_DIR$/miniscope_session_class.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/preprocess_tiff_registered.py" beforeDir="false" afterPath="$PROJECT_DIR$/preprocess_tiff_registered.py" afterDir="false" />
     </list>
 =======
@@ -45,6 +43,7 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
+<<<<<<< Updated upstream
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "RunOnceActivity.OpenProjectViewOnStart": "true",
@@ -58,6 +57,14 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
+=======
+  <component name="PropertiesComponent">
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/test.py" />
+    <property name="settings.editor.selected.configurable" value="preferences.keymap" />
+  </component>
+>>>>>>> Stashed changes
   <component name="RunManager" selected="Python.test">
     <configuration name="ROI_analysis" type="PythonConfigurationType" factoryName="Python">
       <module name="miniscope_analysis" />

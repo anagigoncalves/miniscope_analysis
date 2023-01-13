@@ -10,7 +10,7 @@ import glob
 import os
 import matplotlib.pyplot as plt
 
-path = 'D:\\TM RAW FILES\\split contra fast\\MC9194\\2021_07_02\\'
+path = 'D:\\TM RAW FILES\\tied baseline\\MC9194\\2021_07_03\\'
 delim = path[-1]
 if delim == '/':
     path_output = path+'/Suite2p'

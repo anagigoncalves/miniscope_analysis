@@ -593,7 +593,7 @@ class miniscope_session:
         return df_norm
 
     def get_animal_id(self):
-        animal_name = self.path.split(self.delim)[3]
+        animal_name = self.path.split(self.delim)[-3]
         return animal_name
 
     def get_protocol_id(self):
@@ -807,6 +807,7 @@ class miniscope_session:
         path_ops = os.path.join('Suite2p', 'suite2p', 'plane0', 'ops.npy')
         ops = np.load(self.path + path_ops, allow_pickle=True)
         ref_image = ops[()]['meanImg']
+        np.save(os.path.join(self.path, 'processed files', 'ref_image.npy'), ref_image)
         return ref_image
 
     def correct_for_deleted_trials(self, trials, trial_start, strobe_nr, bcam_time, colors_session, frame_time, frames_dFF, frames_loco):
@@ -1292,6 +1293,7 @@ class miniscope_session:
                 frames_dFF.append(int(tifname_split[1][4:]))
             else:
                 frames_dFF.append(int(tifname_split[1][4:idx_dot]))
+        np.save(os.path.join(self.path, 'processed files', 'black_frames.npy'), frames_dFF)
         return frames_dFF
 
     def compute_head_angles(self, trials):
@@ -1542,7 +1544,7 @@ class miniscope_session:
                 plt.savefig(os.path.join(self.path, 'images', 'dFF_stacked_traces_' + traces_type + '_cluster'),
                             dpi=self.my_dpi)
 
-    def plot_stacked_traces_singleROI(self, frame_time, df_dFF, traces_type, roi_plot, trials, colors_session, plot_data,
+    def plot_stacked_traces_singleROI(self, df_dFF, traces_type, roi_plot, trials, colors_session, line_ratio, plot_data,
                                       print_plots):
         """"Funtion to compute stacked traces for all trials in a session for a single ROI.
         Input:
@@ -1551,6 +1553,7 @@ class miniscope_session:
         traces_type: (str) raw or deconv
         roi_plot: int or list
         colors_session: list
+        line_ratio: integer to decrease separation between trials plotted for better viz
         plot_data: boolean
         print_plots: boolean"""
         int_find = ''.join(x for x in df_dFF.columns[2] if x.isdigit())
@@ -1563,21 +1566,24 @@ class miniscope_session:
         if plot_data:
             fig, ax = plt.subplots(figsize=(15, 20), tight_layout=True)
             count_t = len(trials)
+            y_plot = []
             for count_c, t in enumerate(trials):
                 dFF_trial = df_dFF.loc[df_dFF['trial'] == t, idx_nr]  # get dFF for the desired trial
+                frame_time = df_dFF.loc[df_dFF['trial'] == t, 'time']
                 idx_trial = np.where(trials==t)[0][0]
-                ax.plot(frame_time[idx_trial], dFF_trial + count_t, color=colors_session[t])
-                ax.set_yticks(trials)
-                ax.set_yticklabels(map(str, trials[::-1]))
-                ax.set_xlabel('Time (s)', fontsize=self.fsize - 2)
-                ax.set_ylabel('Trials', fontsize=self.fsize - 2)
-                ax.set_title('Calcium trace for ' + df_type + ' ' + str(roi_plot), fontsize=self.fsize - 2)
-                ax.spines['left'].set_visible(False)
-                plt.xticks(fontsize=self.fsize - 2)
-                plt.yticks(fontsize=self.fsize - 2)
-                ax.spines['right'].set_visible(False)
-                ax.spines['top'].set_visible(False)
+                ax.plot(frame_time, dFF_trial + (count_c/line_ratio), color=colors_session[t])
+                y_plot.append(np.nanmean(dFF_trial + (count_c/line_ratio)))
                 count_t -= 1
+            ax.set_yticks(y_plot)
+            ax.set_yticklabels(map(str, trials[::-1]))
+            ax.set_xlabel('Time (s)', fontsize=self.fsize - 2)
+            ax.set_ylabel('Trials', fontsize=self.fsize - 2)
+            ax.set_title('Calcium trace for ' + df_type + ' ' + str(roi_plot), fontsize=self.fsize - 2)
+            ax.spines['left'].set_visible(False)
+            plt.xticks(fontsize=self.fsize - 2)
+            plt.yticks(fontsize=self.fsize - 2)
+            ax.spines['right'].set_visible(False)
+            ax.spines['top'].set_visible(False)
             if print_plots:
                 if df_type == 'ROI':
                     if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
@@ -1655,6 +1661,7 @@ class miniscope_session:
                 if not os.path.exists(os.path.join(self.path, 'images', 'cluster')):
                     os.mkdir(os.path.join(self.path, 'images', 'cluster'))
                 plt.savefig(os.path.join(self.path, 'images', 'cluster', 'pcorrcoef_ordered'), dpi=self.my_dpi)
+        np.save(os.path.join(self.path, 'processed files', 'clusters_rois_colors.npy'), colors)
         return colors, idx
 
     def get_rois_clusters_mediolateral(self, df_traces, idx_roi_cluster, centroid_ext):
@@ -1692,6 +1699,7 @@ class miniscope_session:
             roi_clusters_ordered_flat.append(np.int64(r[3:]))
         idx_roi_cluster_ordered = idx_roi_cluster_flat[np.argsort(roi_clusters_ordered_flat)]
         np.save(os.path.join(self.path, 'processed files', 'clusters_rois.npy'), clusters_rois_ordered)
+        np.save(os.path.join(self.path, 'processed files', 'clusters_rois_idx_order.npy'), idx_roi_cluster_ordered)
         return [clusters_rois_ordered, idx_roi_cluster_ordered]
 
     def plot_roi_clustering_spatial(self, ref_image, colors, idx, coord_cell, plot_data, print_plots):
@@ -1967,7 +1975,11 @@ class miniscope_session:
         coord_ext = np.load(os.path.join(self.path, 'processed files', 'coord_ext.npy'), allow_pickle=True)
         reg_th = np.load(os.path.join(self.path, 'processed files', 'reg_th.npy'))
         reg_bad_frames = np.load(os.path.join(self.path, 'processed files', 'frames_to_exclude.npy'))
-        return df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames
+        trials = np.load(os.path.join(self.path, 'processed files', 'trials.npy'))
+        clusters_rois = np.load(os.path.join(self.path, 'processed files', 'clusters_rois.npy'), allow_pickle=True)
+        colors_cluster = np.load(os.path.join(self.path, 'processed files', 'clusters_rois.npy'), allow_pickle=True)
+        idx_roi_cluster_ordered = np.load(os.path.join(self.path, 'processed files', 'clusters_rois_idx_order.npy'), allow_pickle=True)
+        return df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames, trials, clusters_rois, colors_cluster, idx_roi_cluster_ordered
 
     def load_processed_files_clusters(self):
         """Loads processed files that were saved under path/processed files for clustered data"""
@@ -4426,15 +4438,15 @@ class miniscope_session:
 
 
     def response_time_population_avg(self, df_norm, time_beg, time_end, clusters_rois, cluster_transition_idx,
-                                     plot_type, plot_data, print_plots):
+                                     data_type, plot_type, plot_data, print_plots):
         """Compute the heatmap for ROI calcium activity for a certain time period. It can do a random order, by distance or by cluster - depending on input data
         df_norm: dataframe with activity for all ROIs and timepoints
         time_beg: (int) vector with starting points for time
         time_end: (int) vector with ending points for time
         clusters_rois: list with the ROIs belonging to each cluster
         cluster_transition_idx: list with the ROIs at the end of each cluster
+        data_type: (str) raw or events or deconv
         plot_type: (str) raw, distance or cluster
-        traces_type: (str) raw or events or deconv
         plot_data: boolean
         print_plots: boolean"""
         trials = np.unique(df_norm['trial'])
@@ -4474,7 +4486,7 @@ class miniscope_session:
                         os.mkdir(os.path.join(self.path, 'images', plot_type))
                     plt.savefig(os.path.join(self.path, 'images', plot_type,
                                              'heatmap_' + str(time_beg[count_t]) + 's_' + str(
-                                                 time_end[count_t]) + 's_' + plot_type + '_raw'), dpi=self.my_dpi)
+                                                 time_end[count_t]) + 's_' + plot_type + '_' + data_type), dpi=self.my_dpi)
         return
 
     def response_time_population_events(self, df_norm, time_beg, time_end, clusters_rois, cluster_transition_idx,

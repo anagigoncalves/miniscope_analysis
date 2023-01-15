@@ -41,18 +41,12 @@ if not os.path.exists(path_events):
 animal = mscope.get_animal_id()
 session = loco.get_session_id()
 trials = mscope.get_trial_id()
-frames_dFF = mscope.get_black_frames()  # black frames removed before ROI segmentation
-[trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
 strobe_nr_txt = loco.bcam_strobe_number()
 trial_start_blip_nr = loco.trial_start_blips()
-frame_time = mscope.get_miniscope_frame_time(trials, frames_dFF, version_mscope)  # get frame time for each trial
-trial_length_cumsum = mscope.cumulative_trial_length(frame_time)
-ref_image = mscope.get_ref_image()
 ops_s2p = mscope.get_s2p_parameters()
 print(ops_s2p)
 session_type = path.split(mscope.delim)[-4].split(' ')[0]  # tied or split
 colors_session = mscope.colors_session(session_type, trials, 1)
-[trials, trial_start, strobe_nr, bcam_time, colors_session, frame_time, frames_dFF, frames_loco, del_trials_index] = mscope.correct_for_deleted_trials(trials, trial_start, strobe_nr, bcam_time, colors_session, frame_time, frames_dFF, frames_loco)
 [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal)
 if session_type == 'split':
     colors_phases = ['black', 'crimson', 'teal']
@@ -61,6 +55,15 @@ if session_type == 'tied':
 traces_type = 'raw'
 
 if load_data == 0:
+    ref_image = mscope.get_ref_image()
+    frames_dFF = mscope.get_black_frames()  # black frames removed before ROI segmentation
+    frame_time = mscope.get_miniscope_frame_time(trials, frames_dFF, version_mscope)  # get frame time for each trial
+    trial_length_cumsum = mscope.cumulative_trial_length(frame_time)
+    [trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session,
+                                                                                             frames_dFF)
+    [trials, trial_start, strobe_nr, bcam_time, colors_session, frame_time, frames_dFF, frames_loco,
+     del_trials_index] = mscope.correct_for_deleted_trials(trials, trial_start, strobe_nr, bcam_time, colors_session,
+                                                           frame_time, frames_dFF, frames_loco)
     # Load ROIs and traces - EXTRACT
     thrs_spatial_weights = 0
     [coord_ext, df_extract_allframes] = mscope.read_extract_output(thrs_spatial_weights, frame_time, trials)
@@ -123,7 +126,8 @@ if load_data == 0:
 
 if load_data:
     [df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace,
-     coord_ext, reg_th, reg_bad_frames] = mscope.load_processed_files()
+     coord_ext, reg_th, reg_bad_frames, trials,
+     clusters_rois, colors_cluster, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
     [df_trace_clusters_ave, df_trace_clusters_std, df_events_trace_clusters] = mscope.load_processed_files_clusters()
     time_cumulative = mscope.cumulative_time(df_extract_rawtrace_detrended, trials)
     centroid_ext = mscope.get_roi_centroids(coord_ext)

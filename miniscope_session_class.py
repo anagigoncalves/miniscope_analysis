@@ -807,6 +807,8 @@ class miniscope_session:
         path_ops = os.path.join('Suite2p', 'suite2p', 'plane0', 'ops.npy')
         ops = np.load(self.path + path_ops, allow_pickle=True)
         ref_image = ops[()]['meanImg']
+        if not os.path.exists(self.path + 'processed files'):
+            os.mkdir(self.path + 'processed files')
         np.save(os.path.join(self.path, 'processed files', 'ref_image.npy'), ref_image)
         return ref_image
 
@@ -1293,6 +1295,8 @@ class miniscope_session:
                 frames_dFF.append(int(tifname_split[1][4:]))
             else:
                 frames_dFF.append(int(tifname_split[1][4:idx_dot]))
+        if not os.path.exists(self.path + 'processed files'):
+            os.mkdir(self.path + 'processed files')
         np.save(os.path.join(self.path, 'processed files', 'black_frames.npy'), frames_dFF)
         return frames_dFF
 
@@ -1661,6 +1665,8 @@ class miniscope_session:
                 if not os.path.exists(os.path.join(self.path, 'images', 'cluster')):
                     os.mkdir(os.path.join(self.path, 'images', 'cluster'))
                 plt.savefig(os.path.join(self.path, 'images', 'cluster', 'pcorrcoef_ordered'), dpi=self.my_dpi)
+        if not os.path.exists(self.path + 'processed files'):
+            os.mkdir(self.path + 'processed files')
         np.save(os.path.join(self.path, 'processed files', 'clusters_rois_colors.npy'), colors)
         return colors, idx
 
@@ -1698,9 +1704,34 @@ class miniscope_session:
         for count_r, r in enumerate(clusters_rois_ordered_flat):
             roi_clusters_ordered_flat.append(np.int64(r[3:]))
         idx_roi_cluster_ordered = idx_roi_cluster_flat[np.argsort(roi_clusters_ordered_flat)]
+        if not os.path.exists(self.path + 'processed files'):
+            os.mkdir(self.path + 'processed files')
         np.save(os.path.join(self.path, 'processed files', 'clusters_rois.npy'), clusters_rois_ordered)
         np.save(os.path.join(self.path, 'processed files', 'clusters_rois_idx_order.npy'), idx_roi_cluster_ordered)
         return [clusters_rois_ordered, idx_roi_cluster_ordered]
+
+    def get_coordinates_cluster(self, centroid_ext, fov_coord, idx_roi_cluster_ordered):
+        """Get the coordinates of the clusters based on the mean of the centroids.
+        Put the coordinates in a global scale (based on histology)
+        Inputs:
+            fov_coord: coordinates of the center of the FOV (based on histology)
+            idx_roi_cluster_ordered: list of cluster if for each ROI index
+            centroid_ext: list of coordinates of ROIs centroids"""
+        centroid_cluster_mean = np.zeros((len(np.unique(idx_roi_cluster_ordered)), 2))
+        for count_i, i in enumerate(np.unique(idx_roi_cluster_ordered)):
+            cluster_idx = np.where(idx_roi_cluster_ordered == i)[0]
+            centroid_cluster = np.zeros((len(cluster_idx), 2))
+            for count_c, c in enumerate(cluster_idx):
+                centroid_cluster[count_c, :] = centroid_ext[c]
+            centroid_mean = np.nanmean(centroid_cluster, axis=0)
+            centroid_cluster_mean[count_i, 0] = -centroid_mean[0]  # because we are in the negative area of bregma
+            centroid_cluster_mean[count_i, 1] = centroid_mean[1]
+        fov_corner = np.array([fov_coord[0] + 0.5, fov_coord[1] - 0.5])
+        centroid_cluster_dist_corner = (centroid_cluster_mean * 0.001) + fov_corner
+        if not os.path.exists(self.path + 'processed files'):
+            os.mkdir(self.path + 'processed files')
+        np.save(os.path.join(self.path, 'processed files', 'cluster_coords.npy'), centroid_cluster_dist_corner)
+        return centroid_cluster_dist_corner
 
     def plot_roi_clustering_spatial(self, ref_image, colors, idx, coord_cell, plot_data, print_plots):
         """Plot ROIs on top of reference image color coded by the result of the hierarchical clustering
@@ -1977,9 +2008,11 @@ class miniscope_session:
         reg_bad_frames = np.load(os.path.join(self.path, 'processed files', 'frames_to_exclude.npy'))
         trials = np.load(os.path.join(self.path, 'processed files', 'trials.npy'))
         clusters_rois = np.load(os.path.join(self.path, 'processed files', 'clusters_rois.npy'), allow_pickle=True)
-        colors_cluster = np.load(os.path.join(self.path, 'processed files', 'clusters_rois.npy'), allow_pickle=True)
+        colors_cluster = np.load(os.path.join(self.path, 'processed files', 'clusters_rois_colors.npy'), allow_pickle=True)
         idx_roi_cluster_ordered = np.load(os.path.join(self.path, 'processed files', 'clusters_rois_idx_order.npy'), allow_pickle=True)
-        return df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames, trials, clusters_rois, colors_cluster, idx_roi_cluster_ordered
+        ref_image = np.load(os.path.join(self.path, 'processed files', 'ref_image.npy'), allow_pickle=True)
+        frames_dFF = np.load(os.path.join(self.path, 'processed files', 'black_frames.npy'), allow_pickle=True)
+        return df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames, trials, clusters_rois, colors_cluster, idx_roi_cluster_ordered, ref_image, frames_dFF
 
     def load_processed_files_clusters(self):
         """Loads processed files that were saved under path/processed files for clustered data"""

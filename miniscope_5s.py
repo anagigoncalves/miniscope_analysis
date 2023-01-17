@@ -19,8 +19,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'I:\\Miniscope processed files'
-session_data = pd.read_excel('I:\\session_data.xlsx')
+path_session_data = 'D:\\Miniscope processed files'
+session_data = pd.read_excel('D:\\session_data.xlsx')
 for s in range(len(session_data)):
     ses_info = session_data.iloc[s, :]
     date = ses_info[3]
@@ -69,6 +69,8 @@ for s in range(len(session_data)):
     clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
     cluster_transition_idx = np.cumsum([len(clusters_rois[c]) for c in range(len(clusters_rois))])-1
     df_events_extract_zscore_clustered = df_events_extract_rawtrace[clusters_rois_flat]
+    df_extract_rawtrace_detrended_zscore = mscope.norm_traces(df_extract_rawtrace_detrended, 'zscore', 'session')
+    df_extract_rawtrace_detrended_zscore_clustered = df_extract_rawtrace_detrended_zscore[clusters_rois_flat]
 
     # # raw signal clustered
     # mscope.response_time_population_avg(df_events_extract_zscore_clustered, [0], [5], clusters_rois, cluster_transition_idx, 'events', 'cluster', plot_data, print_plots)
@@ -130,7 +132,7 @@ for s in range(len(session_data)):
     for c in range(len(clusters_rois)):
         mean_data_trials = np.zeros(len(trials))
         for count_t, t in enumerate(trials):
-            data_trials = df_events_extract_zscore_clustered.loc[df_events_extract_zscore_clustered['trial'] == t, clusters_rois[c]].iloc[0 * mscope.sr:5 * mscope.sr].mean(axis=0)
+            data_trials = df_extract_rawtrace_detrended_zscore_clustered.loc[df_extract_rawtrace_detrended_zscore_clustered['trial'] == t, clusters_rois[c]].iloc[0 * mscope.sr:5 * mscope.sr].mean(axis=0)
             mean_data_trials[count_t] = data_trials.mean()
         mean_data_1sttrial = []
         for t in np.array([trials_baseline[0], trials_split[0], trials_washout[0]]):
@@ -172,5 +174,5 @@ for s in range(len(session_data)):
         ax[3].spines['right'].set_visible(False)
         ax[3].spines['top'].set_visible(False)
         if print_plots:
-            plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'summary_0s_5s_events'), dpi=mscope.my_dpi)
+            plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'summary_0s_5s_raw'), dpi=mscope.my_dpi)
     plt.close('all')

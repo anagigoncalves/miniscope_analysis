@@ -509,23 +509,27 @@ class miniscope_session:
             time_cumulative[idx_trial] = time_trial + time_cumulative[idx_trial_minus1][-1]
         return time_cumulative
 
-    def clusters_dataframe(self, df_traces, clusters_rois, save_data):
+    def clusters_dataframe(self, df_traces, clusters_rois, detrend, save_data):
         """Create a dataframe with the averaged traces for each cluster
         Input:
         df_traces: dataframe with traces of clusters
         clusters_rois: list with ROIs for each cluster
+        detrend: boolean
         save_data: boolean"""
         # dataframe with clusters
         df_trace_clusters_ave = pd.DataFrame(columns=['trial', 'time'])
         df_trace_clusters_ave['trial'] = df_traces['trial']
         df_trace_clusters_ave['time'] = df_traces['time']
+        for c in range(len(clusters_rois)):
+            df_dFF_mean = df_traces[clusters_rois[c]].mean(axis=1)
+            df_trace_clusters_ave['cluster' + str(c + 1)] = np.array(df_dFF_mean)
+        if detrend:
+            df_trace_clusters_ave = self.compute_detrended_traces(df_trace_clusters_ave,[])
         df_trace_clusters_std = pd.DataFrame(columns=['trial', 'time'])
         df_trace_clusters_std['trial'] = df_traces['trial']
         df_trace_clusters_std['time'] = df_traces['time']
         for c in range(len(clusters_rois)):
-            df_dFF_mean = df_traces[clusters_rois[c]].mean(axis=1)
             df_dFF_std = df_traces[clusters_rois[c]].std(axis=1)
-            df_trace_clusters_ave['cluster' + str(c + 1)] = np.array(df_dFF_mean)
             df_trace_clusters_std['cluster' + str(c + 1)] = np.array(df_dFF_std)
         if save_data:
             df_trace_clusters_ave.to_csv(os.path.join(self.path, 'processed files', 'df_trace_clusters_ave.csv'),
@@ -1574,9 +1578,8 @@ class miniscope_session:
             for count_c, t in enumerate(trials):
                 dFF_trial = df_dFF.loc[df_dFF['trial'] == t, idx_nr]  # get dFF for the desired trial
                 frame_time = df_dFF.loc[df_dFF['trial'] == t, 'time']
-                idx_trial = np.where(trials==t)[0][0]
-                ax.plot(frame_time, dFF_trial + (count_c/line_ratio), color=colors_session[t])
-                y_plot.append(np.nanmean(dFF_trial + (count_c/line_ratio)))
+                ax.plot(frame_time, dFF_trial + (count_t/line_ratio), color=colors_session[t])
+                y_plot.append(np.nanmean(dFF_trial + (count_t/line_ratio)))
                 count_t -= 1
             ax.set_yticks(y_plot)
             ax.set_yticklabels(map(str, trials[::-1]))

@@ -2993,8 +2993,8 @@ class miniscope_session:
         trial_id = []
         for count_t, trial in enumerate(trials):
             t = np.where(trials == trial)[0][0]
-            event_times_trial = np.array(
-                df_events.iloc[np.where(df_events.loc[df_events['trial'] == trial, idx_nr])[0], 1] * 1000)
+            df_trial = df_events.loc[df_events['trial'] == trial, [idx_nr, 'time']].reset_index()
+            event_times_trial = np.array(df_trial.iloc[np.where(df_trial.iloc[:, 1])[0], 2]) * 1000
             events_stride_list = []
             for s in range(np.shape(data_strides[t][p1_idx])[0]):
                 # st_on = np.int64(data_strides[t][p1_idx][s, 0, -1])
@@ -3002,19 +3002,25 @@ class miniscope_session:
                 event_on_time = data_strides[t][p1_idx][s, 0, 0]
                 # st_off_time = data_strides[t][p1_idx][s, 1, 0]
                 # event_idx_stride = np.where((event_times_trial > st_on_time) & (event_times_trial < st_off_time))[0]
-                event_idx_stride = np.where((event_times_trial > event_on_time-(time_window*1000)) & (event_times_trial < event_on_time+(time_window*1000)))[0]
+                event_idx_stride = np.where((event_times_trial > event_on_time - (time_window * 1000)) & (
+                        event_times_trial < event_on_time + (time_window * 1000)))[0]
                 if len(event_idx_stride) > 0:
-                    event_idx_stride = event_idx_stride[0]
                     event_stride = event_times_trial[event_idx_stride] - event_on_time
+                    for i in event_stride:
+                        events_stride_list.append(i)
+                        if count_t == 0 and s == 0:
+                            cumulative_idx.append(1)
+                        else:
+                            cumulative_idx.append(cumulative_idx[-1] + 1)
                     # if traj == 'phase':
                     #     event_stride = event_stride / (st_off_time - st_on_time)
                 else:
                     event_stride = np.nan
-                if count_t == 0 and s == 0:
-                    cumulative_idx.append(1)
-                else:
-                    cumulative_idx.append(cumulative_idx[-1] + 1)
-                events_stride_list.append(event_stride)
+                    events_stride_list.append(event_stride)
+                    if count_t == 0 and s == 0:
+                        cumulative_idx.append(1)
+                    else:
+                        cumulative_idx.append(cumulative_idx[-1] + 1)
                 # paw_phase = final_tracks_trials_phase[t][0, p, st_on:st_off]
                 # paw_time = final_tracks_trials[t][0, p, st_on:st_off]
                 # fig, ax = plt.subplots(2, 1, tight_layout=True)
@@ -4307,7 +4313,7 @@ class miniscope_session:
         if df_dff.columns[2][:int_find_idx] == 'ROI':
             df_type = 'ROI'
         else:
-            df_type = 'cluster'
+            df_type =  'cluster'
         idx_nr = df_type + str(roi_plot)
         df_dff_trial = df_dff.loc[df_dff['trial'] == trial_plot, idx_nr]  # get dFF for the desired trial
         if plot_data:
@@ -4316,7 +4322,7 @@ class miniscope_session:
             ax.plot(frame_time[idx_trial], df_dff_trial, color='black')
             events_plot = np.where(df_events.loc[df_events['trial'] == trial_plot, idx_nr])[0]
             for e in events_plot:
-                ax.scatter(frame_time[trial_plot - 1][e], df_dff_trial.iloc[e], s=60,
+                ax.scatter(frame_time[idx_trial][e], df_dff_trial.iloc[e], s=60,
                            color='orange')
             ax.set_xlabel('Time (s)', fontsize=self.fsize - 4)
             ax.set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=self.fsize - 4)

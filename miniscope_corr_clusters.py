@@ -55,12 +55,14 @@ for s in range(len(session_data)):
         trials_baseline_idx.append(idx_trial)
 
     fig, ax = plt.subplots(1, 2, figsize=(10, 5), tight_layout=True)
+    corr_data_clusters_bs = np.zeros((len(clusters_rois), len(trials)))
     for c in range(len(clusters_rois)):
         corr_data_trials = np.zeros(len(trials))
         for count_t, t in enumerate(trials):
             # mean_corr = np.nanmean(np.array(df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == t, clusters_rois[c]].corr())[1:, 0])
             mean_corr = np.nanmean(np.array(df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == t, clusters_rois[c]].corr()).flatten())
             corr_data_trials[count_t] = mean_corr
+        corr_data_clusters_bs[c, :] = corr_data_trials-np.nanmean(corr_data_trials[trials_baseline_idx])
         ax[0].plot(trials, corr_data_trials, marker='o', color=colors_cluster[c], markersize=5, linewidth=2)
         ax[1].plot(trials, corr_data_trials-np.nanmean(corr_data_trials[trials_baseline_idx]), marker='o', color=colors_cluster[c], markersize=5, linewidth=2)
     ax[0].set_title('Mean cluster correlation', fontsize=mscope.fsize - 8)
@@ -76,13 +78,27 @@ for s in range(len(session_data)):
     if print_plots:
         plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'corr_summary_raw'), dpi=mscope.my_dpi)
 
+    fig, ax = plt.subplots(figsize=(4, 5), tight_layout=True)
+    ax.plot(trials, np.nanmean(corr_data_clusters_bs, axis=0), marker='o', color='black', markersize=5, linewidth=2)
+    ax.fill_between(trials, np.nanmean(corr_data_clusters_bs, axis=0)-np.nanstd(corr_data_clusters_bs, axis=0),
+                    np.nanmean(corr_data_clusters_bs, axis=0) + np.nanstd(corr_data_clusters_bs, axis=0), color='black', alpha=0.3)
+    ax.set_title('Mean cluster correlation bs', fontsize=mscope.fsize - 8)
+    ax.axvline(trials_baseline[-1]+0.5, linestyle='dashed', color='black')
+    ax.axvline(trials_split[-1] + 0.5, linestyle='dashed', color='black')
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    if print_plots:
+        plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'corr_summary_cluster_mean_raw'), dpi=mscope.my_dpi)
+
     fig, ax = plt.subplots(1, 2, figsize=(10, 5), tight_layout=True)
+    corr_data_clusters_events_bs = np.zeros((len(clusters_rois), len(trials)))
     for c in range(len(clusters_rois)):
         corr_data_trials_events = np.zeros(len(trials))
         for count_t, t in enumerate(trials):
             # mean_corr_events = np.nanmean(np.array(df_events_extract_rawtrace.loc[df_events_extract_rawtrace['trial'] == t, clusters_rois[c]].corr())[1:, 0])
             mean_corr_events = np.nanmean(np.array(df_events_extract_rawtrace.loc[df_events_extract_rawtrace['trial'] == t, clusters_rois[c]].corr()).flatten())
             corr_data_trials_events[count_t] = mean_corr_events
+        corr_data_clusters_events_bs[c, :] = corr_data_trials_events-np.nanmean(corr_data_trials_events[trials_baseline_idx])
         ax[0].plot(trials, corr_data_trials_events, marker='o', color=colors_cluster[c], markersize=5, linewidth=2)
         ax[1].plot(trials, corr_data_trials_events-np.nanmean(corr_data_trials_events[trials_baseline_idx]), marker='o', color=colors_cluster[c], markersize=5, linewidth=2)
     ax[0].set_title('Mean cluster events correlation', fontsize=mscope.fsize - 8)
@@ -97,4 +113,17 @@ for s in range(len(session_data)):
     ax[1].spines['top'].set_visible(False)
     if print_plots:
         plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'corr_summary_events'), dpi=mscope.my_dpi)
+
+    fig, ax = plt.subplots(figsize=(4, 5), tight_layout=True)
+    ax.plot(trials, np.nanmean(corr_data_clusters_events_bs, axis=0), marker='o', color='black', markersize=5, linewidth=2)
+    ax.fill_between(trials, np.nanmean(corr_data_clusters_events_bs, axis=0)-np.nanstd(corr_data_clusters_events_bs, axis=0),
+                    np.nanmean(corr_data_clusters_events_bs, axis=0) + np.nanstd(corr_data_clusters_events_bs, axis=0), color='black', alpha=0.3)
+    ax.set_title('Mean cluster events correlation bs', fontsize=mscope.fsize - 8)
+    ax.axvline(trials_baseline[-1]+0.5, linestyle='dashed', color='black')
+    ax.axvline(trials_split[-1] + 0.5, linestyle='dashed', color='black')
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    if print_plots:
+        plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'corr_summary_events_cluster_mean_raw'), dpi=mscope.my_dpi)
+
     plt.close('all')

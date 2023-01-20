@@ -18,8 +18,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'D:\\Miniscope processed files'
-session_data = pd.read_excel('D:\\session_data.xlsx')
+path_session_data = 'E:\\Miniscope processed files'
+session_data = pd.read_excel('E:\\session_data.xlsx')
 for s in range(len(session_data)):
     ses_info = session_data.iloc[s, :]
     date = ses_info[3]
@@ -84,7 +84,8 @@ for s in range(len(session_data)):
                 ax = ax.ravel()
                 for count_p, p in enumerate(paws):
                     [cumulative_idx, trial_id, events_stride_trial] = mscope.event_swst_stride(df_events_trace_clusters, st_strides_trials, sw_strides_trials, align, trials, p, cluster_plot, time_window, traj)
-                    ax[count_p].scatter(events_stride_trial, cumulative_idx, s=1, color='black')
+                    idx_nan = np.where(~np.isnan(events_stride_trial))[0]
+                    ax[count_p].scatter(events_stride_trial[idx_nan], cumulative_idx[idx_nan], s=1, color='black')
                     ax[count_p].axvline(x=0, color='black')
                     ax[count_p].axhline(y=np.where(trial_id == trials_ses[0, 1])[0][-1], color='black', linestyle='dashed')
                     ax[count_p].axhline(y=np.where(trial_id == trials_ses[1, 1])[0][-1], color='black', linestyle='dashed')
@@ -100,6 +101,29 @@ for s in range(len(session_data)):
                     os.mkdir(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot)))
                 if print_plots:
                     plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_raster_trial_order_' + align + '_' + traces_type), dpi=mscope.my_dpi)
+                # # 2d histogram for the rasters
+                fig, ax = plt.subplots(1, 4, figsize=(20, 5), tight_layout=True)
+                ax = ax.ravel()
+                for count_p, p in enumerate(paws):
+                    [cumulative_idx, trial_id, events_stride_trial] = mscope.event_swst_stride(df_events_trace_clusters, st_strides_trials, sw_strides_trials, align, trials, p, cluster_plot, time_window, traj)
+                    idx_nan = np.where(~np.isnan(events_stride_trial))[0]
+                    h = ax[count_p].hist2d(events_stride_trial[idx_nan], cumulative_idx[idx_nan], bins = 20)
+                    fig.colorbar(h[3], ax = ax[count_p])
+                    ax[count_p].axvline(x=0, color='black')
+                    ax[count_p].axhline(y=np.where(trial_id == trials_ses[0, 1])[0][-1], color='black', linestyle='dashed')
+                    ax[count_p].axhline(y=np.where(trial_id == trials_ses[1, 1])[0][-1], color='black', linestyle='dashed')
+                    ax[count_p].set_xlabel('Time (ms)', fontsize=mscope.fsize - 8)
+                    ax[count_p].set_ylabel('Aligned to ' + str(align), fontsize=mscope.fsize - 8)
+                    ax[count_p].set_title(p + ' paw', color=paw_colors[count_p], fontsize=mscope.fsize - 6)
+                    ax[count_p].spines['right'].set_visible(False)
+                    ax[count_p].spines['top'].set_visible(False)
+                    ax[count_p].tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
+                if not os.path.exists(os.path.join(mscope.path, 'images', 'cluster', traces_type,)):
+                    os.mkdir(os.path.join(mscope.path, 'images', 'cluster', traces_type))
+                if not os.path.exists(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot))):
+                    os.mkdir(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot)))
+                if print_plots:
+                    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_2dhist_raster_trial_order_' + align + '_' + traces_type), dpi=mscope.my_dpi)
                 # histogram for the different session phases
                 fig, ax = plt.subplots(1, 4, figsize=(20, 5), tight_layout=True)
                 ax = ax.ravel()

@@ -3009,12 +3009,14 @@ class miniscope_session:
                         event_times_trial < event_on_time + (time_window * 1000)))[0]
                 if len(event_idx_stride) > 0:
                     event_stride = event_times_trial[event_idx_stride] - event_on_time
-                    for i in event_stride:
+                    for count_i, i in enumerate(event_stride):
                         events_stride_list.append(i)
                         if count_t == 0 and s == 0:
                             cumulative_idx.append(1)
-                        else:
+                        if count_i == 0: #if its the first event its the next stride
                             cumulative_idx.append(cumulative_idx[-1] + 1)
+                        if count_i > 0: #if its the 2nd, 3rd event its the same stride as first event
+                            cumulative_idx.append(cumulative_idx[-1])
                     # if traj == 'phase':
                     #     event_stride = event_stride / (st_off_time - st_on_time)
                 else:

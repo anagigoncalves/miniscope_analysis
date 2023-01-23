@@ -19,8 +19,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'D:\\Miniscope processed files'
-session_data = pd.read_excel('D:\\session_data.xlsx')
+path_session_data = 'E:\\Miniscope processed files'
+session_data = pd.read_excel('E:\\session_data.xlsx')
 for s in range(len(session_data)):
     ses_info = session_data.iloc[s, :]
     date = ses_info[3]
@@ -135,11 +135,13 @@ for s in range(len(session_data)):
             data_trials = df_extract_rawtrace_detrended_zscore_clustered.loc[df_extract_rawtrace_detrended_zscore_clustered['trial'] == t, clusters_rois[c]].iloc[0 * mscope.sr:5 * mscope.sr].mean(axis=0)
             mean_data_trials[count_t] = data_trials.mean()
         mean_data_1sttrial = []
-        for t in np.array([trials_baseline[0], trials_split[0], trials_washout[0]]):
+        for t in np.array([trials_baseline[-1], trials_split[0], trials_washout[0]]):
             idx_trial = np.where(trials==t)[0]
             mean_data_1sttrial.append(mean_data_trials[idx_trial])
-        ax[0].plot(np.array([trials_baseline[0], trials_split[0], trials_washout[0]]), mean_data_1sttrial, marker='o', color=colors_cluster[c], markersize=5, linewidth=2)
-        ax[0].set_title('1st trial of session phase', fontsize=mscope.fsize - 8)
+        ax[0].plot(np.arange(0, 3), mean_data_1sttrial, marker='o', color=colors_cluster[c], markersize=5, linewidth=2)
+        ax[0].set_xticks(np.arange(0, 3))
+        ax[0].set_xticklabels(['last baseline', 'first split', 'first washout'])
+        ax[0].set_title('Last baseline, 1st split, 1st washout', fontsize=mscope.fsize - 8)
         ax[0].spines['right'].set_visible(False)
         ax[0].spines['top'].set_visible(False)
         trials_phases = np.array([[trials_baseline], [trials_split], [trials_washout]])

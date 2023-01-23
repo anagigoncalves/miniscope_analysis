@@ -2613,15 +2613,16 @@ class miniscope_session:
         if plot_data:
             fig, ax = plt.subplots(figsize=(15, 5), tight_layout=True)
             for t in trials:
+                idx_trial = np.where(trials==t)[0]
                 event_count = df_events.loc[
                     (df_events[idx_nr] == 1) & (df_events['trial'] == t)].count()
-                plt.bar(t - 0.5, event_count, width=1, color=colors_session[t - 1], edgecolor='white')
+                plt.bar(t - 0.5, event_count, width=1, color=colors_session[t], edgecolor='white')
             ax.set_xticks(np.arange(0.5, len(trials) + 0.5))
             ax.set_xticklabels(list(map(str, trials)))
             plt.xlim([0, len(trials) + 1])
             plt.ylabel('Event count', fontsize=self.fsize)
             plt.xlabel('Trials', fontsize=self.fsize)
-            plt.title('Event count (whole trial) for ' + df_type + str(roi_plot), fontsize=self.fsize)
+            plt.title('Event count (whole trial) for ' + df_type + ' ' + str(roi_plot), fontsize=self.fsize)
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             plt.xticks(fontsize=self.fsize - 4)
@@ -2664,7 +2665,7 @@ class miniscope_session:
             df_type = 'cluster'
         idx_nr = df_type + str(roi_plot)
         event_count_clean = np.zeros((len(trials)))
-        for t in trials:
+        for count_t, t in enumerate(trials):
             bcam_trial = bcam_time[t - 1]
             events = np.array(
                 df_events.loc[(df_events['trial'] == t) & (df_events[idx_nr] == 1), 'time'])
@@ -2678,17 +2679,18 @@ class miniscope_session:
                     event_clean_list.append(len(
                         np.where((events >= bcam_trial[int(st_on[s])]) & (events <= bcam_trial[int(st_off[s])]))[0]))
             time_forwardloco_trial = np.sum(time_forwardloco)
-            event_count_clean[t - 1] = np.sum(event_clean_list) / time_forwardloco_trial
+            event_count_clean[count_t] = np.sum(event_clean_list) / time_forwardloco_trial
         if plot_data:
             fig, ax = plt.subplots(figsize=(15, 5), tight_layout=True)
             for t in trials:
-                plt.bar(t - 0.5, event_count_clean[t - 1], width=1, color=colors_session[t - 1], edgecolor='white')
+                idx_trial = np.where(trials==t)[0]
+                plt.bar(t - 0.5, event_count_clean[idx_trial], width=1, color=colors_session[t], edgecolor='white')
             ax.set_xticks(np.arange(0.5, len(trials) + 0.5))
             ax.set_xticklabels(list(map(str, trials)))
             plt.xlim([0, len(trials) + 1])
             plt.ylabel('Event count', fontsize=self.fsize)
             plt.xlabel('Trials', fontsize=self.fsize)
-            plt.title('Event count (forward locomotion) for ROI ' + str(roi_plot), fontsize=self.fsize)
+            plt.title('Event count (forward locomotion) for ' + df_type + ' ' + str(roi_plot), fontsize=self.fsize)
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             plt.xticks(fontsize=self.fsize - 4)
@@ -2698,9 +2700,9 @@ class miniscope_session:
                     os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
                 if df_type == 'ROI':
                     if not os.path.exists(
-                            os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot))):
-                        os.mkdir(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot)))
-                    plt.savefig(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot),
+                            os.path.join(self.path, 'images', 'events', traces_type, df_type + str(roi_plot))):
+                        os.mkdir(os.path.join(self.path, 'images', 'events', traces_type, df_type + str(roi_plot)))
+                    plt.savefig(os.path.join(self.path, 'images', 'events', traces_type, df_type + str(roi_plot),
                                              'event_count_loco_roi_' + str(roi_plot)), dpi=self.my_dpi)
                 if df_type == 'cluster':
                     if not os.path.exists(
@@ -2795,7 +2797,7 @@ class miniscope_session:
             event_probability = np.zeros(len(trials))
             for t in trials:
                 plt.bar(t - 0.5, np.count_nonzero(df_cs_stride[t] > 0) / np.count_nonzero(~np.isnan(df_cs_stride[t])),
-                        width=1, color=colors_session[t - 1], edgecolor='white')
+                        width=1, color=colors_session[t], edgecolor='white')
                 event_probability[count_t] = np.count_nonzero(df_cs_stride[t] > 0) / np.count_nonzero(
                     ~np.isnan(df_cs_stride[t]))
                 count_t += 1
@@ -2804,7 +2806,7 @@ class miniscope_session:
             plt.xlim([0, len(trials) + 1])
             plt.ylabel('Probability of strides with CS', fontsize=self.fsize)
             plt.xlabel('Trials', fontsize=self.fsize)
-            plt.title('Proportion of ' + paw + ' strides with CS for ' + df_type + str(roi_plot), fontsize=self.fsize)
+            plt.title('Probability of ' + paw + ' strides with CS for ' + df_type + str(roi_plot), fontsize=self.fsize)
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             plt.xticks(fontsize=self.fsize - 4)

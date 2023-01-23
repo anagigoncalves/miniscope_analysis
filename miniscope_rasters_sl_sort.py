@@ -79,28 +79,28 @@ for s in range(len(session_data)):
         if plot_data:
             align_str = ['st', 'sw']
             for align in align_str:
-                # raster
-                fig, ax = plt.subplots(1, 4, figsize=(20, 5), tight_layout=True)
-                ax = ax.ravel()
-                for count_p, p in enumerate(paws):
-                    [cumulative_idx, trial_id, events_stride_trial] = mscope.event_swst_stride(df_events_trace_clusters, st_strides_trials, sw_strides_trials, align, trials, p, cluster_plot, time_window, traj)
-                    idx_nan = np.where(~np.isnan(events_stride_trial))[0]
-                    ax[count_p].scatter(events_stride_trial[idx_nan], cumulative_idx[idx_nan], s=1, color='black')
-                    ax[count_p].axvline(x=0, color='black')
-                    ax[count_p].axhline(y=np.where(trial_id == trials_ses[0, 1])[0][-1], color='black', linestyle='dashed')
-                    ax[count_p].axhline(y=np.where(trial_id == trials_ses[1, 1])[0][-1], color='black', linestyle='dashed')
-                    ax[count_p].set_xlabel('Time (ms)', fontsize=mscope.fsize - 8)
-                    ax[count_p].set_ylabel('Aligned to ' + str(align), fontsize=mscope.fsize - 8)
-                    ax[count_p].set_title(p + ' paw', color=paw_colors[count_p], fontsize=mscope.fsize - 6)
-                    ax[count_p].spines['right'].set_visible(False)
-                    ax[count_p].spines['top'].set_visible(False)
-                    ax[count_p].tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
-                if not os.path.exists(os.path.join(mscope.path, 'images', 'cluster', traces_type,)):
-                    os.mkdir(os.path.join(mscope.path, 'images', 'cluster', traces_type))
-                if not os.path.exists(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot))):
-                    os.mkdir(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot)))
-                if print_plots:
-                    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_raster_trial_order_' + align + '_' + traces_type), dpi=mscope.my_dpi)
+                # # raster
+                # fig, ax = plt.subplots(1, 4, figsize=(20, 5), tight_layout=True)
+                # ax = ax.ravel()
+                # for count_p, p in enumerate(paws):
+                #     [cumulative_idx, trial_id, events_stride_trial] = mscope.event_swst_stride(df_events_trace_clusters, st_strides_trials, sw_strides_trials, align, trials, p, cluster_plot, time_window, traj)
+                #     idx_nan = np.where(~np.isnan(events_stride_trial))[0]
+                #     ax[count_p].scatter(events_stride_trial[idx_nan], cumulative_idx[idx_nan], s=1, color='black')
+                #     ax[count_p].axvline(x=0, color='black')
+                #     ax[count_p].axhline(y=np.where(trial_id == trials_ses[0, 1])[0][-1], color='black', linestyle='dashed')
+                #     ax[count_p].axhline(y=np.where(trial_id == trials_ses[1, 1])[0][-1], color='black', linestyle='dashed')
+                #     ax[count_p].set_xlabel('Time (ms)', fontsize=mscope.fsize - 8)
+                #     ax[count_p].set_ylabel('Aligned to ' + str(align), fontsize=mscope.fsize - 8)
+                #     ax[count_p].set_title(p + ' paw', color=paw_colors[count_p], fontsize=mscope.fsize - 6)
+                #     ax[count_p].spines['right'].set_visible(False)
+                #     ax[count_p].spines['top'].set_visible(False)
+                #     ax[count_p].tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
+                # if not os.path.exists(os.path.join(mscope.path, 'images', 'cluster', traces_type,)):
+                #     os.mkdir(os.path.join(mscope.path, 'images', 'cluster', traces_type))
+                # if not os.path.exists(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot))):
+                #     os.mkdir(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot)))
+                # if print_plots:
+                #     plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_raster_trial_order_' + align + '_' + traces_type), dpi=mscope.my_dpi)
                 # # 2d histogram for the rasters
                 fig, ax = plt.subplots(1, 4, figsize=(20, 5), tight_layout=True)
                 ax = ax.ravel()
@@ -123,87 +123,131 @@ for s in range(len(session_data)):
                 if not os.path.exists(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot))):
                     os.mkdir(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot)))
                 if print_plots:
-                    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_2dhist_raster_trial_order_' + align + '_' + traces_type), dpi=mscope.my_dpi)
-                # histogram for the different session phases
-                fig, ax = plt.subplots(1, 4, figsize=(20, 5), tight_layout=True)
-                ax = ax.ravel()
-                for count_p, p in enumerate(paws):
-                    [cumulative_idx, trial_id, events_stride_trial] = mscope.event_swst_stride(df_events_trace_clusters,
-                                                                                               st_strides_trials, sw_strides_trials,
-                                                                                               align, trials, p, cluster_plot,
-                                                                                               time_window, traj)
-                    for t in range(np.shape(trials_ses)[0]):
-                        [hist_result, xaxis] = np.histogram(events_stride_trial[np.where(trial_id == trials_ses[t, 0])[0][0]:
-                                                                                np.where(trial_id == trials_ses[t, 1])[0][-1]],
-                                                            range=(-time_window * 1000, time_window * 1000), bins=20)
-                        ax[count_p].plot(xaxis[:-1], hist_result, color=colors_phases[t], linewidth=2)
-                        # ax[count_p].plot(xaxis[:-1], hist_result / np.nanmax(hist_result), color=colors_phases[t], linewidth=2)
-                    ax[count_p].axvline(x=0, color='black')
-                    ax[count_p].set_xlabel('Time (ms)', fontsize=mscope.fsize - 8)
-                    ax[count_p].set_ylabel('Aligned to ' + str(align) + ' sorted by sl symmetry', fontsize=mscope.fsize - 8)
-                    ax[count_p].set_title(p + ' paw', color=paw_colors[count_p], fontsize=mscope.fsize - 6)
-                    ax[count_p].spines['right'].set_visible(False)
-                    ax[count_p].spines['top'].set_visible(False)
-                    ax[count_p].tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
-                if print_plots:
-                    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_hist_trial_order_' + align + '_' + traces_type), dpi=mscope.my_dpi)
-                # raster sorted by sl sym directional
+                    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_2dhist20_raster_trial_order_' + align + '_' + traces_type), dpi=mscope.my_dpi)
                 fig, ax = plt.subplots(1, 4, figsize=(20, 5), tight_layout=True)
                 ax = ax.ravel()
                 for count_p, p in enumerate(paws):
                     [cumulative_idx, trial_id, events_stride_trial] = mscope.event_swst_stride(df_events_trace_clusters, st_strides_trials, sw_strides_trials, align, trials, p, cluster_plot, time_window, traj)
-                    if p == 'FR':
-                        p2 = 'FL'
-                    if p == 'HR':
-                        p2 = 'HL'
-                    if p == 'FL':
-                        p2 = 'FR'
-                    if p == 'HL':
-                        p2 = 'HR'
-                    [sl_idx_all, sl_time_all_array, sl_sym_all_array] = loco.param_continuous_sym(param_trials, st_strides_trials, trials, p, p2, sym, remove_nan)  # SL symmetry for each stride
-                    sl_idx_all_sorted = np.argsort(sl_sym_all_array)
-                    ax[count_p].scatter(events_stride_trial[sl_idx_all_sorted], sl_sym_all_array, s=1, color='black')
+                    idx_nan = np.where(~np.isnan(events_stride_trial))[0]
+                    h = ax[count_p].hist2d(events_stride_trial[idx_nan], cumulative_idx[idx_nan], bins = 15)
+                    fig.colorbar(h[3], ax = ax[count_p])
                     ax[count_p].axvline(x=0, color='black')
+                    ax[count_p].axhline(y=np.where(trial_id == trials_ses[0, 1])[0][-1], color='black', linestyle='dashed')
+                    ax[count_p].axhline(y=np.where(trial_id == trials_ses[1, 1])[0][-1], color='black', linestyle='dashed')
                     ax[count_p].set_xlabel('Time (ms)', fontsize=mscope.fsize - 8)
-                    ax[count_p].set_ylabel('Aligned to ' + str(align) + ' sorted by sl symmetry', fontsize=mscope.fsize - 8)
+                    ax[count_p].set_ylabel('Aligned to ' + str(align), fontsize=mscope.fsize - 8)
                     ax[count_p].set_title(p + ' paw', color=paw_colors[count_p], fontsize=mscope.fsize - 6)
                     ax[count_p].spines['right'].set_visible(False)
                     ax[count_p].spines['top'].set_visible(False)
                     ax[count_p].tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
+                if not os.path.exists(os.path.join(mscope.path, 'images', 'cluster', traces_type,)):
+                    os.mkdir(os.path.join(mscope.path, 'images', 'cluster', traces_type))
+                if not os.path.exists(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot))):
+                    os.mkdir(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot)))
                 if print_plots:
-                    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_raster_sl_sym_' + align + '_' + traces_type), dpi=mscope.my_dpi)
-                # raster sorted by sl sym directional -
-                window = 200
-                fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True)
+                    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_2dhist15_raster_trial_order_' + align + '_' + traces_type), dpi=mscope.my_dpi)
+                fig, ax = plt.subplots(1, 4, figsize=(20, 5), tight_layout=True)
+                ax = ax.ravel()
                 for count_p, p in enumerate(paws):
                     [cumulative_idx, trial_id, events_stride_trial] = mscope.event_swst_stride(df_events_trace_clusters, st_strides_trials, sw_strides_trials, align, trials, p, cluster_plot, time_window, traj)
-                    if p == 'FR':
-                        p2 = 'FL'
-                    if p == 'HR':
-                        p2 = 'HL'
-                    if p == 'FL':
-                        p2 = 'FR'
-                    if p == 'HL':
-                        p2 = 'HR'
-                    [sl_idx_all, sl_time_all_array, sl_sym_all_array] = loco.param_continuous_sym(param_trials, st_strides_trials, trials, p, p2, sym, remove_nan)  # SL symmetry for each stride
-                    sl_idx_all_sorted = np.argsort(sl_sym_all_array)
-                    events_near_stsw_idx = np.where((events_stride_trial[sl_idx_all_sorted] > -50) & (events_stride_trial[sl_idx_all_sorted] < 50))[0]
-                    sl_sym_stsw = sl_sym_all_array[sl_idx_all_sorted][events_near_stsw_idx]
-                    sl_sym_stsw_notnan = sl_sym_stsw[~np.isnan(sl_sym_stsw)]
-                    events_stride_trial_binary = np.zeros(len(events_stride_trial))
-                    events_stride_trial_binary[events_near_stsw_idx] = 1
-                    notnan_sl_sym = np.where(~np.isnan(sl_sym_stsw))[0]
-                    events_ma = np.convolve(events_stride_trial_binary[notnan_sl_sym], np.ones(window) / window, 'same')
-                    events_ma_notnan = events_ma[np.where(~np.isnan(sl_sym_stsw))[0]]
-                    # [hist_result, xaxis] = np.histogram(sl_sym_stsw_notnan, bins=20)
-                    # ax.plot(xaxis[:-1], hist_result / np.nanmax(hist_result), color=paw_colors[count_p], linewidth=2)
-                    ax.plot(sl_sym_stsw_notnan, events_ma_notnan, color=paw_colors[count_p], linewidth=2)
-                ax.axvline(x=0, color='black')
-                ax.set_xlabel('Step length symmetry', fontsize=mscope.fsize - 8)
-                ax.set_ylabel('M. A. of events aligned to ' + str(align) + ' sorted by sl symmetry', fontsize=mscope.fsize - 8)
-                ax.spines['right'].set_visible(False)
-                ax.spines['top'].set_visible(False)
-                ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
+                    idx_nan = np.where(~np.isnan(events_stride_trial))[0]
+                    h = ax[count_p].hist2d(events_stride_trial[idx_nan], cumulative_idx[idx_nan], bins = 10)
+                    fig.colorbar(h[3], ax = ax[count_p])
+                    ax[count_p].axvline(x=0, color='black')
+                    ax[count_p].axhline(y=np.where(trial_id == trials_ses[0, 1])[0][-1], color='black', linestyle='dashed')
+                    ax[count_p].axhline(y=np.where(trial_id == trials_ses[1, 1])[0][-1], color='black', linestyle='dashed')
+                    ax[count_p].set_xlabel('Time (ms)', fontsize=mscope.fsize - 8)
+                    ax[count_p].set_ylabel('Aligned to ' + str(align), fontsize=mscope.fsize - 8)
+                    ax[count_p].set_title(p + ' paw', color=paw_colors[count_p], fontsize=mscope.fsize - 6)
+                    ax[count_p].spines['right'].set_visible(False)
+                    ax[count_p].spines['top'].set_visible(False)
+                    ax[count_p].tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
+                if not os.path.exists(os.path.join(mscope.path, 'images', 'cluster', traces_type,)):
+                    os.mkdir(os.path.join(mscope.path, 'images', 'cluster', traces_type))
+                if not os.path.exists(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot))):
+                    os.mkdir(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot)))
                 if print_plots:
-                    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_summary_sl_sym_' + align + '_' + traces_type), dpi=mscope.my_dpi)
+                    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_2dhist10_raster_trial_order_' + align + '_' + traces_type), dpi=mscope.my_dpi)
+                # # histogram for the different session phases
+                # fig, ax = plt.subplots(1, 4, figsize=(20, 5), tight_layout=True)
+                # ax = ax.ravel()
+                # for count_p, p in enumerate(paws):
+                #     [cumulative_idx, trial_id, events_stride_trial] = mscope.event_swst_stride(df_events_trace_clusters,
+                #                                                                                st_strides_trials, sw_strides_trials,
+                #                                                                                align, trials, p, cluster_plot,
+                #                                                                                time_window, traj)
+                #     for t in range(np.shape(trials_ses)[0]):
+                #         [hist_result, xaxis] = np.histogram(events_stride_trial[np.where(trial_id == trials_ses[t, 0])[0][0]:
+                #                                                                 np.where(trial_id == trials_ses[t, 1])[0][-1]],
+                #                                             range=(-time_window * 1000, time_window * 1000), bins=20)
+                #         ax[count_p].plot(xaxis[:-1], hist_result, color=colors_phases[t], linewidth=2)
+                #         # ax[count_p].plot(xaxis[:-1], hist_result / np.nanmax(hist_result), color=colors_phases[t], linewidth=2)
+                #     ax[count_p].axvline(x=0, color='black')
+                #     ax[count_p].set_xlabel('Time (ms)', fontsize=mscope.fsize - 8)
+                #     ax[count_p].set_ylabel('Aligned to ' + str(align) + ' sorted by sl symmetry', fontsize=mscope.fsize - 8)
+                #     ax[count_p].set_title(p + ' paw', color=paw_colors[count_p], fontsize=mscope.fsize - 6)
+                #     ax[count_p].spines['right'].set_visible(False)
+                #     ax[count_p].spines['top'].set_visible(False)
+                #     ax[count_p].tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
+                # if print_plots:
+                #     plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_hist_trial_order_' + align + '_' + traces_type), dpi=mscope.my_dpi)
+                # # raster sorted by sl sym directional
+                # fig, ax = plt.subplots(1, 4, figsize=(20, 5), tight_layout=True)
+                # ax = ax.ravel()
+                # for count_p, p in enumerate(paws):
+                #     [cumulative_idx, trial_id, events_stride_trial] = mscope.event_swst_stride(df_events_trace_clusters, st_strides_trials, sw_strides_trials, align, trials, p, cluster_plot, time_window, traj)
+                #     if p == 'FR':
+                #         p2 = 'FL'
+                #     if p == 'HR':
+                #         p2 = 'HL'
+                #     if p == 'FL':
+                #         p2 = 'FR'
+                #     if p == 'HL':
+                #         p2 = 'HR'
+                #     [sl_idx_all, sl_time_all_array, sl_sym_all_array] = loco.param_continuous_sym(param_trials, st_strides_trials, trials, p, p2, sym, remove_nan)  # SL symmetry for each stride
+                #     sl_idx_all_sorted = np.argsort(sl_sym_all_array)
+                #     ax[count_p].scatter(events_stride_trial[sl_idx_all_sorted], sl_sym_all_array, s=1, color='black')
+                #     ax[count_p].axvline(x=0, color='black')
+                #     ax[count_p].set_xlabel('Time (ms)', fontsize=mscope.fsize - 8)
+                #     ax[count_p].set_ylabel('Aligned to ' + str(align) + ' sorted by sl symmetry', fontsize=mscope.fsize - 8)
+                #     ax[count_p].set_title(p + ' paw', color=paw_colors[count_p], fontsize=mscope.fsize - 6)
+                #     ax[count_p].spines['right'].set_visible(False)
+                #     ax[count_p].spines['top'].set_visible(False)
+                #     ax[count_p].tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
+                # if print_plots:
+                #     plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_raster_sl_sym_' + align + '_' + traces_type), dpi=mscope.my_dpi)
+                # # raster sorted by sl sym directional -
+                # window = 200
+                # fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True)
+                # for count_p, p in enumerate(paws):
+                #     [cumulative_idx, trial_id, events_stride_trial] = mscope.event_swst_stride(df_events_trace_clusters, st_strides_trials, sw_strides_trials, align, trials, p, cluster_plot, time_window, traj)
+                #     if p == 'FR':
+                #         p2 = 'FL'
+                #     if p == 'HR':
+                #         p2 = 'HL'
+                #     if p == 'FL':
+                #         p2 = 'FR'
+                #     if p == 'HL':
+                #         p2 = 'HR'
+                #     [sl_idx_all, sl_time_all_array, sl_sym_all_array] = loco.param_continuous_sym(param_trials, st_strides_trials, trials, p, p2, sym, remove_nan)  # SL symmetry for each stride
+                #     sl_idx_all_sorted = np.argsort(sl_sym_all_array)
+                #     events_near_stsw_idx = np.where((events_stride_trial[sl_idx_all_sorted] > -50) & (events_stride_trial[sl_idx_all_sorted] < 50))[0]
+                #     sl_sym_stsw = sl_sym_all_array[sl_idx_all_sorted][events_near_stsw_idx]
+                #     sl_sym_stsw_notnan = sl_sym_stsw[~np.isnan(sl_sym_stsw)]
+                #     events_stride_trial_binary = np.zeros(len(events_stride_trial))
+                #     events_stride_trial_binary[events_near_stsw_idx] = 1
+                #     notnan_sl_sym = np.where(~np.isnan(sl_sym_stsw))[0]
+                #     events_ma = np.convolve(events_stride_trial_binary[notnan_sl_sym], np.ones(window) / window, 'same')
+                #     events_ma_notnan = events_ma[np.where(~np.isnan(sl_sym_stsw))[0]]
+                #     # [hist_result, xaxis] = np.histogram(sl_sym_stsw_notnan, bins=20)
+                #     # ax.plot(xaxis[:-1], hist_result / np.nanmax(hist_result), color=paw_colors[count_p], linewidth=2)
+                #     ax.plot(sl_sym_stsw_notnan, events_ma_notnan, color=paw_colors[count_p], linewidth=2)
+                # ax.axvline(x=0, color='black')
+                # ax.set_xlabel('Step length symmetry', fontsize=mscope.fsize - 8)
+                # ax.set_ylabel('M. A. of events aligned to ' + str(align) + ' sorted by sl symmetry', fontsize=mscope.fsize - 8)
+                # ax.spines['right'].set_visible(False)
+                # ax.spines['top'].set_visible(False)
+                # ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
+                # if print_plots:
+                #     plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_summary_sl_sym_' + align + '_' + traces_type), dpi=mscope.my_dpi)
                 plt.close('all')

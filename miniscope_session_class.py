@@ -4497,7 +4497,10 @@ class miniscope_session:
         print_plots: boolean"""
         trials = np.unique(df_norm['trial'])
         if plot_type == 'cluster':
-            clusters_rois_flat = np.transpose(sum(clusters_rois, []))
+            if len(clusters_rois) == 1:
+                clusters_rois_flat = clusters_rois[0]
+            else:
+                clusters_rois_flat = np.transpose(sum(clusters_rois, []))
             clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
             clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
         for count_t, t in enumerate(time_beg):

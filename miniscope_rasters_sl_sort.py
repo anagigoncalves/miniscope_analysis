@@ -18,8 +18,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'E:\\Miniscope processed files'
-session_data = pd.read_excel('E:\\session_data.xlsx')
+path_session_data = 'D:\\Miniscope processed files'
+session_data = pd.read_excel('D:\\session_data.xlsx')
 for s in range(len(session_data)):
     ses_info = session_data.iloc[s, :]
     date = ses_info[3]
@@ -72,8 +72,8 @@ for s in range(len(session_data)):
     final_tracks_trials_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials, 'st-st')
 
     traj = 'time'
-    time_window = 1 #default 0.2
-    bin_number = 50 #default 10 or 20?
+    time_window = 0.2 #default 0.2
+    bin_number = 20 #default 10 or 20?
     sym = 1
     remove_nan = 0
     align_str = ['st', 'sw']
@@ -88,10 +88,11 @@ for s in range(len(session_data)):
                     idx_nan = np.where(~np.isnan(events_stride_trial))[0]
                     cumulative_idx_notnan = cumulative_idx[idx_nan]
                     events_stride_trial_notnan = events_stride_trial[idx_nan]
+                    trial_id_notnan = trial_id[idx_nan]
                     ax[count_p].scatter(events_stride_trial_notnan, cumulative_idx_notnan, s=1, color='black')
                     ax[count_p].axvline(x=0, color='black')
-                    ax[count_p].axhline(y=cumulative_idx_notnan[np.where(trial_id == trials_ses[0, 1])[0][-1]], color='black', linestyle='dashed')
-                    ax[count_p].axhline(y=cumulative_idx_notnan[np.where(trial_id == trials_ses[1, 1])[0][-1]], color='black', linestyle='dashed')
+                    ax[count_p].axhline(y=cumulative_idx_notnan[np.where(trial_id_notnan == trials_ses[0, 1])[0][-1]], color='black', linestyle='dashed')
+                    ax[count_p].axhline(y=cumulative_idx_notnan[np.where(trial_id_notnan == trials_ses[1, 1])[0][-1]], color='black', linestyle='dashed')
                     ax[count_p].set_xlabel('Time (ms)', fontsize=mscope.fsize - 8)
                     ax[count_p].set_ylabel('Aligned to ' + str(align), fontsize=mscope.fsize - 8)
                     ax[count_p].set_title(p + ' paw', color=paw_colors[count_p], fontsize=mscope.fsize - 6)
@@ -103,18 +104,22 @@ for s in range(len(session_data)):
                 if not os.path.exists(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot))):
                     os.mkdir(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot)))
                 if print_plots:
-                    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_raster_trial_order_' + align + '_timewindow' + str(time_window) +'s_' + traces_type), dpi=mscope.my_dpi)
+                    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_raster_trial_order_' + align + '_timewindow' + str(time_window).replace('.',',') +'s_' + traces_type), dpi=mscope.my_dpi)
                 # 2d histogram for the rasters
                 fig, ax = plt.subplots(1, 4, figsize=(20, 5), tight_layout=True)
                 ax = ax.ravel()
                 for count_p, p in enumerate(paws):
                     [cumulative_idx, trial_id, events_stride_trial] = mscope.event_swst_stride(df_events_trace_clusters, st_strides_trials, sw_strides_trials, align, trials, p, cluster_plot, time_window, traj)
                     idx_nan = np.where(~np.isnan(events_stride_trial))[0]
-                    h = ax[count_p].hist2d(events_stride_trial[idx_nan], cumulative_idx[idx_nan], bins=bin_number)
+                    cumulative_idx_notnan = cumulative_idx[idx_nan]
+                    events_stride_trial_notnan = events_stride_trial[idx_nan]
+                    trial_id_notnan = trial_id[idx_nan]
+                    h = ax[count_p].hist2d(events_stride_trial_notnan, cumulative_idx_notnan, bins=bin_number)
                     fig.colorbar(h[3], ax = ax[count_p])
+                    # ax[count_p].set_yticklabels(map(str, np.arange(0, len(cumulative_idx_notnan), len(h[2]))))
                     ax[count_p].axvline(x=0, color='black')
-                    ax[count_p].axhline(y=np.where(trial_id == trials_ses[0, 1])[0][-1], color='black', linestyle='dashed')
-                    ax[count_p].axhline(y=np.where(trial_id == trials_ses[1, 1])[0][-1], color='black', linestyle='dashed')
+                    ax[count_p].axhline(y=cumulative_idx_notnan[np.where(trial_id_notnan == trials_ses[0, 1])[0][-1]], color='black', linestyle='dashed')
+                    ax[count_p].axhline(y=cumulative_idx_notnan[np.where(trial_id_notnan == trials_ses[1, 1])[0][-1]], color='black', linestyle='dashed')
                     ax[count_p].set_xlabel('Time (ms)', fontsize=mscope.fsize - 8)
                     ax[count_p].set_ylabel('Aligned to ' + str(align), fontsize=mscope.fsize - 8)
                     ax[count_p].set_title(p + ' paw', color=paw_colors[count_p], fontsize=mscope.fsize - 6)
@@ -126,7 +131,7 @@ for s in range(len(session_data)):
                 if not os.path.exists(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot))):
                     os.mkdir(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot)))
                 if print_plots:
-                    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_2dhist' + str(bin_number) + '_raster_trial_order_' + align + '_timewindow' + str(time_window) +'s_' + traces_type), dpi=mscope.my_dpi)
+                    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_2dhist' + str(bin_number) + '_raster_trial_order_' + align + '_timewindow' + str(time_window).replace('.',',') +'s_' + traces_type), dpi=mscope.my_dpi)
                 # histogram for the different session phases
                 fig, ax = plt.subplots(1, 4, figsize=(20, 5), tight_layout=True)
                 ax = ax.ravel()
@@ -135,10 +140,14 @@ for s in range(len(session_data)):
                                                                                                st_strides_trials, sw_strides_trials,
                                                                                                align, trials, p, cluster_plot,
                                                                                                time_window, traj)
+                    idx_nan = np.where(~np.isnan(events_stride_trial))[0]
+                    cumulative_idx_notnan = cumulative_idx[idx_nan]
+                    events_stride_trial_notnan = events_stride_trial[idx_nan]
+                    trial_id_notnan = trial_id[idx_nan]
                     for t in range(np.shape(trials_ses)[0]):
-                        nr_strides = np.where(trial_id == trials_ses[t, 1])[0][-1]-np.where(trial_id == trials_ses[t, 0])[0][0]
-                        [hist_result, xaxis] = np.histogram(events_stride_trial[np.where(trial_id == trials_ses[t, 0])[0][0]:
-                                                                                np.where(trial_id == trials_ses[t, 1])[0][-1]], range=(-time_window*1000, time_window*1000), bins=bin_number)
+                        nr_strides = np.where(trial_id == trials_ses[t, 1])[0][-1]-np.where(trial_id_notnan == trials_ses[t, 0])[0][0]
+                        [hist_result, xaxis] = np.histogram(events_stride_trial[np.where(trial_id_notnan == trials_ses[t, 0])[0][0]:
+                                                                                np.where(trial_id_notnan == trials_ses[t, 1])[0][-1]], range=(-time_window*1000, time_window*1000), bins=bin_number)
                         ax[count_p].plot(xaxis[:-1], hist_result/nr_strides, color=colors_phases[t], linewidth=2)
                         # ax[count_p].plot(xaxis[:-1], hist_result / np.nanmax(hist_result), color=colors_phases[t], linewidth=2)
                     ax[count_p].axvline(x=0, color='black')
@@ -149,7 +158,7 @@ for s in range(len(session_data)):
                     ax[count_p].spines['top'].set_visible(False)
                     ax[count_p].tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
                 if print_plots:
-                    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_hist_trial_order_' + align + '_timewindow' + str(time_window) +'s_' + traces_type), dpi=mscope.my_dpi)
+                    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_hist_trial_order_' + align + '_timewindow' + str(time_window).replace('.',',') +'s_' + traces_type), dpi=mscope.my_dpi)
                 # # raster sorted by sl sym directional
                 # fig, ax = plt.subplots(1, 4, figsize=(20, 5), tight_layout=True)
                 # ax = ax.ravel()
@@ -174,7 +183,7 @@ for s in range(len(session_data)):
                 #     ax[count_p].spines['top'].set_visible(False)
                 #     ax[count_p].tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
                 # if print_plots:
-                #     plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_raster_sl_sym_' + align + '_timewindow' + str(time_window) +'s_' + traces_type), dpi=mscope.my_dpi)
+                #     plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_raster_sl_sym_' + align + '_timewindow' + str(time_window).replace('.',',') +'s_' + traces_type), dpi=mscope.my_dpi)
                 # # raster sorted by sl sym directional -
                 # window = 200
                 # fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True)
@@ -208,5 +217,5 @@ for s in range(len(session_data)):
                 # ax.spines['top'].set_visible(False)
                 # ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
                 # if print_plots:
-                #     plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_summary_sl_sym_' + align + '_timewindow' + str(time_window) +'s_' + traces_type), dpi=mscope.my_dpi)
+                #     plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'Cluster' + str(cluster_plot), 'Cluster' + str(cluster_plot) + '_summary_sl_sym_' + align + '_timewindow' + str(time_window).replace('.',',') +'s_' + traces_type), dpi=mscope.my_dpi)
                 plt.close('all')

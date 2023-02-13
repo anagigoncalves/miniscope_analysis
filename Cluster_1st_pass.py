@@ -209,17 +209,25 @@ if session_type == 'tied':
     trials_plot = np.array(trials_ses[:, 1])
 
 # Order ROIs by cluster
-clusters_rois_flat = np.transpose(sum(clusters_rois, []))
+if len(clusters_rois) == 1:
+    clusters_rois_flat = clusters_rois[0]
+else:
+    clusters_rois_flat = np.transpose(sum(clusters_rois, []))
 clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
 clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
-cluster_transition_idx = np.cumsum([len(clusters_rois[c]) for c in range(len(clusters_rois))])-1
+cluster_transition_idx = np.cumsum([len(clusters_rois[c]) for c in range(len(clusters_rois))]) - 1
+df_events_extract_zscore_clustered = df_events_extract_rawtrace[clusters_rois_flat]
 df_extract_rawtrace_detrended_zscore = mscope.norm_traces(df_extract_rawtrace_detrended, 'zscore', 'session')
 df_extract_rawtrace_detrended_zscore_clustered = df_extract_rawtrace_detrended_zscore[clusters_rois_flat]
 
 # raw signal clustered
-mscope.response_time_population_avg(df_extract_rawtrace_detrended_zscore_clustered, [0], [5], clusters_rois, cluster_transition_idx, 'raw', 'cluster', plot_data, print_plots)
-time_beg_vec = np.arange(0, 60, 5)
-time_end_vec = np.arange(5, 60+5, 5)
+time_beg_vec = np.arange(0, 15, 1)
+time_end_vec = np.arange(1, 15 + 1, 1)
+mscope.response_time_population_avg(df_extract_rawtrace_detrended_zscore_clustered, [time_beg_vec[0]],
+                                    [time_end_vec[0]], clusters_rois, cluster_transition_idx, 'raw', 'cluster',
+                                    plot_data, print_plots)
+mscope.response_time_population_avg(df_events_extract_zscore_clustered, [time_beg_vec[0]], [time_end_vec[0]],
+                                    clusters_rois, cluster_transition_idx, 'events', 'cluster', plot_data, print_plots)
 if plot_data:
     if len(clusters_rois) == 1:
         fig, ax = plt.subplots(figsize=(15, 5), tight_layout=True, sharey=True)
@@ -228,15 +236,86 @@ if plot_data:
         std_data_trials = np.zeros((len(trials), len(time_beg_vec)))
         for w in range(len(time_beg_vec)):
             for count_t, t in enumerate(trials):
-                data_trials = df_extract_rawtrace_detrended_zscore_clustered.loc[df_extract_rawtrace_detrended_zscore_clustered['trial'] == t, clusters_rois[c]].iloc[time_beg_vec[w] * mscope.sr:time_end_vec[w] * mscope.sr].mean(axis=0)
+                data_trials = df_events_extract_zscore_clustered.loc[
+                                  df_events_extract_zscore_clustered['trial'] == t, clusters_rois[c]].iloc[
+                              time_beg_vec[w] * mscope.sr:time_end_vec[w] * mscope.sr].mean(axis=0)
                 mean_data_trials[count_t, w] = data_trials.mean()
                 std_data_trials[count_t, w] = data_trials.std()
-        ax.add_patch(plt.Rectangle((trials_baseline[-1] + 0.5, np.min(mean_data_trials[:, 0] - std_data_trials[:, 0])), len(trials_split), np.max(mean_data_trials[:, 0] + std_data_trials[:, 0]) - np.min(mean_data_trials[:, 0] - std_data_trials[:, 0]), fc='grey', alpha=0.3))
+        ax.add_patch(plt.Rectangle((trials_baseline[-1] + 0.5, np.min(mean_data_trials[:, 0] - std_data_trials[:, 0])),
+                                   len(trials_split), np.max(mean_data_trials[:, 0] + std_data_trials[:, 0]) - np.min(
+                mean_data_trials[:, 0] - std_data_trials[:, 0]), fc='grey', alpha=0.3))
         for w in range(len(time_beg_vec)):
             ax.plot(trials, mean_data_trials[:, w], color='gray', linewidth=0.5)
         ax.plot(trials, mean_data_trials[:, 0], marker='o', color=colors_cluster[c], markersize=5, linewidth=2)
-        ax.fill_between(trials, mean_data_trials[:, 0] - std_data_trials[:, 0], mean_data_trials[:, 0] + std_data_trials[:, 0], color=colors_cluster[c], alpha=0.3)
-        ax.hlines(0, 1, len(mean_data_trials[:, 0]), colors='black', linestyles='--', linewidth=2)
+        ax.fill_between(trials, mean_data_trials[:, 0] - std_data_trials[:, 0],
+                        mean_data_trials[:, 0] + std_data_trials[:, 0], color=colors_cluster[c], alpha=0.3)
+        ax.hlines(np.nanmean(mean_data_trials[trials_baseline - 1, 0]), 1, len(mean_data_trials[:, 0]), colors='black',
+                  linestyles='--', linewidth=2)
+        ax.set_xlabel('Time (s)', fontsize=mscope.fsize - 8)
+        ax.set_ylabel('Mean activity (dFF)', fontsize=mscope.fsize - 8)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
+        if print_plots:
+            plt.savefig(os.path.join(mscope.path, 'images', 'cluster',
+                                     'avg_activity_' + str(time_beg_vec[0]) + 's_' + str(time_end_vec[0]) + 's_events'),
+                        dpi=mscope.my_dpi)
+    else:
+        fig, ax = plt.subplots(1, len(clusters_rois), figsize=(15, 5), tight_layout=True, sharey=True)
+        ax = ax.ravel()
+        for c in range(len(clusters_rois)):
+            mean_data_trials = np.zeros((len(trials), len(time_beg_vec)))
+            std_data_trials = np.zeros((len(trials), len(time_beg_vec)))
+            for w in range(len(time_beg_vec)):
+                for count_t, t in enumerate(trials):
+                    data_trials = df_events_extract_zscore_clustered.loc[
+                                      df_events_extract_zscore_clustered['trial'] == t, clusters_rois[c]].iloc[
+                                  time_beg_vec[w] * mscope.sr:time_end_vec[w] * mscope.sr].mean(axis=0)
+                    mean_data_trials[count_t, w] = data_trials.mean()
+                    std_data_trials[count_t, w] = data_trials.std()
+            ax[c].add_patch(
+                plt.Rectangle((trials_baseline[-1] + 0.5, np.min(mean_data_trials[:, 0] - std_data_trials[:, 0])),
+                              len(trials_split), np.max(mean_data_trials[:, 0] + std_data_trials[:, 0]) - np.min(
+                        mean_data_trials[:, 0] - std_data_trials[:, 0]), fc='grey', alpha=0.3))
+            for w in range(len(time_beg_vec)):
+                ax[c].plot(trials, mean_data_trials[:, w], color='gray', linewidth=0.5)
+            ax[c].plot(trials, mean_data_trials[:, 0], marker='o', color=colors_cluster[c], markersize=5, linewidth=2)
+            ax[c].fill_between(trials, mean_data_trials[:, 0] - std_data_trials[:, 0],
+                               mean_data_trials[:, 0] + std_data_trials[:, 0], color=colors_cluster[c], alpha=0.3)
+            ax[c].hlines(np.nanmean(mean_data_trials[trials_baseline - 1, 0]), 1, len(mean_data_trials), colors='black',
+                         linestyles='--', linewidth=2)
+            ax[c].set_xlabel('Time (s)', fontsize=mscope.fsize - 8)
+            ax[c].set_ylabel('Mean activity (dFF)', fontsize=mscope.fsize - 8)
+            ax[c].spines['right'].set_visible(False)
+            ax[c].spines['top'].set_visible(False)
+            ax[c].tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
+        if print_plots:
+            plt.savefig(os.path.join(mscope.path, 'images', 'cluster',
+                                     'avg_activity_' + str(time_beg_vec[0]) + 's_' + str(time_end_vec[0]) + 's_events'),
+                        dpi=mscope.my_dpi)
+
+    if len(clusters_rois) == 1:
+        fig, ax = plt.subplots(figsize=(15, 5), tight_layout=True, sharey=True)
+        c = 0
+        mean_data_trials = np.zeros((len(trials), len(time_beg_vec)))
+        std_data_trials = np.zeros((len(trials), len(time_beg_vec)))
+        for w in range(len(time_beg_vec)):
+            for count_t, t in enumerate(trials):
+                data_trials = df_extract_rawtrace_detrended_zscore_clustered.loc[
+                                  df_extract_rawtrace_detrended_zscore_clustered['trial'] == t, clusters_rois[c]].iloc[
+                              time_beg_vec[w] * mscope.sr:time_end_vec[w] * mscope.sr].mean(axis=0)
+                mean_data_trials[count_t, w] = data_trials.mean()
+                std_data_trials[count_t, w] = data_trials.std()
+        ax.add_patch(plt.Rectangle((trials_baseline[-1] + 0.5, np.min(mean_data_trials[:, 0] - std_data_trials[:, 0])),
+                                   len(trials_split), np.max(mean_data_trials[:, 0] + std_data_trials[:, 0]) - np.min(
+                mean_data_trials[:, 0] - std_data_trials[:, 0]), fc='grey', alpha=0.3))
+        for w in range(len(time_beg_vec)):
+            ax.plot(trials, mean_data_trials[:, w], color='gray', linewidth=0.5)
+        ax.plot(trials, mean_data_trials[:, 0], marker='o', color=colors_cluster[c], markersize=5, linewidth=2)
+        ax.fill_between(trials, mean_data_trials[:, 0] - std_data_trials[:, 0],
+                        mean_data_trials[:, 0] + std_data_trials[:, 0], color=colors_cluster[c], alpha=0.3)
+        ax.hlines(np.nanmean(mean_data_trials[trials_baseline - 1, 0]), 1, len(mean_data_trials[:, 0]), colors='black',
+                  linestyles='--', linewidth=2)
         ax.set_xlabel('Time (s)', fontsize=mscope.fsize - 8)
         ax.set_ylabel('Mean activity (dFF)', fontsize=mscope.fsize - 8)
         ax.spines['right'].set_visible(False)
@@ -254,22 +333,31 @@ if plot_data:
             std_data_trials = np.zeros((len(trials), len(time_beg_vec)))
             for w in range(len(time_beg_vec)):
                 for count_t, t in enumerate(trials):
-                    data_trials = df_extract_rawtrace_detrended_zscore_clustered.loc[df_extract_rawtrace_detrended_zscore_clustered['trial'] == t, clusters_rois[c]].iloc[time_beg_vec[w] * mscope.sr:time_end_vec[w] * mscope.sr].mean(axis=0)
+                    data_trials = df_extract_rawtrace_detrended_zscore_clustered.loc[
+                                      df_extract_rawtrace_detrended_zscore_clustered['trial'] == t, clusters_rois[
+                                          c]].iloc[time_beg_vec[w] * mscope.sr:time_end_vec[w] * mscope.sr].mean(axis=0)
                     mean_data_trials[count_t, w] = data_trials.mean()
                     std_data_trials[count_t, w] = data_trials.std()
-            ax[c].add_patch(plt.Rectangle((trials_baseline[-1] + 0.5, np.min(mean_data_trials[:, 0] - std_data_trials[:, 0])), len(trials_split), np.max(mean_data_trials[:, 0] + std_data_trials[:, 0]) - np.min(mean_data_trials[:, 0] - std_data_trials[:, 0]), fc='grey', alpha=0.3))
+            ax[c].add_patch(
+                plt.Rectangle((trials_baseline[-1] + 0.5, np.min(mean_data_trials[:, 0] - std_data_trials[:, 0])),
+                              len(trials_split), np.max(mean_data_trials[:, 0] + std_data_trials[:, 0]) - np.min(
+                        mean_data_trials[:, 0] - std_data_trials[:, 0]), fc='grey', alpha=0.3))
             for w in range(len(time_beg_vec)):
                 ax[c].plot(trials, mean_data_trials[:, w], color='gray', linewidth=0.5)
             ax[c].plot(trials, mean_data_trials[:, 0], marker='o', color=colors_cluster[c], markersize=5, linewidth=2)
-            ax[c].fill_between(trials, mean_data_trials[:, 0]-std_data_trials[:, 0], mean_data_trials[:, 0]+std_data_trials[:, 0], color=colors_cluster[c], alpha=0.3)
-            ax[c].hlines(0, 1, len(mean_data_trials), colors='black', linestyles='--', linewidth=2)
+            ax[c].fill_between(trials, mean_data_trials[:, 0] - std_data_trials[:, 0],
+                               mean_data_trials[:, 0] + std_data_trials[:, 0], color=colors_cluster[c], alpha=0.3)
+            ax[c].hlines(np.nanmean(mean_data_trials[trials_baseline - 1, 0]), 1, len(mean_data_trials), colors='black',
+                         linestyles='--', linewidth=2)
             ax[c].set_xlabel('Time (s)', fontsize=mscope.fsize - 8)
             ax[c].set_ylabel('Mean activity (dFF)', fontsize=mscope.fsize - 8)
             ax[c].spines['right'].set_visible(False)
             ax[c].spines['top'].set_visible(False)
             ax[c].tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
         if print_plots:
-            plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'avg_activity_' + str(time_beg_vec[0]) + 's_' + str(time_end_vec[0]) + 's_raw'), dpi=mscope.my_dpi)
+            plt.savefig(os.path.join(mscope.path, 'images', 'cluster',
+                                     'avg_activity_' + str(time_beg_vec[0]) + 's_' + str(time_end_vec[0]) + 's_raw'),
+                        dpi=mscope.my_dpi)
 plt.close('all')
 
 mscope.plot_single_cluster_map(ref_image, colors_cluster, idx_roi_cluster_ordered, coord_ext, traces_type, plot_data, print_plots)

@@ -3039,7 +3039,7 @@ class miniscope_session:
                 # ax[1].axvline((event_stride + st_on_time)/1000, color='gray')
                 # ax[1].set_xlim([bcam_time[t][st_on], bcam_time[t][st_off]])
             events_stride_trial.extend(events_stride_list)
-            trial_id.extend(np.repeat(trial, np.shape(st_strides_trials[t][p1_idx])[0]))
+            trial_id.extend(np.repeat(trial, len(events_stride_list)))
         return np.array(cumulative_idx), np.array(trial_id), np.array(events_stride_trial)
 
     def total_strides_trial(self, st_strides_trials, sw_strides_trials, align, paw):
@@ -4497,7 +4497,10 @@ class miniscope_session:
         print_plots: boolean"""
         trials = np.unique(df_norm['trial'])
         if plot_type == 'cluster':
-            clusters_rois_flat = np.transpose(sum(clusters_rois, []))
+            if len(clusters_rois) == 1:
+                clusters_rois_flat = clusters_rois[0]
+            else:
+                clusters_rois_flat = np.transpose(sum(clusters_rois, []))
             clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
             clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
         for count_t, t in enumerate(time_beg):

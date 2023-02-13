@@ -1423,21 +1423,19 @@ class loco_class:
         frame_nr_ordered = np.zeros(len(triggers))
         mscope_align_time_ordered = np.zeros(len(triggers))
         frame_time_bcam_ordered = []
-        count_t = 0
-        for t in trial_order:
+        for count_t, t in enumerate(trial_order):
             triggers_ordered[t] = triggers[count_t]
             strobes_ordered[t] = strobes[count_t]
             frame_rec_start_ordered[t] = frame_rec_start[count_t]
             frame_nr_ordered[t] = frame_nr[count_t]
             mscope_align_time_ordered[t] = mscope_align_time[count_t]
             frame_time_bcam_ordered.append(frame_time_bcam[count_t])
-            count_t += 1
         if len(black_frames) == 0:
             frame_rec_start_full = frame_rec_start_ordered
         else:
             frame_rec_start_full = np.zeros(len(triggers))
-            for t in range(len(trial_order)):
-                frame_rec_start_full[t] = frame_rec_start_ordered[t]+(black_frames[t]/30)*self.sr
+            for i in range(len(trial_order)):
+                frame_rec_start_full[i] = frame_rec_start_ordered[i]+(black_frames[i]/30)*self.sr
         #change frame_time_bcam to account for black frames that were excluded
         bcam_time = []
         for t in range(len(frame_time_bcam_ordered)):

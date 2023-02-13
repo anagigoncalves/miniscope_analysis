@@ -997,7 +997,7 @@ class miniscope_session:
         coord_ext_aspectratio = []
         for r in rois_idx_aspectratio:
             coord_ext_aspectratio.append(coord_cell[r])
-        roi_idx_bad_aspectratio = np.setdiff1d(np.arange(1, len(coord_cell)), np.array(rois_idx_aspectratio))
+        roi_idx_bad_aspectratio = np.setdiff1d(np.arange(0, len(coord_cell)), np.array(rois_idx_aspectratio))
         roi_list_bad_aspectratio = df_dFF.columns[2:][roi_idx_bad_aspectratio]
         df_dFF_aspectratio = df_dFF.drop(columns=roi_list_bad_aspectratio)
         skewness_dFF = df_dFF_aspectratio.skew(axis=0, skipna=True)
@@ -1582,7 +1582,7 @@ class miniscope_session:
                 y_plot.append(np.nanmean(dFF_trial + (count_t/line_ratio)))
                 count_t -= 1
             ax.set_yticks(y_plot)
-            ax.set_yticklabels(map(str, trials[::-1]))
+            ax.set_yticklabels(map(str, trials))
             ax.set_xlabel('Time (s)', fontsize=self.fsize - 2)
             ax.set_ylabel('Trials', fontsize=self.fsize - 2)
             ax.set_title('Calcium trace for ' + df_type + ' ' + str(roi_plot), fontsize=self.fsize - 2)
@@ -1801,13 +1801,12 @@ class miniscope_session:
                                 dpi=self.my_dpi)
         return
 
-    def plot_roi_clustering_temporal(self, df_dFF_norm, frame_time, centroid_cell, distance_neurons, trial_plot, colors,
+    def plot_roi_clustering_temporal(self, df_dFF_norm, centroid_cell, distance_neurons, trial_plot, colors,
                                      idx, plot_ratio, plot_data, print_plots):
         """Plot ROIs on top of reference image color coded by the result of the hierarchical clustering
         Ordered by distance between ROIs.
         Inputs:
             df_dFF: dataframe with calcium trace normalized
-            frame_time: list of mscope timestamps
             trial_plot: (int) trial to plot
             colors: colors for each cluster
             idx: to which cluster each ROI belongs to
@@ -1824,7 +1823,7 @@ class miniscope_session:
             fig, ax = plt.subplots(figsize=(10, 20), tight_layout=True)
             for count_line, r in enumerate(roi_list_ordered[::plot_ratio]):
                 count_r = np.where(r == roi_list_ordered)[0][0]
-                plt.plot(frame_time[trial_plot - 1], dFF_trial[r] + count_line, color=colors[idx_ordered[count_r] - 1])
+                plt.plot(dFF_trial.loc[dFF_trial['trial'] == trial_plot, 'time'], dFF_trial[r] + count_line, color=colors[idx_ordered[count_r] - 1])
             ax.set_xlabel('Time (s)', fontsize=self.fsize - 4)
             ax.set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=self.fsize - 4)
             plt.xticks(fontsize=self.fsize - 4)
@@ -2666,11 +2665,11 @@ class miniscope_session:
         idx_nr = df_type + str(roi_plot)
         event_count_clean = np.zeros((len(trials)))
         for count_t, t in enumerate(trials):
-            bcam_trial = bcam_time[t - 1]
+            bcam_trial = bcam_time[count_t]
             events = np.array(
                 df_events.loc[(df_events['trial'] == t) & (df_events[idx_nr] == 1), 'time'])
-            st_on = st_strides_trials[t - 1][0][:, 0, -1]  # FR paw
-            st_off = st_strides_trials[t - 1][0][:, 1, -1]  # FR paw
+            st_on = st_strides_trials[count_t][0][:, 0, -1]  # FR paw
+            st_off = st_strides_trials[count_t][0][:, 1, -1]  # FR paw
             time_forwardloco = []
             event_clean_list = []
             for s in range(len(st_on)):
@@ -2712,13 +2711,14 @@ class miniscope_session:
                                              'event_count_loco_cluster_' + str(roi_plot)), dpi=self.my_dpi)
         return event_count_clean
 
-    def events_stride(self, df_events, st_strides_trials, sw_pts_trials, paw, roi_plot, align, save_data):
+    def events_stride(self, df_events, st_strides_trials, sw_pts_trials, trials, paw, roi_plot, align, save_data):
         """Align CS to stance, swing or stride period. It outputs the CS indexes for each
         time period
         Inputs:
             df_events: dataframe with events
             st_strides_trials: list of trials with matrix with stance points
             sw_pts_trials: list of trials with matrix with swing points
+            trials: list of trials
             paw (str): 'FR','HR','FL','HL'
             roi_plot (int): roi number
             align (str): period to align - 'stance','swing','stride'
@@ -2739,29 +2739,29 @@ class miniscope_session:
         if paw == 'HL':
             p = 3
         nr_strides = np.zeros(len(st_strides_trials))
-        for t in np.arange(1, len(st_strides_trials) + 1):
-            nr_strides[t - 1] = np.shape(st_strides_trials[t - 1][0])[0]
+        for t in range(len(st_strides_trials)):
+            nr_strides[t] = np.shape(st_strides_trials[t][p])[0]
         maximum_nrstrides = np.int64(np.max(nr_strides))
         cs_stride = np.zeros((maximum_nrstrides, len(st_strides_trials)))
         cs_stride[:] = np.nan
-        for t in np.arange(1, len(st_strides_trials) + 1):
+        for count_t, t in enumerate(trials):
             if align == 'stride':
-                excursion_beg = st_strides_trials[t - 1][p][:, 0, 4] / self.sr_loco
-                excursion_end = st_strides_trials[t - 1][p][:, 1, 4] / self.sr_loco
+                excursion_beg = st_strides_trials[count_t][p][:, 0, 4] / self.sr_loco
+                excursion_end = st_strides_trials[count_t][p][:, 1, 4] / self.sr_loco
             if align == 'stance':
-                excursion_beg = st_strides_trials[t - 1][p][:, 0, 4] / self.sr_loco
-                excursion_end = sw_pts_trials[t - 1][p][:, 0, 4] / self.sr_loco
+                excursion_beg = st_strides_trials[count_t][p][:, 0, 4] / self.sr_loco
+                excursion_end = sw_pts_trials[count_t][p][:, 0, 4] / self.sr_loco
             if align == 'swing':
-                excursion_beg = sw_pts_trials[t - 1][p][:, 0, 4] / self.sr_loco
-                excursion_end = st_strides_trials[t - 1][p][:, 1, 4] / self.sr_loco
+                excursion_beg = sw_pts_trials[count_t][p][:, 0, 4] / self.sr_loco
+                excursion_end = st_strides_trials[count_t][p][:, 1, 4] / self.sr_loco
             events = np.array(
                 df_events.loc[(df_events['trial'] == t) & (df_events[idx_nr] == 1), 'time'])
             for s in range(len(excursion_beg)):
                 cs_idx = np.where((events >= excursion_beg[s]) & (events <= excursion_end[s]))[0]
                 if len(cs_idx) > 0:
-                    cs_stride[s, t - 1] = len(cs_idx)
+                    cs_stride[s, count_t] = len(cs_idx)
                 if len(cs_idx) == 0:
-                    cs_stride[s, t - 1] = 0
+                    cs_stride[s, count_t] = 0
         df_cs_stride = pd.DataFrame(cs_stride, columns=np.arange(1, len(st_strides_trials) + 1))
         if save_data:
             if df_type == 'ROI':

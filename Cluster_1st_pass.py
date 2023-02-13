@@ -7,12 +7,12 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # path inputs
-path = 'D:\\Miniscope processed files\\TM RAW FILES\\split ipsi fast\\MC8855\\2021_04_05\\'
-path_loco = 'D:\\Miniscope processed files\\TM TRACKING FILES\\split ipsi fast S1 050421\\'
+path = 'H:\\TM RAW FILES\\split contra fast 480\\MC13419\\2022_05_31\\'
+path_loco = 'H:\\TM TRACKING FILES\\split contra fast 480nm S1 310522\\'
 session_type = path.split('\\')[-4].split(' ')[0]
 version_mscope = 'v4'
 plot_data = 1
-load_data = 1
+load_data = 0
 print_plots = 1
 save_data = 1
 paw_colors = ['red', 'magenta', 'blue', 'cyan']
@@ -108,7 +108,7 @@ if load_data == 0:
     # Data as clusters
     centroid_ext = mscope.get_roi_centroids(coord_ext_curated)
     distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 0.7
+    th_cluster = 0.65
     colormap_cluster = 'hsv'
     [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
                                                                       distance_neurons, trials_baseline, th_cluster,
@@ -117,14 +117,14 @@ if load_data == 0:
                                                                                      idx_roi_cluster, centroid_ext)
     mscope.plot_roi_clustering_spatial(ref_image, colors_cluster, idx_roi_cluster_ordered, coord_ext_curated, plot_data, 0)
     plot_ratio = 3
-    mscope.plot_roi_clustering_temporal(df_extract_rawtrace_detrended, frame_time, centroid_ext, distance_neurons,
-                                        trials_baseline[-1], colors_cluster, idx_roi_cluster_ordered, plot_ratio,
-                                        plot_data, 0)
+    mscope.plot_roi_clustering_temporal(df_extract_rawtrace_detrended, centroid_ext, distance_neurons, trials_baseline[-1], colors_cluster, idx_roi_cluster_ordered, plot_ratio, plot_data, 0)
     [df_events_extract_rawtrace_clustered, df_extract_rawtrace_detrended_clustered] = mscope.compute_clustered_traces_events_correlations(df_events_extract_rawtrace, df_extract_rawtrace_detrended, clusters_rois, colors_cluster, trials, 1, 0)
     [df_trace_clusters_ave, df_trace_clusters_std] = mscope.clusters_dataframe(df_extract_rawtrace_detrended, clusters_rois, 0, save_data) #no detrending because it comes from detrended traces
     df_events_trace_clusters = mscope.get_events(df_trace_clusters_ave, 0, 'df_events_trace_clusters')  #no detrending because it comes from detrended traces
 
 if load_data:
+    frames_dFF = np.load(os.path.join(path, 'processed files', 'black_frames.npy'))
+    [trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
     [df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace,
      coord_ext, reg_th, reg_bad_frames, trials,
      clusters_rois, colors_cluster, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
@@ -132,7 +132,7 @@ if load_data:
     time_cumulative = mscope.cumulative_time(df_extract_rawtrace_detrended, trials)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
     distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 0.6
+    th_cluster = 0.65
     colormap_cluster = 'hsv'
     [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
                                                                       distance_neurons, trials_baseline, th_cluster,
@@ -159,7 +159,7 @@ pickle.dump(fig, open(os.path.join(mscope.path, 'images', 'cluster', 'roi_maps_n
 # Clustering maps spatial and temporal
 mscope.plot_roi_clustering_spatial(ref_image, colors_cluster, idx_roi_cluster_ordered, coord_ext, plot_data, print_plots)
 plot_ratio = 2
-mscope.plot_roi_clustering_temporal(df_extract_rawtrace_detrended, frame_time, centroid_ext, distance_neurons, trials_baseline[-1], colors_cluster, idx_roi_cluster_ordered, plot_ratio, plot_data, print_plots)
+mscope.plot_roi_clustering_temporal(df_extract_rawtrace_detrended, centroid_ext, distance_neurons, trials_baseline[-1], colors_cluster, idx_roi_cluster_ordered, plot_ratio, plot_data, print_plots)
 plt.close('all')
 # Correlation maps for the clusters
 [df_events_extract_rawtrace_clustered, df_extract_rawtrace_detrended_clustered] = mscope.compute_clustered_traces_events_correlations(df_events_extract_rawtrace, df_extract_rawtrace_detrended, clusters_rois, colors_cluster, trials, plot_data, print_plots)
@@ -272,13 +272,13 @@ if plot_data:
             plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'avg_activity_' + str(time_beg_vec[0]) + 's_' + str(time_end_vec[0]) + 's_raw'), dpi=mscope.my_dpi)
 plt.close('all')
 
+mscope.plot_single_cluster_map(ref_image, colors_cluster, idx_roi_cluster_ordered, coord_ext, traces_type, plot_data, print_plots)
 traj = 'time'
 time_window = 0.2
 sym = 1
 remove_nan = 0
 for cluster_plot in np.arange(1, len(clusters_rois)+1):
     mscope.plot_stacked_traces_singleROI(df_trace_clusters_ave, traces_type, cluster_plot, trials, colors_session, 1, plot_data, print_plots)
-    mscope.plot_single_cluster_map(ref_image, colors_cluster, idx_roi_cluster_ordered, coord_ext, traces_type, plot_data, print_plots)
     if plot_data:
         align_str = ['st', 'sw']
         for align in align_str:
@@ -287,7 +287,8 @@ for cluster_plot in np.arange(1, len(clusters_rois)+1):
             ax = ax.ravel()
             for count_p, p in enumerate(paws):
                 [cumulative_idx, trial_id, events_stride_trial] = mscope.event_swst_stride(df_events_trace_clusters, st_strides_trials, sw_strides_trials, align, trials, p, cluster_plot, time_window, traj)
-                ax[count_p].scatter(events_stride_trial, cumulative_idx, s=1, color='black')
+                idx_nan = np.where(~np.isnan(events_stride_trial))[0]
+                ax[count_p].scatter(events_stride_trial[idx_nan], cumulative_idx[idx_nan], s=1, color='black')
                 ax[count_p].axvline(x=0, color='black')
                 ax[count_p].axhline(y=np.where(trial_id == trials_ses[0, 1])[0][-1], color='black', linestyle='dashed')
                 ax[count_p].axhline(y=np.where(trial_id == trials_ses[1, 1])[0][-1], color='black', linestyle='dashed')

@@ -42,7 +42,7 @@ if not os.path.exists(path_events):
 animal = mscope.get_animal_id()
 session = loco.get_session_id()
 trials = mscope.get_trial_id()
-frames_dFF = mscope.get_black_frames()  # black frames removed before ROI segmentation
+frames_dFF = mscope.get_black_frames() #black frames removed before ROI segmentation
 [trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
 strobe_nr_txt = loco.bcam_strobe_number()
 trial_start_blip_nr = loco.trial_start_blips()

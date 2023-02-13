@@ -20,7 +20,7 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'E:\\Miniscope processed files'
+path_session_data = 'E:\\Miniscope processed files\\'
 session_data = pd.read_excel('E:\\session_data.xlsx')
 for s in range(len(session_data)):
     ses_info = session_data.iloc[s, :]
@@ -78,13 +78,110 @@ for s in range(len(session_data)):
         param_trials.append(loco.compute_gait_param(bodycenter, final_tracks, paws_rel, st_strides_mat, sw_pts_mat, param_name))
         param_trials_fr_mean[count_trial] = np.nanmean(param_trials[-1][0])-np.nanmean(param_trials[-1][2])
 
+    event_count_loco_clusters = []
+    event_probability_clusters_FR = []
+    event_probability_clusters_HR = []
+    event_probability_clusters_FL = []
+    event_probability_clusters_HL = []
     for cluster_plot in np.arange(1, len(clusters_rois) + 1):
         # Event count
         mscope.get_event_count_wholetrial(df_events_trace_clusters, traces_type, colors_session, trials, cluster_plot, plot_data, print_plots)
         event_count_loco = mscope.get_event_count_locomotion(df_events_trace_clusters, traces_type, colors_session, trials, bcam_time, st_strides_trials, cluster_plot, plot_data, print_plots)
+        event_count_loco_clusters.append(event_count_loco)
         # Proportion of events in strides
         align = 'stride'
         for p in paws:
-            df_events_stride_all = mscope.events_stride(df_events_trace_clusters, st_strides_trials, sw_strides_trials, p, cluster_plot, align, save_data)
+            df_events_stride_all = mscope.events_stride(df_events_trace_clusters, st_strides_trials, sw_strides_trials, trials, p, cluster_plot, align, save_data)
             event_probability = mscope.event_probability_plot(df_events_stride_all, df_events_trace_clusters, traces_type, colors_session, p, cluster_plot, plot_data, print_plots)
-        print(bam)
+            if p == 'FR':
+                event_probability_clusters_FR.append(event_probability)
+            if p == 'FL':
+                event_probability_clusters_FL.append(event_probability)
+            if p == 'HR':
+                event_probability_clusters_HR.append(event_probability)
+            if p == 'HL':
+                event_probability_clusters_HL.append(event_probability)
+        plt.close('all')
+
+    fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+    for c in range(len(clusters_rois)):
+        ax.plot(trials, event_count_loco_clusters[c], color=colors_cluster[c, :])
+    plt.axvline(trials_baseline[-1]+0.5, linestyle='dashed', color='black')
+    plt.axvline(trials_split[-1] + 0.5, linestyle='dashed', color='black')
+    plt.ylabel('Event count', fontsize=mscope.fsize)
+    plt.xlabel('Trials', fontsize=mscope.fsize)
+    plt.title('Event count (forward locomotion)', fontsize=mscope.fsize)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    plt.xticks(fontsize=mscope.fsize - 4)
+    plt.yticks(fontsize=mscope.fsize - 4)
+    if not os.path.exists(os.path.join(mscope.path, 'images', 'cluster')):
+        os.mkdir(os.path.join(mscope.path, 'images', 'cluster'))
+    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'event_count_loco_summary'), dpi=mscope.my_dpi)
+
+    fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+    for c in range(len(clusters_rois)):
+        ax.plot(trials, event_probability_clusters_FR[c], color=colors_cluster[c, :])
+    plt.axvline(trials_baseline[-1]+0.5, linestyle='dashed', color='black')
+    plt.axvline(trials_split[-1] + 0.5, linestyle='dashed', color='black')
+    plt.ylabel('Event probability', fontsize=mscope.fsize)
+    plt.xlabel('Trials', fontsize=mscope.fsize)
+    plt.title('Event probability FR stride', fontsize=mscope.fsize)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    plt.xticks(fontsize=mscope.fsize - 4)
+    plt.yticks(fontsize=mscope.fsize - 4)
+    if not os.path.exists(os.path.join(mscope.path, 'images', 'cluster')):
+        os.mkdir(os.path.join(mscope.path, 'images', 'cluster'))
+    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'event_probability_FR_summary'), dpi=mscope.my_dpi)
+
+    fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+    for c in range(len(clusters_rois)):
+        ax.plot(trials, event_probability_clusters_FL[c], color=colors_cluster[c, :])
+    plt.axvline(trials_baseline[-1]+0.5, linestyle='dashed', color='black')
+    plt.axvline(trials_split[-1] + 0.5, linestyle='dashed', color='black')
+    plt.ylabel('Event probability', fontsize=mscope.fsize)
+    plt.xlabel('Trials', fontsize=mscope.fsize)
+    plt.title('Event probability FL stride', fontsize=mscope.fsize)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    plt.xticks(fontsize=mscope.fsize - 4)
+    plt.yticks(fontsize=mscope.fsize - 4)
+    if not os.path.exists(os.path.join(mscope.path, 'images', 'cluster')):
+        os.mkdir(os.path.join(mscope.path, 'images', 'cluster'))
+    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'event_probability_FL_summary'), dpi=mscope.my_dpi)
+
+    fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+    for c in range(len(clusters_rois)):
+        ax.plot(trials, event_probability_clusters_HL[c], color=colors_cluster[c, :])
+    plt.axvline(trials_baseline[-1]+0.5, linestyle='dashed', color='black')
+    plt.axvline(trials_split[-1] + 0.5, linestyle='dashed', color='black')
+    plt.ylabel('Event probability', fontsize=mscope.fsize)
+    plt.xlabel('Trials', fontsize=mscope.fsize)
+    plt.title('Event probability HL stride', fontsize=mscope.fsize)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    plt.xticks(fontsize=mscope.fsize - 4)
+    plt.yticks(fontsize=mscope.fsize - 4)
+    if not os.path.exists(os.path.join(mscope.path, 'images', 'cluster')):
+        os.mkdir(os.path.join(mscope.path, 'images', 'cluster'))
+    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'event_probability_HL_summary'), dpi=mscope.my_dpi)
+
+    fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+    for c in range(len(clusters_rois)):
+        ax.plot(trials, event_probability_clusters_HR[c], color=colors_cluster[c, :])
+    plt.axvline(trials_baseline[-1]+0.5, linestyle='dashed', color='black')
+    plt.axvline(trials_split[-1] + 0.5, linestyle='dashed', color='black')
+    plt.ylabel('Event probability', fontsize=mscope.fsize)
+    plt.xlabel('Trials', fontsize=mscope.fsize)
+    plt.title('Event probability HR stride', fontsize=mscope.fsize)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    plt.xticks(fontsize=mscope.fsize - 4)
+    plt.yticks(fontsize=mscope.fsize - 4)
+    if not os.path.exists(os.path.join(mscope.path, 'images', 'cluster')):
+        os.mkdir(os.path.join(mscope.path, 'images', 'cluster'))
+    plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'event_probability_HR_summary'), dpi=mscope.my_dpi)
+    plt.close('all')
+
+

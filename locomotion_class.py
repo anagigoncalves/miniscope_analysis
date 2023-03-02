@@ -54,7 +54,78 @@ class loco_class:
         x  = np.isnan(A).ravel().nonzero()[0]
         A[np.isnan(A)] = np.interp(x, xp, fp)
         return A
-    
+
+    @staticmethod
+    def param_continuous_sym(param_trials, st_strides_trials, trials, p1, p2, sym, remove_nan):
+        """Compute a parameter across all trials and correspondent time, if wanted compute symmetry using another paw
+        Inputs:
+        param_trials. list with the param values for each trial all strides
+        st_strides_trials: list with strides for all trials
+        trials: trial list
+        p1: paw to compute the parameter (FR, HR, FL, HL)
+        p2: paw to relate to p1, to compute the parameter as symmetry (FR, HR, FL, HL)
+        sym: boolean
+        remove_nan: boolean"""
+        if p1 == 'FR':
+            p1_idx = 0
+        if p1 == 'HR':
+            p1_idx = 1
+        if p1 == 'FL':
+            p1_idx = 2
+        if p1 == 'HL':
+            p1_idx = 3
+        if p2 == 'FR':
+            p2_idx = 0
+        if p2 == 'HR':
+            p2_idx = 1
+        if p2 == 'FL':
+            p2_idx = 2
+        if p2 == 'HL':
+            p2_idx = 3
+        param_all = []
+        param_all_time = []
+        cumulative_idx = []
+        for count_t, t in enumerate(trials):
+            trial_index = np.where(trials == t)[0][0]
+            sl_p1 = param_trials[trial_index][p1_idx]
+            sl_p2 = param_trials[trial_index][p2_idx]
+            strides_p1 = st_strides_trials[trial_index][p1_idx]
+            strides_p2 = st_strides_trials[trial_index][p2_idx]
+            # get events between the strides
+            param = np.zeros(np.shape(strides_p1)[0])
+            param[:] = np.nan
+            param_time = np.zeros(np.shape(strides_p1)[0])
+            param_time[:] = np.nan
+            for s in range(np.shape(strides_p1)[0]):
+                stride_contra = \
+                np.where((strides_p2[:, 0, 0] > strides_p1[s, 0, 0]) & (strides_p2[:, 0, 0] < strides_p1[s, 1, 0]))[0]
+                if sym:
+                    if len(stride_contra) == 1:  # one event in the stride
+                        param[s] = sl_p1[s] - sl_p2[stride_contra]
+                    if len(stride_contra) > 1:  # more than two events in a stride
+                        param[s] = sl_p1[s] - np.nanmean(sl_p2[stride_contra])
+                else:
+                    param[s] = sl_p1[s]
+                param_time[s] = strides_p1[s, 0, 0] / 1000
+                if count_t == 0 and s == 0:
+                    cumulative_idx.append(1)
+                else:
+                    cumulative_idx.append(cumulative_idx[-1] + 1)
+            param_all.extend(param)
+            if count_t > 0:  # cumulative time
+                param_all_time.extend(param_time + param_all_time[-1])
+            else:
+                param_all_time.extend(param_time)
+        if remove_nan:
+            param_all_notnan = np.array(param_all)[~np.isnan(param_all)]
+            param_all_time_notnan = np.array(param_all_time)[~np.isnan(param_all)]
+            cumulative_idx_array = np.array(cumulative_idx)[~np.isnan(param_all)]
+        else:
+            param_all_notnan = np.array(param_all)
+            param_all_time_notnan = np.array(param_all_time)
+            cumulative_idx_array = np.array(cumulative_idx)
+        return cumulative_idx_array, param_all_time_notnan, param_all_notnan
+
     def get_session_id(self):
         session = int(self.path.split(self.delim)[-2].split()[-2][1:])
         return session
@@ -132,9 +203,9 @@ class loco_class:
         X = final_tracks[0,:,:]*self.pixel_to_mm
         Y = final_tracks[1,:,:]*self.pixel_to_mm
         Z = final_tracks[3,:,:]*self.pixel_to_mm
-        X_interp = loco_class.inpaint_nans(X)
-        Y_interp = loco_class.inpaint_nans(Y)
-        Z_interp = loco_class.inpaint_nans(Z)
+        X_interp = self.inpaint_nans(X)
+        Y_interp = self.inpaint_nans(Y)
+        Z_interp = self.inpaint_nans(Z)
         #peak detection
         swing_mat = []
         stance_mat = []
@@ -213,6 +284,44 @@ class loco_class:
             sw_pts_mat_new = sw_pts_mat
         return st_strides_mat_new, sw_pts_mat_new
 
+    @staticmethod
+    def final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials, phase_type):
+        """Transform the final tracks trials in phase
+        Inputs:
+        final_tracks_trials: (list) final tracks for each trial
+        trials: (list) trials in the session
+        st_strides_trials: (list) with stride structure st to st
+        sw_strides_trials: (list) with stride structure sw to sw
+        phase_type: (str) st-st or st-sw-st
+        """
+        final_tracks_trials_phase = []
+        for count_t, t in enumerate(trials):
+            final_tracks_phase = np.zeros(np.shape(final_tracks_trials[count_t]))
+            final_tracks_phase[:] = np.nan
+            for a in range(4):
+                for p in range(5):
+                    if p == 4:  # if nose, do the phase in relation to the FR paw
+                        p = 0
+                    excursion_phase = np.zeros(len(final_tracks_trials[count_t][0, p, :]))
+                    excursion_phase[:] = np.nan
+                    for s in range(len(st_strides_trials[count_t][p][:, 0, -1])):
+                        st_on = np.int64(st_strides_trials[count_t][p][s, 0, -1])
+                        sw_on = np.int64(sw_strides_trials[count_t][p][s, 0, -1])
+                        st_off = np.int64(st_strides_trials[count_t][p][s, 1, -1])
+                        if phase_type == 'st-sw-st':
+                            nr_st = len(final_tracks_trials[count_t][0, p, st_on:sw_on])
+                            nr_sw = len(final_tracks_trials[count_t][0, p, sw_on:st_off])
+                            excursion_phase[st_on - 1:sw_on] = np.linspace(0, 0.5, nr_st + 1)
+                            excursion_phase[sw_on - 1:st_off] = np.linspace(0.5, 1, nr_sw + 1)
+                            excursion_phase[st_off] = 0  # put it there -1
+                        if phase_type == 'st-st':
+                            nr_st = len(final_tracks_trials[count_t][0, p, st_on:st_off])
+                            excursion_phase[st_on - 1:st_off] = np.linspace(0, 1, nr_st + 1)
+                            excursion_phase[st_off] = 0  # put it there -1
+                    final_tracks_phase[a, p, :] = excursion_phase
+            final_tracks_trials_phase.append(final_tracks_phase)
+        return final_tracks_trials_phase
+
     def get_sw_st_matrices_JR(self,final_tracks,dict_swst,exclusion):
         """Computes swing and stance points of a trial from x axis of the bottom view tracking.
         It excludes strides based on a distribution of some gait parameters
@@ -227,9 +336,9 @@ class loco_class:
         X = final_tracks[0,:,:]*self.pixel_to_mm
         Y = final_tracks[1,:,:]*self.pixel_to_mm
         Z = final_tracks[3,:,:]*self.pixel_to_mm
-        X_interp = loco_class.inpaint_nans(X)
-        Y_interp = loco_class.inpaint_nans(Y)
-        Z_interp = loco_class.inpaint_nans(Z)
+        X_interp = self.inpaint_nans(X)
+        Y_interp = self.inpaint_nans(Y)
+        Z_interp = self.inpaint_nans(Z)
         #swst detection from JR
         paws = ['FR','HR','FL','HL']
         swing = []
@@ -322,29 +431,28 @@ class loco_class:
             sw_pts.append(sw_pts_mat[p][:,0,4])
         return st_pts, sw_pts
     
-    def get_paws_rel(self,final_tracks,bodycenter,axis):
+    def get_paws_rel(self,final_tracks,axis):
         """Gets paw positions relative to any of the body center axis or to the nose
         Input:  final_tracks (4x5xframes)
-                bodycenter (4xframes)
                 axis - 'X','Y','Z','nose'"""
         #compute paws relative to body or nose
         paws_rel = []
         for p in range(5):
             if axis == 'X':
                 X = final_tracks[0,:,:]*self.pixel_to_mm
-                X_interp = loco_class.inpaint_nans(X)
+                X_interp = self.inpaint_nans(X)
                 paws_rel.append(X_interp[p,:]-np.nanmean(X_interp[:4,:],axis=0))
             if axis == 'Y':
                 Y = final_tracks[1,:,:]*self.pixel_to_mm
-                Y_interp = loco_class.inpaint_nans(Y)
+                Y_interp = self.inpaint_nans(Y)
                 paws_rel.append(Y_interp[p,:]-np.nanmean(Y_interp[:4,:],axis=0))
             if axis == 'Z':
                 Z = final_tracks[3,:,:]*self.pixel_to_mm
-                Z_interp = loco_class.inpaint_nans(Z)
+                Z_interp = self.inpaint_nans(Z)
                 paws_rel.append(Z_interp[p,:]-np.nanmean(Z_interp[:4,:],axis=0))
             if axis == 'nose':
                 X = final_tracks[0,:,:]*self.pixel_to_mm
-                X_interp = loco_class.inpaint_nans(X)
+                X_interp = self.inpaint_nans(X)
                 paws_rel.append(X_interp[p,:]-X_interp[4,:])
         return paws_rel
 
@@ -383,7 +491,7 @@ class loco_class:
         swinglength_rel, stance_speed, body_center_x_stride, body_speed_x, duty_factor, cadence, coo, coo_stance
         coo_swing, body_speed_x_cv, step_length, double_support, phase_st[ref_paw][paw]"""
         X = final_tracks[0,:,:]*self.pixel_to_mm
-        X_interp = loco_class.inpaint_nans(X)
+        X_interp = self.inpaint_nans(X)
         bodycenter_x = np.nanmean(X_interp,axis=0)
         #compute gait parameters
         p_sl = np.array([2, 3, 0, 1]) #paw order for contralateral paw
@@ -461,7 +569,7 @@ class loco_class:
                     phase_st_paw.append(phase_st_radians)
                 param_mat.append(phase_st_paw)
         return param_mat
-    
+
     def animals_within_session(self):
         """See which animals and sessions are in the folder with tracks"""
         delim = self.path[-1]
@@ -501,7 +609,7 @@ class loco_class:
             files_ordered.append(filelist[tr_ind])
         return files_ordered
 
-    def plot_gait_adaptation(self,param_sym,param,animal,session,print_plots):
+    def plot_gait_adaptation(self, param_sym, param, animal, session, print_plots):
         """Plots nicely the symmetry parameter that was computed for the whole session
         Input: param_sym - array with gait symmetry value across trials
                param - gait parameter (string with _)
@@ -523,11 +631,7 @@ class loco_class:
         if print_plots:
             if not os.path.exists(self.path+'images'):
                 os.mkdir(self.path+'images')
-            delim = self.path[-1]
-            if delim == '/':
-                plt.savefig(self.path+'images/'+ param+'_'+animal+'_'+str(session), dpi=self.my_dpi)
-            else:
-                plt.savefig(self.path+'images\\'+ param+'_'+animal+'_'+str(session), dpi=self.my_dpi)                
+            plt.savefig(os.path.join(self.path, 'images', param+'_'+animal+'_'+str(session)), dpi=self.my_dpi)
     
     def get_stride_trajectories(self,excursion,align_array,paw,axis,interpolation,stride_points):
         """Gets the trajectories of a joint aligned to the stance or swing onset of that paw
@@ -562,7 +666,7 @@ class loco_class:
                 axis_id = 1
             if axis == 'Z':
                 axis_id = 3
-            excursion = loco_class.inpaint_nans(excursion[axis_id,p,:]*self.pixel_to_mm)
+            excursion = self.inpaint_nans(excursion[axis_id,p,:]*self.pixel_to_mm)
         if np.shape(excursion)[0] == 4 and np.shape(excursion)[1] == 15:
             if axis == 'X':
                 axis_id = 0
@@ -570,19 +674,19 @@ class loco_class:
                 axis_id = 1
             if axis == 'Z':
                 axis_id = 3
-            excursion = loco_class.inpaint_nans(excursion[axis_id,:,:]*self.pixel_to_mm)
+            excursion = self.inpaint_nans(excursion[axis_id,:,:]*self.pixel_to_mm)
         if np.shape(excursion)[0] == 4 and np.shape(excursion)[2] == 2:
             if axis == 'X':
                 axis_id = 0
             if axis == 'Z':
                 axis_id = 1
-            excursion = loco_class.inpaint_nans(excursion[p,:,axis_id]*self.pixel_to_mm)
+            excursion = self.inpaint_nans(excursion[p,:,axis_id]*self.pixel_to_mm)
         if np.shape(excursion)[0] == 4 and np.shape(excursion)[1] > 50:
             if axis == 'X':
                 axis_id = 0
             if axis == 'Z':
                 axis_id = 1
-            excursion = loco_class.inpaint_nans(excursion[axis_id,:]*self.pixel_to_mm)
+            excursion = self.inpaint_nans(excursion[axis_id,:]*self.pixel_to_mm)
         #redo alignment matrix
         if np.shape(align_array[p_stride])[1] == 2:   
             align_mat = np.column_stack((align_array[p_stride][:,0,4].astype(int),align_array[p_stride][:,1,4].astype(int)))
@@ -716,7 +820,21 @@ class loco_class:
                     trials_speed.append(t+1)
             speed_trials_idx.append(trials_speed)
         return speed_unique,speed_trials_idx
-    
+
+    def final_tracks_forwardlocomotion(self, final_tracks, st_strides_mat):
+        """Retains in final tracks only the periods of forward locomotion that were good strides
+        Inputs:
+        final_tracks (array)
+        st_strides_mat (list)"""
+        final_tracks_FR_interp = self.inpaint_nans(final_tracks[:, :, :])
+        final_tracks_FR_interp_forwadloco = np.zeros(np.shape(final_tracks))
+        final_tracks_FR_interp_forwadloco[:] = np.nan
+        idx_keep = []
+        for s in range(np.shape(st_strides_mat[0])[0]):
+            idx_keep.extend(np.int64(np.arange(st_strides_mat[0][s, 0, -1], st_strides_mat[0][s, 1, -1])))
+        final_tracks_FR_interp_forwadloco[:, :, idx_keep] = final_tracks_FR_interp[:, :, idx_keep]
+        return final_tracks_FR_interp_forwadloco
+
     def z_score(self,A):
         """Normalizes a vector by z-scoring it"""        
         A_norm = (A-np.nanmean(A))/np.nanstd(A)
@@ -724,7 +842,7 @@ class loco_class:
     
     def compute_bodyspeed(self,bodycenter):
         """Computes body speed with a Savitzky-Golay filter"""
-        bodyspeed = savgol_filter(loco_class.inpaint_nans(bodycenter),51,3,deriv=1)
+        bodyspeed = savgol_filter(self.inpaint_nans(bodycenter),51,3,deriv=1)
         return bodyspeed
     
     def compute_bodycenter(self,final_tracks,axis_name):
@@ -735,11 +853,11 @@ class loco_class:
             axis_id = 1
         if axis_name == 'Z':
             axis_id = 3
-        return np.nanmean(final_tracks[axis_id,:4,:],axis=0)*loco_class.pixel_to_mm
+        return np.nanmean(final_tracks[axis_id,:4,:],axis=0)*self.pixel_to_mm
 
     def compute_bodyacc(self,bodycenter):
         """Computes body acceleration with a Savitzky-Golay filter"""
-        bodyacc = savgol_filter(loco_class.inpaint_nans(bodycenter),51,3,deriv=2)
+        bodyacc = savgol_filter(self.inpaint_nans(bodycenter),51,3,deriv=2)
         return bodyacc
 
     def get_trials_split(self,filelist): 
@@ -798,11 +916,11 @@ class loco_class:
                 param - variable name (check outputs)
         Outputs: paw_angle, body_axisXYswing, body_axisXZswing, tail_axis_XYswing, tail_axis_XZswing"""
         stride_points = np.linspace(0,100,100)
-        body_axis_xy_filt = savgol_filter(loco_class.inpaint_nans(body_axis_xy*self.pixel_to_mm),window_length = 5, polyorder = 1)
-        body_axis_xz_filt = savgol_filter(loco_class.inpaint_nans(body_axis_xz*self.pixel_to_mm),window_length = 5, polyorder = 1)
-        tail_axis_xy_filt = savgol_filter(loco_class.inpaint_nans(tail_axis_xy*self.pixel_to_mm),window_length = 5, polyorder = 1)
-        tail_axis_xz_filt = savgol_filter(loco_class.inpaint_nans(tail_axis_xz*self.pixel_to_mm),window_length = 5, polyorder = 1)
-        wrist_angles_filt = savgol_filter(loco_class.inpaint_nans(wrist_angles*self.pixel_to_mm),window_length = 5, polyorder = 1)
+        body_axis_xy_filt = savgol_filter(self.inpaint_nans(body_axis_xy*self.pixel_to_mm),window_length = 5, polyorder = 1)
+        body_axis_xz_filt = savgol_filter(self.inpaint_nans(body_axis_xz*self.pixel_to_mm),window_length = 5, polyorder = 1)
+        tail_axis_xy_filt = savgol_filter(self.inpaint_nans(tail_axis_xy*self.pixel_to_mm),window_length = 5, polyorder = 1)
+        tail_axis_xz_filt = savgol_filter(self.inpaint_nans(tail_axis_xz*self.pixel_to_mm),window_length = 5, polyorder = 1)
+        wrist_angles_filt = savgol_filter(self.inpaint_nans(wrist_angles*self.pixel_to_mm),window_length = 5, polyorder = 1)
         param_mat = []
         for p in range(4):
             if param == 'paw_angle':
@@ -822,7 +940,7 @@ class loco_class:
                         paw_angle_norm[s,:] = np.zeros(len(stride_points))
                         paw_angle_norm[s,:] = np.nan
                     else:
-                        paw_angle_norm[s,:] = loco_class.inpaint_nans(vec)   
+                        paw_angle_norm[s,:] = self.inpaint_nans(vec)
                 param_mat.append(paw_angle_norm)
             if param == 'body_axisXYswing':
                 body_axisXYswing = []
@@ -841,7 +959,7 @@ class loco_class:
                         body_axisXYswing_norm[s,:] = np.zeros(len(stride_points))
                         body_axisXYswing_norm[s,:] = np.nan
                     else:
-                        body_axisXYswing_norm[s,:] = loco_class.inpaint_nans(vec)                       
+                        body_axisXYswing_norm[s,:] = self.inpaint_nans(vec)
                 param_mat.append(body_axisXYswing_norm)
             if param == 'body_axisXZswing':
                 body_axisXZswing = []
@@ -860,7 +978,7 @@ class loco_class:
                         body_axisXZswing_norm[s,:] = np.zeros(len(stride_points))
                         body_axisXZswing_norm[s,:] = np.nan
                     else:
-                        body_axisXZswing_norm[s,:] = loco_class.inpaint_nans(vec)         
+                        body_axisXZswing_norm[s,:] = self.inpaint_nans(vec)
                 param_mat.append(body_axisXZswing_norm)
             if param == 'tail_axis_XYswing':
                 tail_axis_XYswing = []
@@ -878,7 +996,7 @@ class loco_class:
                             tail_axis_XYswing_norm[s,t,:] = np.zeros(len(stride_points))
                             tail_axis_XYswing_norm[s,t,:] = np.nan
                         else:
-                            tail_axis_XYswing_norm[s,t,:] = loco_class.inpaint_nans(vec)
+                            tail_axis_XYswing_norm[s,t,:] = self.inpaint_nans(vec)
                 param_mat.append(tail_axis_XYswing_norm)
             if param == 'tail_axis_XZswing':
                 tail_axis_XZswing = []
@@ -896,7 +1014,7 @@ class loco_class:
                             tail_axis_XZswing_norm[s,t,:] = np.zeros(len(stride_points))
                             tail_axis_XZswing_norm[s,t,:] = np.nan
                         else:
-                            tail_axis_XZswing_norm[s,t,:] = loco_class.inpaint_nans(vec)
+                            tail_axis_XZswing_norm[s,t,:] = self.inpaint_nans(vec)
                 param_mat.append(tail_axis_XZswing_norm)
         return param_mat
     
@@ -914,24 +1032,24 @@ class loco_class:
         tail_z_relbase, swing_y_rel, swing_x_rel, stride_nose_yrel,  stride_nose_zrel"""
         stride_points = np.linspace(0,100,100)
         timestep = 1/self.sr
-        X = savgol_filter(loco_class.inpaint_nans(final_tracks[0,:,:]*self.pixel_to_mm),window_length = 5, polyorder = 1)
-        joints_elbow_filt_Z = savgol_filter(loco_class.inpaint_nans(joints_elbow[:,:,1]*self.pixel_to_mm),window_length = 5, polyorder = 1)
-        joints_wrist_filt_Z = savgol_filter(loco_class.inpaint_nans(joints_wrist[:,:,1]*self.pixel_to_mm),window_length = 5, polyorder = 1)
-        joints_elbow_filt_X = savgol_filter(loco_class.inpaint_nans(joints_elbow[:,:,0]*self.pixel_to_mm),window_length = 5, polyorder = 1)
-        joints_wrist_filt_X = savgol_filter(loco_class.inpaint_nans(joints_wrist[:,:,0]*self.pixel_to_mm),window_length = 5, polyorder = 1)
-        Z = savgol_filter(loco_class.inpaint_nans(final_tracks[3,:,:]*self.pixel_to_mm),window_length = 5, polyorder = 1)
-        X_side = savgol_filter(loco_class.inpaint_nans(final_tracks[2,:,:]*self.pixel_to_mm),window_length = 5, polyorder = 1)
-        Y = savgol_filter(loco_class.inpaint_nans(final_tracks[1,:,:]*self.pixel_to_mm),window_length = 5, polyorder = 1)
+        X = savgol_filter(self.inpaint_nans(final_tracks[0,:,:]*self.pixel_to_mm),window_length = 5, polyorder = 1)
+        joints_elbow_filt_Z = savgol_filter(self.inpaint_nans(joints_elbow[:,:,1]*self.pixel_to_mm),window_length = 5, polyorder = 1)
+        joints_wrist_filt_Z = savgol_filter(self.inpaint_nans(joints_wrist[:,:,1]*self.pixel_to_mm),window_length = 5, polyorder = 1)
+        joints_elbow_filt_X = savgol_filter(self.inpaint_nans(joints_elbow[:,:,0]*self.pixel_to_mm),window_length = 5, polyorder = 1)
+        joints_wrist_filt_X = savgol_filter(self.inpaint_nans(joints_wrist[:,:,0]*self.pixel_to_mm),window_length = 5, polyorder = 1)
+        Z = savgol_filter(self.inpaint_nans(final_tracks[3,:,:]*self.pixel_to_mm),window_length = 5, polyorder = 1)
+        X_side = savgol_filter(self.inpaint_nans(final_tracks[2,:,:]*self.pixel_to_mm),window_length = 5, polyorder = 1)
+        Y = savgol_filter(self.inpaint_nans(final_tracks[1,:,:]*self.pixel_to_mm),window_length = 5, polyorder = 1)
         tail_y = np.zeros(np.shape(tracks_tail[1,:,:]))
         for st in range(np.shape(tail_y)[0]):
             if len(np.where(np.isnan(tracks_tail[1,st,:]))[0])<(0.7*np.shape(tracks_tail)[2]):
-                tail_y[st,:] = savgol_filter(loco_class.inpaint_nans(tracks_tail[1,st,:]*self.pixel_to_mm),window_length = 5, polyorder = 1)-np.nanmean(Y[:4,:],axis=0)
+                tail_y[st,:] = savgol_filter(self.inpaint_nans(tracks_tail[1,st,:]*self.pixel_to_mm),window_length = 5, polyorder = 1)-np.nanmean(Y[:4,:],axis=0)
         tail_z = np.zeros(np.shape(tracks_tail[3,:,:]))
         for st in range(np.shape(tail_z)[0]):
             if len(np.where(np.isnan(tracks_tail[3,st,:]))[0])<(0.7*np.shape(tracks_tail)[2]):
-                tail_z[st,:] = savgol_filter(loco_class.inpaint_nans(tracks_tail[3,st,:]*self.pixel_to_mm),window_length = 5, polyorder = 1)
-        nose_rely = savgol_filter(loco_class.inpaint_nans(final_tracks[1,4,:]*self.pixel_to_mm),window_length = 5, polyorder = 1)-np.nanmean(Y[:4,:],axis=0)
-        nose_z = savgol_filter(loco_class.inpaint_nans(final_tracks[3,4,:]*self.pixel_to_mm),window_length = 5, polyorder = 1)
+                tail_z[st,:] = savgol_filter(self.inpaint_nans(tracks_tail[3,st,:]*self.pixel_to_mm),window_length = 5, polyorder = 1)
+        nose_rely = savgol_filter(self.inpaint_nans(final_tracks[1,4,:]*self.pixel_to_mm),window_length = 5, polyorder = 1)-np.nanmean(Y[:4,:],axis=0)
+        nose_z = savgol_filter(self.inpaint_nans(final_tracks[3,4,:]*self.pixel_to_mm),window_length = 5, polyorder = 1)
         param_mat = []
         for p in range(4):
             if param == 'swing_inst_vel':
@@ -949,7 +1067,7 @@ class loco_class:
                     vec = np.zeros(len(stride_points))
                     vec[:] = np.nan
                     vec[xaxis_idx] = swing_inst_vel[s]
-                    sw_inst_vel_norm[s,:] = loco_class.inpaint_nans(vec)                       
+                    sw_inst_vel_norm[s,:] = self.inpaint_nans(vec)
                 param_mat.append(sw_inst_vel_norm)
             if param == 'tail_y_relbase':
                 #tail y
@@ -965,7 +1083,7 @@ class loco_class:
                         vec = np.zeros(len(stride_points))
                         vec[:] = np.nan
                         vec[xaxis_idx] = tail_y_rel[s][st,:]
-                        tail_y_rel_norm[s,st,:] = loco_class.inpaint_nans(vec)                       
+                        tail_y_rel_norm[s,st,:] = self.inpaint_nans(vec)
                 param_mat.append(tail_y_rel_norm)
             if param == 'tail_z_relbase':
                 #tail z
@@ -981,7 +1099,7 @@ class loco_class:
                         vec = np.zeros(len(stride_points))
                         vec[:] = np.nan
                         vec[xaxis_idx] = tail_z_rel[s][st,:]
-                        tail_z_rel_norm[s,st,:] = loco_class.inpaint_nans(vec)                       
+                        tail_z_rel_norm[s,st,:] = self.inpaint_nans(vec)
                 param_mat.append(tail_z_rel_norm)
             if param == 'swing_z_elbow':
                 swing_z_elbow = []
@@ -996,7 +1114,7 @@ class loco_class:
                     vec = np.zeros(len(stride_points))
                     vec[:] = np.nan
                     vec[xaxis_idx] = swing_z_elbow[s]
-                    swing_z_elbow_norm[s,:] = loco_class.inpaint_nans(vec)                       
+                    swing_z_elbow_norm[s,:] = self.inpaint_nans(vec)
                 param_mat.append(swing_z_elbow_norm)
             if param == 'swing_z_wrist':
                 swing_z_wrist = []
@@ -1011,7 +1129,7 @@ class loco_class:
                     vec = np.zeros(len(stride_points))
                     vec[:] = np.nan
                     vec[xaxis_idx] = swing_z_wrist[s]
-                    swing_z_wrist_norm[s,:] = loco_class.inpaint_nans(vec)                       
+                    swing_z_wrist_norm[s,:] = self.inpaint_nans(vec)
                 param_mat.append(swing_z_wrist_norm)
             if param == 'swing_z':
                 sw_z = []
@@ -1028,7 +1146,7 @@ class loco_class:
                     vec = np.zeros(len(stride_points))
                     vec[:] = np.nan
                     vec[xaxis_idx] = sw_z[s]
-                    sw_z_norm[s,:] = loco_class.inpaint_nans(vec)                       
+                    sw_z_norm[s,:] = self.inpaint_nans(vec)
                 param_mat.append(sw_z_norm)
             if param == 'swing_z_elbow_pos':
                 swing_z_elbow_pos = []
@@ -1043,7 +1161,7 @@ class loco_class:
                     vec = np.zeros(len(stride_points))
                     vec[:] = np.nan
                     vec[xaxis_idx] = swing_z_elbow_pos[s]
-                    swing_z_elbow_pos_norm[s,:] = loco_class.inpaint_nans(vec)                       
+                    swing_z_elbow_pos_norm[s,:] = self.inpaint_nans(vec)
                 param_mat.append(swing_z_elbow_pos_norm)
             if param == 'swing_z_wrist_pos':
                 swing_z_wrist_pos = []
@@ -1058,7 +1176,7 @@ class loco_class:
                     vec = np.zeros(len(stride_points))
                     vec[:] = np.nan
                     vec[xaxis_idx] = swing_z_wrist_pos[s]
-                    swing_z_wrist_pos_norm[s,:] = loco_class.inpaint_nans(vec)                       
+                    swing_z_wrist_pos_norm[s,:] = self.inpaint_nans(vec)
                 param_mat.append(swing_z_wrist_pos_norm)
             if param == 'swing_z_pos':
                 sw_z_pos = []
@@ -1075,7 +1193,7 @@ class loco_class:
                     vec = np.zeros(len(stride_points))
                     vec[:] = np.nan
                     vec[xaxis_idx] = sw_z_pos[s]
-                    sw_z_pos_norm[s,:] = loco_class.inpaint_nans(vec)                       
+                    sw_z_pos_norm[s,:] = self.inpaint_nans(vec)
                 param_mat.append(sw_z_pos_norm)
             if param == 'swing_y_rel':
                 swing_y_rel = []
@@ -1088,7 +1206,7 @@ class loco_class:
                     vec = np.zeros(len(stride_points))
                     vec[:] = np.nan
                     vec[xaxis_idx] = swing_y_rel[s]
-                    swing_y_rel_norm[s,:] = loco_class.inpaint_nans(vec)                       
+                    swing_y_rel_norm[s,:] = self.inpaint_nans(vec)
                 param_mat.append(swing_y_rel_norm)
             if param == 'swing_x_rel':
                 swing_x_rel = []
@@ -1101,7 +1219,7 @@ class loco_class:
                     vec = np.zeros(len(stride_points))
                     vec[:] = np.nan
                     vec[xaxis_idx] = swing_x_rel[s]
-                    swing_x_rel_norm[s,:] = loco_class.inpaint_nans(vec)                       
+                    swing_x_rel_norm[s,:] = self.inpaint_nans(vec)
                 param_mat.append(swing_x_rel_norm)
             if param == 'stride_nose_yrel': 
                 stride_nose_yrel = []
@@ -1114,7 +1232,7 @@ class loco_class:
                     vec = np.zeros(len(stride_points))
                     vec[:] = np.nan
                     vec[xaxis_idx] = stride_nose_yrel[s]
-                    stride_nose_yrel_norm[s,:] = loco_class.inpaint_nans(vec)                       
+                    stride_nose_yrel_norm[s,:] = self.inpaint_nans(vec)
                 param_mat.append(stride_nose_yrel_norm)
             if param == 'stride_nose_zrel':
                 stride_nose_zrel = []
@@ -1128,7 +1246,7 @@ class loco_class:
                     vec = np.zeros(len(stride_points))
                     vec[:] = np.nan
                     vec[xaxis_idx] = stride_nose_zrel[s]
-                    stride_nose_zrel_norm[s,:] = loco_class.inpaint_nans(vec)                       
+                    stride_nose_zrel_norm[s,:] = self.inpaint_nans(vec)
                 param_mat.append(stride_nose_zrel_norm)
         return param_mat
     
@@ -1305,21 +1423,19 @@ class loco_class:
         frame_nr_ordered = np.zeros(len(triggers))
         mscope_align_time_ordered = np.zeros(len(triggers))
         frame_time_bcam_ordered = []
-        count_t = 0
-        for t in trial_order:
+        for count_t, t in enumerate(trial_order):
             triggers_ordered[t] = triggers[count_t]
             strobes_ordered[t] = strobes[count_t]
             frame_rec_start_ordered[t] = frame_rec_start[count_t]
             frame_nr_ordered[t] = frame_nr[count_t]
             mscope_align_time_ordered[t] = mscope_align_time[count_t]
             frame_time_bcam_ordered.append(frame_time_bcam[count_t])
-            count_t += 1
         if len(black_frames) == 0:
             frame_rec_start_full = frame_rec_start_ordered
         else:
             frame_rec_start_full = np.zeros(len(triggers))
-            for t in range(len(trial_order)):
-                frame_rec_start_full[t] = frame_rec_start_ordered[t]+(black_frames[t]/30)*self.sr
+            for i in range(len(trial_order)):
+                frame_rec_start_full[i] = frame_rec_start_ordered[i]+(black_frames[i]/30)*self.sr
         #change frame_time_bcam to account for black frames that were excluded
         bcam_time = []
         for t in range(len(frame_time_bcam_ordered)):

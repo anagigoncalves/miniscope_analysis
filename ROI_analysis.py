@@ -2,24 +2,21 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.patches as mp
-import pandas as pd
-import time
-import seaborn as sns
-import random
+import warnings
+warnings.filterwarnings('ignore')
 
 # path inputs
 path = 'I:\\TM RAW FILES\\split ipsi fast\\MC8855\\2021_04_05\\'
 path_loco = 'I:\\TM TRACKING FILES\\split ipsi fast\\split ipsi fast S1 050421\\'
 # path = 'I:\\TM RAW FILES\\tied baseline\\MC8855\\2021_04_04\\'
 # path_loco = 'I:\\TM TRACKING FILES\\tied baseline\\tied baseline S1 040421\\'
-session_type = 'tied'
+session_type = path.split('\\')[2].split(' ')[0]
 version_mscope = 'v4'
 plot_data = 1
 load_data = 1
 plot_figures = 1
 paw_colors = ['red', 'magenta', 'blue', 'cyan']
-paws = ['FR','HR','FL','HL']
+paws = ['FR', 'HR', 'FL', 'HL']
 fsize = 24
 
 # import classes
@@ -52,28 +49,8 @@ frame_time = mscope.get_miniscope_frame_time(trials, frames_dFF, version_mscope)
 ref_image = mscope.get_ref_image()
 ops_s2p = mscope.get_s2p_parameters()
 session_type = path.split(mscope.delim)[-4].split(' ')[0]  # tied or split
-if session_type == 'tied' and animal == 'MC8855':
-    trials_ses = np.array([3, 6])
-    trials_ses_name = ['baseline speed', 'fast speed']
-if session_type == 'tied' and animal != 'MC8855':
-    trials_ses = np.array([6, 12, 18])
-    trials_ses_name = ['baseline speed', 'fast speed']
-if session_type == 'split' and animal == 'MC8855':
-    trials_ses = np.array([3, 4, 13, 14])
-    trials_ses_name = ['baseline', 'early split', 'late split', 'early washout']
-if session_type == 'split' and animal != 'MC8855':
-    trials_ses = np.array([6, 7, 16, 17])
-    trials_ses_name = ['baseline', 'early split', 'late split', 'early washout']
-if len(trials) == 23:
-    trials_baseline = np.array([1, 2, 3])
-    trials_split = np.array([4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
-    trials_washout = np.array([14, 15, 16, 17, 18, 19, 20, 21, 22, 23])
-elif len(trials) == 26:
-    trials_baseline = np.array([1, 2, 3, 4, 5, 6])
-    trials_split = np.array([7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
-    trials_washout = np.array([17, 18, 19, 20, 21, 22, 23, 24, 25, 26])
-elif len(trials) < 23:
-    trials_baseline = trials
+[trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal)
+colors_session = mscope.colors_session(session_type, trials, 1)
 
 if load_data == 0:
     # Load ROIs and traces - EXTRACT
@@ -89,7 +66,7 @@ if load_data == 0:
     # [idx_to_nan,df_fiji] = mscope.corr_FOV_movement(th, df_fiji_allframes, corrXY)
     [idx_to_nan,df_extract] = mscope.corr_FOV_movement(th, df_extract_allframes, corrXY)
     [width_roi_ext, height_roi_ext, aspect_ratio_ext] = mscope.get_roi_stats(coord_ext)
-    [coord_ext, df_extract] = mscope.rois_larger_motion(df_extract, coord_ext, idx_to_nan, x_offset, y_offset, width_roi_ext, height_roi_ext, 1) #needs to remove ROIs from df trace
+    [coord_ext, df_extract] = mscope.rois_larger_motion(df_extract, coord_ext, idx_to_nan, x_offset, y_offset, width_roi_ext, height_roi_ext, 1)
     trial_corr = 2
     mscope.correlation_signal_motion(df_extract, x_offset, y_offset, trial_corr, idx_to_nan, 1)
 
@@ -111,169 +88,159 @@ if load_data == 0:
     # Find calcium events - label as synchronous or asynchronous
     df_events_extract = mscope.get_events(df_extract_curated, 0, 'df_events_extract')
     df_events_extract_rawtrace = mscope.get_events(df_extract_rawtrace, 1, 'df_events_extract_rawtrace')
-    roi_plot = np.int64(random.choice(roi_list)[3:])
-    trial_plot = random.choice(trials)
+    roi_plot = np.int64(np.random.choice(roi_list)[3:])
+    trial_plot = np.random.choice(trials)
     mscope.plot_events_roi_trial(trial_plot, roi_plot, frame_time, df_extract_rawtrace, df_events_extract_rawtrace, 0)
 
+    # Detrend calcium trace
+    df_extract_rawtrace_detrended = mscope.compute_detrended_traces(df_extract_rawtrace, 'df_extract_rawtrace_detrended')
+
     # Save data
-    mscope.save_processed_files(df_extract_curated, trials, df_events_extract,  df_extract_rawtrace, df_events_extract_rawtrace, coord_ext_curated, th, idx_to_nan)
+    mscope.save_processed_files(df_extract_curated, trials, df_events_extract,  df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext_curated, th, idx_to_nan)
 
 if load_data == 1:
     # Load data
-    [df_extract, df_events_extract, df_extract_rawtrace, df_events_extract_rawtrace, trials, coord_ext, reg_th, reg_bad_frames] = mscope.load_processed_files()
-    df_extract_rawtrace_detrended = mscope.compute_detrended_traces(df_extract_rawtrace, 'df_extract_rawtrace_detrended')
-    df_extract_rawtrace_detrended_norm = mscope.norm_traces( df_extract_rawtrace_detrended, 'min_max', 'session')
-    df_extract_rawtrace_detrended_zscore = mscope.norm_traces( df_extract_rawtrace_detrended, 'min_max', 'session')
+    [df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames] = mscope.load_processed_files()
+    df_extract_rawtrace_detrended_norm = mscope.norm_traces(df_extract_rawtrace_detrended, 'min_max', 'session')
+    df_extract_rawtrace_detrended_zscore = mscope.norm_traces(df_extract_rawtrace_detrended, 'zscore', 'session')
 
+centroid_ext = mscope.get_roi_centroids(coord_ext)
+distance_neurons = mscope.distance_neurons(centroid_ext, 0)
+th_cluster = 0.6
+colormap_cluster = 'hsv'
+[colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext, distance_neurons, trials_baseline, th_cluster, colormap_cluster, plot_data, print_plots)
+[clusters_rois, idx_roi_cluster_ordered] = mscope.get_rois_clusters_mediolateral(df_extract_rawtrace_detrended, idx_roi_cluster, centroid_ext)
+[df_events_extract_rawtrace_clustered, df_extract_rawtrace_detrended_clustered] = mscope.compute_clustered_traces_events_correlations(df_events_extract_rawtrace, df_extract_rawtrace_detrended, clusters_rois, trials_baseline)
 
 # Load behavioral data
 filelist = loco.get_track_files(animal, session)
+param_name = 'coo_stance'
 st_strides_trials = []
 sw_strides_trials = []
 final_tracks_trials = []
-count_trial = 0
-for f in filelist:
+param_trials = []
+stride_duration_trials = []
+final_tracks_forwadloco_trials = []
+for count_trial, f in enumerate(filelist):
     [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f, 0.9, int(frames_loco[count_trial]))
     [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
+    paws_rel = loco.get_paws_rel(final_tracks, 'X')
+    final_tracks_forwadloco = loco.final_tracks_forwardlocomotion(final_tracks, st_strides_mat)
+    final_tracks_forwadloco_trials.append(final_tracks_forwadloco)
     final_tracks_trials.append(final_tracks)
     st_strides_trials.append(st_strides_mat)
     sw_strides_trials.append(sw_pts_mat)
-    count_trial += 1
+    param_trials.append(loco.compute_gait_param(bodycenter, final_tracks, paws_rel, st_strides_mat, sw_pts_mat, param_name))
+    stride_duration_trials.append(loco.compute_gait_param(bodycenter, final_tracks, paws_rel, st_strides_mat, sw_pts_mat, 'stride_duration'))
 
 if plot_figures:
+    traces_type = 'raw'
     # Standard plots - example traces, ROI masks, heatmap for baseline speed trials
-    mscope.plot_stacked_traces(frame_time, df_extract_rawtrace_detrended_norm, trials_ses, plot_data) # input can be one trial or trials_ses
+    mscope.plot_stacked_traces(frame_time, df_extract_rawtrace_detrended_norm, traces_type, trials_ses, plot_data) # input can be one trial or trials_ses
     mscope.plot_rois_ref_image(ref_image, coord_ext, plot_data)
-    mscope.plot_heatmap_baseline(df_extract_rawtrace_detrended_norm, plot_data)
+    mscope.plot_heatmap_baseline(df_extract_rawtrace_detrended_norm, traces_type, plot_data)
 
     # # Microzones plots, order correlation matrix by distance between neurons - do this for raw signals
     centroid_ext = mscope.get_roi_centroids(coord_ext)
     distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 0.5
+    th_cluster = 0.6
     colormap_cluster = 'hsv'
-    trial_plot = 3
-    [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended_zscore, centroid_ext, distance_neurons, trial_plot, th_cluster, colormap_cluster, plot_data)
-    mscope.plot_roi_clustering_spatial(ref_image, colors_cluster, idx_roi_cluster, coord_ext, plot_data)
-    mscope.plot_roi_clustering_temporal(df_extract_rawtrace_detrended_zscore, frame_time, centroid_ext, distance_neurons, trial_plot, colors_cluster, idx_roi_cluster, plot_data)
+    trial_plot = trials_baseline[-1]
+    [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext, distance_neurons, trial_plot, th_cluster, colormap_cluster, plot_data)
+    [clusters_rois, idx_roi_cluster_ordered] = mscope.get_rois_clusters_mediolateral(df_extract_rawtrace_detrended, idx_roi_cluster, centroid_ext)
+    mscope.plot_roi_clustering_spatial(ref_image, colors_cluster, idx_roi_cluster_ordered, coord_ext, plot_data, print_plots)
+    mscope.plot_roi_clustering_temporal(df_extract_rawtrace_detrended, frame_time, centroid_ext, distance_neurons, trial_plot, colors_cluster, idx_roi_cluster_ordered, plot_data, print_plots)
 
-    # # Plot trace with events - examples and session
+    # Plot trace with events - examples and session
     roi_plot = 12
     trial_plot = 2
-    mscope.plot_events_roi_trial(trial_plot, roi_plot, frame_time, df_extract_rawtrace_detrended_zscore, df_events_extract_rawtrace, plot_data)
+    mscope.plot_events_roi_trial(trial_plot, roi_plot, frame_time, df_extract_rawtrace_detrended, traces_type, df_events_extract_rawtrace, plot_data)
 
     # Calcium events stats
     # ISI
-    isi_events = mscope.compute_isi(df_events_extract_rawtrace, 'isi_events_extract')
-    # isi_all_events = mscope.compute_isi(df_events_all, 'isi_all_events')
-    # isi_unsync_events = mscope.compute_isi(df_events_unsync, 'isi_unsync_events')
+    isi_events = mscope.compute_isi(df_events_extract_rawtrace, traces_type, 'isi_events_extract')
     # CV of ISI
     [isi_cv, isi_cv2] = mscope.compute_isi_cv(isi_events, trials)
-    # [isi_cv_unsync, isi_cv2_unsync] = mscope.compute_isi_cv(isi_unsync_events)
     # Ratio between ISI values
     range_isiratio = [[0,0.5],[0.8,1.5]]
     isi_ratio = mscope.compute_isi_ratio(isi_events, range_isiratio, trials)
-    # isi_ratio_unsync = mscope.compute_isi_ratio(isi_unsync_events, range_isiratio)
 
-    roi_list = df_extract_rawtrace_detrended_zscore.columns[2:]
+    roi_list = df_extract_rawtrace_detrended.columns[2:]
+    sl_front_events_baseline = np.zeros((len(roi_list), 51))
+    sl_front_events_split = np.zeros((len(roi_list), 51))
+    sl_front_events_washout = np.zeros((len(roi_list), 51))
+    sl_front_events_baseline_shuffle = np.zeros((len(roi_list), 51))
+    sl_front_events_split_shuffle = np.zeros((len(roi_list), 51))
+    sl_front_events_washout_shuffle = np.zeros((len(roi_list), 51))
+    t_stat_baseline = np.zeros(len(roi_list))
+    p_value_baseline = np.zeros(len(roi_list))
+    t_stat_split = np.zeros(len(roi_list))
+    p_value_split = np.zeros(len(roi_list))
+    t_stat_washout = np.zeros(len(roi_list))
+    p_value_washout = np.zeros(len(roi_list))
     roi_plot = []
     for r in range(len(roi_list)):
         roi_plot.append(np.int64(roi_list[r][3:]))
-    event_proportion_all = np.zeros((len(roi_plot),len(trials)))
-    event_count_loco_all = np.zeros((len(roi_plot),len(trials)))
-    count_r = 0
-    for roi in roi_plot:
-        mscope.plot_stacked_traces_singleROI(frame_time, df_extract_rawtrace_detrended_zscore, roi, session_type, trials, plot_data)
-        mscope.plot_single_roi_ref_image(ref_image, coord_ext, roi, roi_list, 1)
-        for trial_plot in trials:
-            mscope.plot_isi_single_trial(trial_plot, roi, isi_events, 1)
-            plt.close('all')
-        mscope.plot_isi_session(roi, isi_events, animal, session_type, trials, trials_ses, plot_data)
-        mscope.plot_cv_session(roi, isi_cv, trials, 'cv', plot_data)
-        mscope.plot_cv_session(roi, isi_cv2, trials, 'cv2', plot_data)
-        mscope.plot_isi_ratio_session(roi, isi_ratio, range_isiratio, trials, plot_data)
-        mscope.plot_isi_boxplots(roi, isi_events, session_type, animal, plot_data)
+    for count_r, roi in enumerate(roi_plot):
+        mscope.plot_cv_session(roi, isi_cv, traces_type, session_type, trials, 'cv', plot_data)
+        mscope.plot_cv_session(roi, isi_cv2, traces_type, session_type, trials, 'cv2', plot_data)
+        mscope.plot_isi_ratio_session(roi, isi_ratio, traces_type, session_type, range_isiratio, trials, plot_data)
+        mscope.plot_isi_boxplots(roi, isi_events, traces_type, session_type, trials, plot_data)
         plt.close('all')
+        mscope.plot_stacked_traces_singleROI(frame_time, df_extract_rawtrace_detrended, traces_type, roi, session_type, trials, colors_session, plot_data)
+        mscope.plot_single_roi_ref_image(ref_image, coord_ext, roi, traces_type, roi_list, colors_cluster, idx_roi_cluster_ordered, 1)
+        for trial_plot in trials:
+            mscope.plot_isi_single_trial(trial_plot, roi, isi_events, traces_type, 1)
+            plt.close('all')
         # Event waveform
-        # mscope.compute_event_waveform(df_extract_rawtrace_detrended_zscore, df_events_extract_rawtrace, roi, animal, session_type, trials_ses, trials, plot_data)
+        mscope.compute_event_waveform(df_extract_rawtrace_detrended_zscore, traces_type, df_events_extract_rawtrace, roi, animal, session_type, trials_ses, trials, plot_data)
         # Event count
-        mscope.get_event_count_wholetrial(df_events_extract_rawtrace, trials, roi, plot_data)
-        event_count_loco = mscope.get_event_count_locomotion(df_events_extract_rawtrace, trials, bcam_time, st_strides_trials, roi, plot_data)
-        event_count_loco_all[count_r,:] = event_count_loco
+        mscope.get_event_count_wholetrial(df_events_extract_rawtrace, traces_type, session_type, trials, roi, plot_data)
+        event_count_loco = mscope.get_event_count_locomotion(df_events_extract_rawtrace, traces_type, session_type, trials, bcam_time, st_strides_trials, roi, plot_data)
         # Proportion of events in strides
         paw = 'FR'
         align = 'stride'
         df_events_stride_all = mscope.events_stride(df_events_extract_rawtrace, st_strides_trials, sw_strides_trials, paw, roi, align)
-        event_proportion = mscope.event_proportion_plot(df_events_stride_all, paw, roi, plot_data)
-        event_proportion_all[count_r,:] = event_proportion
-        plt.close('all')
-        # Align events with stance/swing periods
-        time_window = 0.2
-        bin_size = 20
-        align = 'stance'
-        for paw in paws:
-            event_stance_paws = mscope.events_align_st_sw(df_events_extract_rawtrace, st_strides_trials, sw_strides_trials, time_window, bin_size, paw, roi, align, session_type, trials_ses, plot_data)
-        align = 'swing'
-        for paw in paws:
-            event_swing_paws = mscope.events_align_st_sw(df_events_extract_rawtrace, st_strides_trials, sw_strides_trials, time_window, bin_size, paw, roi, align, session_type, trials_ses, plot_data)
+        event_probability = mscope.event_probability_plot(df_events_stride_all, df_events_extract_rawtrace, traces_type, session_type, paw, roi, plot_data)
         plt.close('all')
         for t in trials:
-            mscope.events_align_trajectory(df_events_extract_rawtrace, bcam_time, final_tracks_trials, t, roi, plot_data)
-        count_r += 1
-        # plt.close('all')
-    np.save(os.path.join(mscope.path, 'processed files', 'event_proportion_allrois.npy'), event_proportion_all)
-    np.save(os.path.join(mscope.path, 'processed files', 'event_count_loco_allrois.npy'), event_count_loco_all)
-
-
-# time_window = 0.5
-# align = ['stance', 'swing'] #do for all paws and st and sw
-# roi_list = mscope.get_roi_list(df_extract_rawtrace_detrended_zscore)
-# for roi in roi_list:
-#     for a in align:
-#         for p in paws:
-#             raw_signal_st = mscope.raw_signal_align_st_sw(df_extract_rawtrace_detrended_zscore, st_strides_trials, sw_strides_trials, time_window, p, np.int64(roi[3:]), a, session_type, trials_ses, plot_data)
-#         plt.close('all')
-
-
-var_count = np.zeros(np.shape(event_count_loco_all)[0])
-var_prop = np.zeros(np.shape(event_count_loco_all)[0])
-for r in range(np.shape(event_count_loco_all)[0]):
-    var_count[r] = event_count_loco_all[r,3] - np.nanmean(event_count_loco_all[r,:3])
-    var_prop[r] = event_proportion_all[r, 3] - np.nanmean(event_proportion_all[r, :3])
-
-
-
-plt.figure(figsize=(10, 10), tight_layout=True)
-for r in range(len(coord_ext)):
-    if var_count[r] > 0.01:
-        color_idx = 'red'
-    elif var_count[r] < -0.01:
-        color_idx = 'blue'
-    else:
-        color_idx = 'lightgray'
-    plt.scatter(coord_ext[r][:, 0], coord_ext[r][:, 1], s = 1, c = color_idx)
-plt.imshow(ref_image, cmap='gray',
-           extent=[0, np.shape(ref_image)[1] / mscope.pixel_to_um, np.shape(ref_image)[0] / mscope.pixel_to_um, 0])
-plt.xlabel('FOV in micrometers', fontsize=mscope.fsize - 4)
-plt.ylabel('FOV in micrometers', fontsize=mscope.fsize - 4)
-plt.xticks(fontsize=mscope.fsize - 4)
-plt.yticks(fontsize=mscope.fsize - 4)
-
-plt.figure(figsize=(10, 10), tight_layout=True)
-for r in range(len(coord_ext)):
-    if var_prop[r] > 0.01:
-        color_idx = 'red'
-    elif var_prop[r] < -0.01:
-        color_idx = 'blue'
-    else:
-        color_idx = 'lightgray'
-    plt.scatter(coord_ext[r][:, 0], coord_ext[r][:, 1], s = 1, c = color_idx)
-plt.imshow(ref_image, cmap='gray',
-           extent=[0, np.shape(ref_image)[1] / mscope.pixel_to_um, np.shape(ref_image)[0] / mscope.pixel_to_um, 0])
-plt.xlabel('FOV in micrometers', fontsize=mscope.fsize - 4)
-plt.ylabel('FOV in micrometers', fontsize=mscope.fsize - 4)
-plt.xticks(fontsize=mscope.fsize - 4)
-plt.yticks(fontsize=mscope.fsize - 4)
-
+            mscope.events_align_trajectory(df_events_extract_rawtrace, traces_type, bcam_time, final_tracks_forwadloco_trials, t, trials, roi, plot_data)
+            plt.close('all')
+        # Bin step length asymmetry and check CS firing
+        step_size = 2
+        p1 = 'FR'
+        p2 = 'FL'
+        nr_strides = 10
+        for count_t, trials_compute in enumerate(idx_plot):
+            [bins, sl_p1_events_trials, sl_p1_events_trials_shuffled, t_stat, p_value] = mscope.param_events_plot(param_trials, st_strides_trials,
+                                                                   df_events_extract_rawtrace, param_name, roi, p1,
+                                                                   p2, step_size, trials_compute, trials,
+                                                                   traces_type, cond_plot[count_t], stride_duration_trials, plot_data)
+            plt.close('all')
+        step_size = 2
+        p1 = 'FR'
+        p2 = 'FL'
+        nr_strides = 10
+        [bins, sl_p1_events_trials, sl_p1_events_trials_shuffled, t_stat, p_value] = mscope.param_events_plot(param_trials, st_strides_trials,
+                                                                   df_events_extract_rawtrace, param_name, roi, p1,
+                                                                   p2, step_size, trials, trials,
+                                                                   traces_type, 'all', stride_duration_trials, plot_data)
+        if count_t == 0:
+            sl_front_events_baseline[count_r,:] = sl_p1_events_trials
+            sl_front_events_baseline_shuffle[count_r, :] = sl_p1_events_trials_shuffled
+            t_stat_baseline[count_r] = t_stat
+            p_value_baseline[count_r] = p_value
+        if count_t == 1:
+            sl_front_events_split[count_r,:] = sl_p1_events_trials
+            sl_front_events_split_shuffle[count_r, :] = sl_p1_events_trials_shuffled
+            t_stat_split[count_r] = t_stat
+            p_value_split[count_r] = p_value
+        if count_t == 2:
+            sl_front_events_washout[count_r,:] = sl_p1_events_trials
+            sl_front_events_washout_shuffle[count_r, :] = sl_p1_events_trials_shuffled
+            t_stat_washout[count_r] = t_stat
+            p_value_washout[count_r] = p_value
+        plt.close('all')
 
 
 

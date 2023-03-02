@@ -56,7 +56,7 @@ for animal in animal_list:
     count_animal += 1
 Ntrials = np.int64(np.max(Ntrials_all))
 
-#symmery gait parameters
+#summary gait parameters
 count_animal = 0
 param_sym_name = ['coo','step_length','double_support','coo_stance','swing_length','phase_st','stance_speed']
 param_sym = np.zeros((len(param_sym_name),len(animal_list),Ntrials))
@@ -69,7 +69,7 @@ for animal in animal_list:
     for f in filelist:
         [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f,0.9,frames_dFF)
         [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks,1)
-        paws_rel = loco.get_paws_rel(final_tracks,bodycenter,'X')
+        paws_rel = loco.get_paws_rel(final_tracks,'X')
         count_p = 0
         for param in param_sym_name:
             param_mat = loco.compute_gait_param(bodycenter,final_tracks,paws_rel,st_strides_mat,sw_pts_mat,param)

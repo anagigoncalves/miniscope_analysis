@@ -1,3 +1,12 @@
+# My files
+.name
+miniscope_analysis.iml
+misc
+modules
+other
+vcs
+workspace
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

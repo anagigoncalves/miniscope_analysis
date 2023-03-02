@@ -323,7 +323,6 @@ def _indicator_ridge(x, scale_frequencies, ridge_kind, min_amplitude, frequency_
         rqf = np.roll(ridge_quantity, 1, axis=-2)
         rqb = np.roll(ridge_quantity, -1, axis=-2)
         # d/ds < 0. This assumes scale decreases in columns...
-        # TODO: add check that scale decreases in columns or change how we compute this
         result = np.logical_or(np.logical_and(rqb < 0, rqf >= 0), np.logical_and(rqb <= 0, rqf > 0))
         del rqf
         del rqb

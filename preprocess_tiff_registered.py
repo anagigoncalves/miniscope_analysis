@@ -11,8 +11,8 @@ import tifffile as tiff
 
 #%% Create registered tiffs
 #path inputs
-path = 'H:\\TM RAW FILES\\split contra fast 480\\MC13419\\2022_05_31\\'
-path_loco = 'J:\\TM TRACKING FILES\\split contra fast 480nm S1 310522\\'
+path = 'F:\\TM RAW FILES\\split contra fast\\MC9513\\2021_07_08\\'
+path_loco = 'F:\\TM TRACKING FILES\\split contra fast S2 080721\\'
 version_mscope = 'v4'
 #import classes
 os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
@@ -42,8 +42,8 @@ for t in trials:
 
 #%% Get registered tiffs and do downsampled version
 #path inputs
-path = 'H:\\TM RAW FILES\\split contra fast 480\\MC13419\\2022_05_31\\'
-path_loco = 'J:\\TM TRACKING FILES\\split contra fast 480nm S1 310522\\'
+path = 'F:\\TM RAW FILES\\split contra fast\\MC9513\\2021_07_08\\'
+path_loco = 'F:\\TM TRACKING FILES\\split contra fast S2 080721\\'
 version_mscope = 'v4'
 #import classes
 os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')

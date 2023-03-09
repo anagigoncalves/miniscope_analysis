@@ -7,8 +7,8 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # path inputs
-path = 'H:\\TM RAW FILES\\split contra fast 480\\MC13419\\2022_05_31\\'
-path_loco = 'H:\\TM TRACKING FILES\\split contra fast 480nm S1 310522\\'
+path = 'G:\\TM RAW FILES\\split contra fast\\MC9308\\2021_06_30\\'
+path_loco = 'G:\\TM TRACKING FILES\\split contra fast S2 300621\\'
 session_type = path.split('\\')[-4].split(' ')[0]
 version_mscope = 'v4'
 plot_data = 1
@@ -47,6 +47,16 @@ ops_s2p = mscope.get_s2p_parameters()
 print(ops_s2p)
 session_type = path.split(mscope.delim)[-4].split(' ')[0]  # tied or split
 colors_session = mscope.colors_session(session_type, trials, 1)
+# import matplotlib as mp
+# greys = mp.cm.get_cmap('Greys', 23)
+# #orange is slow
+# oranges = mp.cm.get_cmap('Oranges', 23)
+# purples = mp.cm.get_cmap('Purples', 23)
+# colors_session = {1: greys(23), 2: greys(21), 3: greys(19), 4: greys(17), 5: greys(15), 6: greys(13),
+#     7: greys(12), 8: greys(10), 9: greys(8), 10: greys(6), 11: greys(4), 12: greys(2),
+#     13: purples(23), 14: purples(21), 15: purples(19), 16: purples(17), 17: purples(15), 18: purples(13),
+#                   19: purples(11), 20: purples(9),
+#     21: oranges(23), 22: oranges(19), 23: oranges(16), 24: oranges(13), 25: oranges(10), 26: oranges(6)}
 [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal)
 if session_type == 'split':
     colors_phases = ['black', 'crimson', 'teal']
@@ -69,7 +79,7 @@ if load_data == 0:
     [coord_ext, df_extract_allframes] = mscope.read_extract_output(thrs_spatial_weights, frame_time, trials)
 
     # Good periods after motion correction
-    th = 0.0095 # change with the notes from EXCEL
+    th = 0.009 # change with the notes from EXCEL
     [x_offset, y_offset, corrXY] = mscope.get_reg_data()  # registration bad moments
     if len(del_trials_index)>0:
         trial_beg = np.insert(trial_length_cumsum[:-1], 0, 0)
@@ -108,7 +118,7 @@ if load_data == 0:
     # Data as clusters
     centroid_ext = mscope.get_roi_centroids(coord_ext_curated)
     distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 0.65
+    th_cluster = 0.85
     colormap_cluster = 'hsv'
     [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
                                                                       distance_neurons, trials_baseline, th_cluster,
@@ -132,7 +142,7 @@ if load_data:
     time_cumulative = mscope.cumulative_time(df_extract_rawtrace_detrended, trials)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
     distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 0.65
+    th_cluster = 0.85
     colormap_cluster = 'hsv'
     [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
                                                                       distance_neurons, trials_baseline, th_cluster,
@@ -198,7 +208,7 @@ for count_trial, f in enumerate(filelist):
     sw_strides_trials.append(sw_pts_mat)
     param_trials.append(loco.compute_gait_param(bodycenter, final_tracks, paws_rel, st_strides_mat, sw_pts_mat, param_name))
     param_trials_fr_mean[count_trial] = np.nanmean(param_trials[-1][0])-np.nanmean(param_trials[-1][2])
-final_tracks_trials_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials, 'st-st')
+# final_tracks_trials_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials, 'st-st')
 
 # SL sym curve across trials
 mscope.plot_sl_sym_session(param_trials_fr_mean, trials_ses, trials, session_type, colors_session, plot_data, print_plots)
@@ -221,8 +231,8 @@ df_extract_rawtrace_detrended_zscore = mscope.norm_traces(df_extract_rawtrace_de
 df_extract_rawtrace_detrended_zscore_clustered = df_extract_rawtrace_detrended_zscore[clusters_rois_flat]
 
 # raw signal clustered
-time_beg_vec = np.arange(0, 15, 1)
-time_end_vec = np.arange(1, 15 + 1, 1)
+time_beg_vec = np.arange(0, 60, 5)
+time_end_vec = np.arange(5, 60 + 5, 5)
 mscope.response_time_population_avg(df_extract_rawtrace_detrended_zscore_clustered, [time_beg_vec[0]],
                                     [time_end_vec[0]], clusters_rois, cluster_transition_idx, 'raw', 'cluster',
                                     plot_data, print_plots)

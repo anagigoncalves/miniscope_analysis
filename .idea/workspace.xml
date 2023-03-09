@@ -4,10 +4,28 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
+<<<<<<< HEAD
+<<<<<<< HEAD
+    <list default="true" id="00d1fd9a-b50a-4acc-8dac-1eda272eb224" name="Changes" comment="updated traces files and files with events (not optimized event detection)">
+      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Checkout_at_20_02_2022_19_00__Changes_.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Checkout_at_20_02_2022_19_00__Changes_.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+=======
+    <list default="true" id="966785ed-030e-4e39-9b07-be622fd4c57c" name="Changes" comment="test new event detection">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Neruopil_analysis.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Population_plots_split.py" beforeDir="false" afterPath="$PROJECT_DIR$/Population_plots_split.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ROI_analysis.py" beforeDir="false" afterPath="$PROJECT_DIR$/ROI_analysis.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/SlopeThreshold.py" beforeDir="false" afterPath="$PROJECT_DIR$/SlopeThreshold.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/miniscope_session_class.py" beforeDir="false" afterPath="$PROJECT_DIR$/miniscope_session_class.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/reg_concat_tiffs_extract.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test.py" beforeDir="false" />
+>>>>>>> ana-goncalves
+=======
 <<<<<<< Updated upstream
     <list default="true" id="519ae963-bddf-4c2f-b361-f79fcd409ff4" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/preprocess_tiff_registered.py" beforeDir="false" afterPath="$PROJECT_DIR$/preprocess_tiff_registered.py" afterDir="false" />
+>>>>>>> ana-goncalves
     </list>
 =======
     <list default="true" id="519ae963-bddf-4c2f-b361-f79fcd409ff4" name="Changes" comment="" />
@@ -17,6 +35,15 @@
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+<<<<<<< HEAD
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
+  <component name="ProjectId" id="29NI4IVG13UZh5M0DZDGCHfhSUd" />
+=======
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
@@ -38,7 +65,16 @@
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
+<<<<<<< HEAD
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="ProjectErrors" />
+  </component>
+  <component name="ProjectId" id="24SwBVVfaIcReRrn8wY8dUhxNSH" />
+>>>>>>> ana-goncalves
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+=======
   <component name="ProjectId" id="2D4pzkA40dfDKvskPUUHWWQrYch" />
+>>>>>>> ana-goncalves
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -61,8 +97,56 @@
   <component name="PropertiesComponent">
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+<<<<<<< HEAD
+<<<<<<< HEAD
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task id="LOCAL-00001" summary="updated traces files and files with events (not optimized event detection)">
+      <created>1645383934978</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1645383934978</updated>
+    </task>
+    <task id="LOCAL-00002" summary="updated traces files and files with events (not optimized event detection)">
+      <created>1645383978805</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1645383978805</updated>
+    </task>
+    <task id="LOCAL-00003" summary="updated traces files and files with events (not optimized event detection)">
+      <created>1645383991947</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1645383991947</updated>
+    </task>
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="00d1fd9a-b50a-4acc-8dac-1eda272eb224" name="Changes" comment="updated traces files and files with events (not optimized event detection)" />
+      <created>1652946928876</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1652946928876</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
+=======
+    <property name="last_opened_file_path" value="$USER_HOME$/Downloads/SlopeThreshold (1).py" />
+    <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
+    <property name="settings.editor.selected.configurable" value="PyConsoleConfigurable.Python Console" />
+  </component>
+  <component name="PyConsoleOptionsProvider">
+    <option name="myPythonConsoleState">
+      <console-settings sdk-home="C:\Users\Ana\.conda\envs\mscope\python.exe" working-directory="$PROJECT_DIR$">
+        <option name="mySdkHome" value="C:\Users\Ana\.conda\envs\mscope\python.exe" />
+        <option name="myWorkingDirectory" value="$PROJECT_DIR$" />
+      </console-settings>
+    </option>
+=======
     <property name="last_opened_file_path" value="$PROJECT_DIR$/test.py" />
     <property name="settings.editor.selected.configurable" value="preferences.keymap" />
+>>>>>>> ana-goncalves
   </component>
 >>>>>>> Stashed changes
   <component name="RunManager" selected="Python.test">
@@ -125,6 +209,25 @@
       <updated>1659968475641</updated>
       <workItem from="1672147383245" duration="703000" />
     </task>
+<<<<<<< HEAD
+    <task id="LOCAL-00004" summary="JR detrend and event detection">
+      <created>1655711923084</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1655711923084</updated>
+    </task>
+    <task id="LOCAL-00005" summary="test new event detection">
+      <created>1655712537408</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1655712537408</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
+>>>>>>> ana-goncalves
+=======
+>>>>>>> ana-goncalves
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -135,10 +238,46 @@
       <map>
         <entry key="MAIN">
           <value>
+<<<<<<< HEAD
+<<<<<<< HEAD
             <State />
+=======
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="ana-goncalves" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
+>>>>>>> ana-goncalves
+=======
+            <State />
+>>>>>>> ana-goncalves
           </value>
         </entry>
       </map>
     </option>
   </component>
+<<<<<<< HEAD
+  <component name="VcsManagerConfiguration">
+<<<<<<< HEAD
+    <MESSAGE value="updated traces files and files with events (not optimized event detection)" />
+    <option name="LAST_COMMIT_MESSAGE" value="updated traces files and files with events (not optimized event detection)" />
+=======
+    <MESSAGE value="registered, high constrast and residuals tiffs; update roi_curation function" />
+    <MESSAGE value="residuals movie, updated roi_curation function" />
+    <MESSAGE value="populations plots retreat, JR detrend and event detection" />
+    <MESSAGE value="JR detrend and event detection" />
+    <MESSAGE value="test new event detection" />
+    <option name="LAST_COMMIT_MESSAGE" value="test new event detection" />
+>>>>>>> ana-goncalves
+  </component>
+=======
+>>>>>>> ana-goncalves
 </project>

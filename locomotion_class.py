@@ -33,6 +33,7 @@ import nptdms as tdms
 class loco_class:
     
     def __init__(self,path):
+        self.trial_time = 60 #seconds
         self.path = path
         self.delim = self.path[-1]
         path_split = self.path.split(self.delim)
@@ -113,7 +114,7 @@ class loco_class:
                     cumulative_idx.append(cumulative_idx[-1] + 1)
             param_all.extend(param)
             if count_t > 0:  # cumulative time
-                param_all_time.extend(param_time + param_all_time[-1])
+                param_all_time.extend(param_time + self.trial_time*(t-1))
             else:
                 param_all_time.extend(param_time)
         if remove_nan:

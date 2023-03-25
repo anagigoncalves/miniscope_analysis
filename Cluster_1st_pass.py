@@ -7,8 +7,8 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # path inputs
-path = 'I:\\TM RAW FILES\\split ipsi fast\\MC9513\\2021_07_09\\'
-path_loco = 'I:\\TM TRACKING FILES\\split ipsi fast S3 090721\\'
+path = 'K:\\TM RAW FILES\\split contra fast\\MC9226\\2021_06_14\\'
+path_loco = 'K:\\TM TRACKING FILES\\split contra fast S3 140621\\'
 session_type = path.split('\\')[-4].split(' ')[0]
 version_mscope = 'v4'
 plot_data = 1
@@ -78,7 +78,7 @@ if load_data == 0:
     [coord_ext, df_extract_allframes] = mscope.read_extract_output(thrs_spatial_weights, frame_time, trials)
 
     # Good periods after motion correction
-    th = 0.0105 # change with the notes from EXCEL
+    th = 0.010 # change with the notes from EXCEL
     [x_offset, y_offset, corrXY] = mscope.get_reg_data()  # registration bad moments
     if len(del_trials_index)>0:
         trial_beg = np.insert(trial_length_cumsum[:-1], 0, 0)
@@ -116,7 +116,7 @@ if load_data == 0:
     # Data as clusters
     centroid_ext = mscope.get_roi_centroids(coord_ext_curated)
     distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 0.55
+    th_cluster = 0.65
     colormap_cluster = 'hsv'
     [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
                                                                       distance_neurons, trials_baseline, th_cluster,
@@ -143,7 +143,7 @@ if load_data:
     time_cumulative = mscope.cumulative_time(df_extract_rawtrace_detrended, trials)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
     distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 0.55
+    th_cluster = 0.65
     colormap_cluster = 'hsv'
     [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
                                                                       distance_neurons, trials_baseline, th_cluster,

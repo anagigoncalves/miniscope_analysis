@@ -56,8 +56,7 @@ class loco_class:
         A[np.isnan(A)] = np.interp(x, xp, fp)
         return A
 
-    @staticmethod
-    def param_continuous_sym(param_trials, st_strides_trials, trials, p1, p2, sym, remove_nan):
+    def param_continuous_sym(self, param_trials, st_strides_trials, trials, p1, p2, sym, remove_nan):
         """Compute a parameter across all trials and correspondent time, if wanted compute symmetry using another paw
         Inputs:
         param_trials. list with the param values for each trial all strides

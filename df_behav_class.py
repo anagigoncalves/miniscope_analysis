@@ -17,8 +17,9 @@ from scipy.signal import savgol_filter, find_peaks
 class df_behav_analysis:
     
     
+    
     def __init__(self,path):
-        self.save_path = 'C:\\Users\\User\\Desktop\\Climbing fibers and instructive error signals\\Figures\\'
+        self.save_path = 'C:\\Users\\User\\Carey Lab Dropbox\\Rotation Carey\\Francesco and Ana G\\Figures\\'
         self.pixel_to_mm = 1/1.955 #dana's setup
         self.sr_cam = 326 #sampling rate of behavior camera for treadmill
         self.sr = 30
@@ -26,6 +27,7 @@ class df_behav_analysis:
         self.trial_length = 0
         self.tied_speed = 0.225
         self.split_speed = [0.150, 0.300]
+    
     
     
     @staticmethod
@@ -40,6 +42,103 @@ class df_behav_analysis:
         return A
     
     
+    
+    def fr_distr_trial(self, df, trials, clusters_rois, colors_clusters, colors_session, save_plot):
+        ''' Compute and plot firing rate distribution per trial and mean firing rate per trial (both average and by cluster)
+        Inputs:
+            - df = DataFrame of events for each ROI
+            - trials = list of trials
+            - clusters_rois = list of ROIs belonging to each cluster
+            - colors_clusters = list of colors for the clusters
+            - colors_session = list of colors for the session
+            - save_plot = boolean (1 = save figures)
+        '''
+        # Plot firing rates distribution for each trial
+        trial_fr = []
+        for trial in range(trials[0], len(trials)+1):
+            trial_data = df[df['trial'] == trial].iloc[:, 2:]
+            trial_fr.append(trial_data.mean(axis=0) * self.sr)  # Multiply by 30 to get Hz
+        # Get minimum and maximum firing rates across all trials
+        min_fr = np.min([np.min(x) for x in trial_fr])
+        max_fr = np.max([np.max(x) for x in trial_fr])
+        std_fr = np.array([np.std(series) for series in trial_fr])
+        # Plot firing rate histograms for each trial in a separate figure
+        for i, trial_fr_data in enumerate(trial_fr):
+            fig, axs = plt.subplots(1, 1, figsize=(5, 5))
+            axs.hist(trial_fr_data, bins=30, color='gray', alpha=0.5)
+            axs.axvline(trial_fr_data.mean(), color='red', linestyle='dashed', linewidth=2, label='Mean Firing Rate')
+            axs.axvline(np.median(trial_fr_data), color='blue', linestyle='dashed', linewidth=2, label='Median Firing Rate')
+            axs.set_title(f'Trial {i+1}')
+            axs.set_xlabel('Firing Rate (Hz)')
+            axs.set_ylabel('Count')
+            axs.set_xlim([min_fr, max_fr])
+            axs.set_ylim([0, np.max([ax.get_ylim()[1] for ax in fig.axes])])
+            axs.legend()
+            plt.show()
+        # Save
+            if save_plot:
+                if not os.path.exists(os.path.join(self.save_path, 'fr_distr')):
+                    os.mkdir(os.path.join(self.save_path, 'fr_distr'))
+                plt.savefig(os.path.join(self.save_path, 'fr_distr\\','fr_distr' + str(i) + '.png'), dpi=self.my_dpi)
+                
+        # Plot median firing rate across trials
+        median_fr = [np.mean(x) for x in trial_fr]
+        fig2, ax2 = plt.subplots(figsize=(6, 8))
+        ax2.plot(range(trials[0], len(trials)+1), median_fr, c='k', alpha = 0.7, linewidth = 1.5)
+        # ax2.errorbar(range(trials[0], len(trials)+1), median_fr, yerr=std_fr, fmt='none', ecolor='k', alpha = 0.7, capsize=3)
+        for count_t, t in enumerate(trials):
+            idx_trial = np.where(trials==t)[0][0]
+            ax2.scatter(t, median_fr[idx_trial], s=100, color=colors_session[t], alpha = 1)
+        ax2.axvspan(3.5, 13.5, facecolor='gray', alpha=0.4)
+        plt.yticks(fontsize=16)
+        plt.xticks(fontsize=16)
+        ax2.set_xlabel('Trials', fontsize=18)
+        ax2.set_ylabel('Mean Firing Rate (Hz)', fontsize=18)
+        ax2.spines['right'].set_visible(False)
+        ax2.spines['top'].set_visible(False)
+        plt.show()
+        # Save
+        if save_plot:
+            plt.savefig(os.path.join(self.save_path, 'fr_distr\\','fr_mean.png'), dpi=self.my_dpi)
+            
+        # Plot median firing rate across trials by cluster
+        # Sort ROIs by cluster
+        clusters_rois_flat = np.transpose(sum(clusters_rois, []))
+        clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
+        clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
+        cluster_transition_idx = np.cumsum([len(clusters_rois[c]) for c in range(len(clusters_rois))]) - 1
+        df = df[clusters_rois_flat]
+        trial_fr=[]
+        for trial in range(1,len(trials)+2):
+            arr = df[df['trial'] == trial].iloc[:, 2:]
+            trial_fr.append(arr.mean(axis=0) * self.sr)  # Multiply by 30 to get Hz
+        trial_fr = pd.concat(trial_fr, axis=1)
+        means = {}
+        for col in trial_fr.columns:
+            col_data = trial_fr[col]
+            sections = np.split(col_data, cluster_transition_idx[:-1])
+            section_means = [np.mean(section) for section in sections]
+            means[col] = section_means
+        fr_clust = pd.DataFrame(means)
+        t = np.arange(1, len(trials)+2)
+        fig = plt.figure(figsize=(6, 8))
+        for i in range(0, len(fr_clust)):
+            plt.plot(t, fr_clust.iloc[i, :], marker='.', c=colors_clusters[i], markersize=10, linewidth=1.5)
+        plt.xlabel('Trials', fontsize=18)
+        plt.ylabel('Mean firing rate (Hz)', fontsize=18)
+        plt.xticks(fontsize=16)
+        plt.yticks(fontsize=16)
+        ax = plt.gca()
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        plt.tight_layout()
+        ax.axvspan(3.5, 13.5, facecolor='gray', alpha=0.4)
+        plt.show()
+        if save_plot:
+            plt.savefig(os.path.join(self.save_path, 'fr_distr\\','fr_mean_clust.png'), dpi=self.my_dpi)
+    
+    
+
     def df_behav_align(self, df_zs, df_clust, clusters_rois, frame_time, final_tracks_trials, sl_time_all_array, sl_sym_all_array, trials, plot_type, window, save_plot):
         '''Align dF/F (population heatmap or clusters traces) to behavior and plot the result for desired trials and windows. 
         Behaviors computed by the function are: body position (x-axis), speed, acceleration, step-length symmetry.
@@ -70,7 +169,9 @@ class df_behav_analysis:
         
         # Loop through trials
         for trial in range(trials[0], len(trials)+1):
-            fig, axs = plt.subplots(5, 1, figsize=(12, 8))
+            height_ratios = [2, 1, 1, 1, 1]
+            gs_kw = dict(height_ratios=height_ratios)
+            fig, axs = plt.subplots(5, 1, figsize=(12, 8), gridspec_kw=gs_kw)
         # Neural activity
             if plot_type == 'popul_heatmap': # Population dF/F heatmap
                 df_trial = df_zs.loc[df_zs['trial'] == trial].iloc[beg*self.sr:end*self.sr, 2:] # Get df/f for the desired trial and interval
@@ -114,9 +215,6 @@ class df_behav_analysis:
             axs[1].spines['bottom'].set_visible(False)
             axs[1].tick_params(left=False, bottom=False)
             bodyspeed_trial = savgol_filter(self.inpaint_nans(bodycenter_trial),51,3,deriv=1) # Get body speed
-            # if trial < 4 or trial > 13:
-            #     bodyspeed_trial = bodyspeed_trial + self.tied_speed
-            # else:
             sns.lineplot(x=t, y=bodyspeed_trial, ax=axs[2])
             axs[2].set_xlim([beg, end])
             axs[2].set_ylim([-1, 2])            
@@ -173,3 +271,105 @@ class df_behav_analysis:
                     if not os.path.exists(os.path.join(self.save_path, 'dF_traces_behav_aligned_beg')):
                         os.mkdir(os.path.join(self.save_path, 'dF_traces_behav_aligned_beg'))
                     plt.savefig(os.path.join(self.save_path, 'dF_traces_behav_aligned_beg\\','dF_traces_behav_trial' + str(trial) + 'beg.png'), dpi=self.my_dpi)
+
+
+
+    def phasemap(self, final_tracks_trials_phase, df_events_trace_clusters, bcam_time, colors_cluster, p1, st_align, save_plot):
+        '''Plot the phasemap for couple of paws and overimpose spikes
+        Inputs:
+            - final_tracks_trials_phase
+            - df_events_trace_clusters
+            - bcam_time
+            - colors_cluster
+            - p1
+            - save_plot
+            
+            Add sw-st-sw option, 0-100 and event plotting selection
+        '''
+        p = np.array([0, 1, 2, 3])
+        p = np.delete(p, np.where(p == p1))
+        paws = ['FR','HR','FL','HL']
+    
+        for n in range(0,len(p)):
+            if st_align == False:
+                for tr in range(0,23):
+                    fig, ax = plt.subplots()
+                    plt.scatter(final_tracks_trials_phase[tr][0, p[n], :], final_tracks_trials_phase[tr][0, p1, :], s=3, c="gray", marker=".")
+                    ax.set_xlim(0, 1)
+                    ax.set_ylim(0, 1)
+                    ax.set_xticks([0, 1])
+                    ax.set_yticks([0, 1])
+                    ax.tick_params(axis='both', which='major', labelsize=12)
+                    ax.spines['right'].set_visible(False)
+                    ax.spines['top'].set_visible(False)
+                    ax.spines['bottom'].set_linewidth(1.2)
+                    ax.spines['left'].set_linewidth(1.2)
+                    ax.set_xlabel(paws[p[n]] + ' St-St Phase', fontsize=18)
+                    ax.set_ylabel(paws[p1] + ' St-St Phase', fontsize=18)
+                    fig.suptitle('Trial ' + str(tr+1), fontsize=18)
+                    plt.show()
+                    df_tr = df_events_trace_clusters.loc[df_events_trace_clusters['trial'] == tr+1].iloc[:, 2:]
+                    event_idx = []
+                    event_clust = []
+                    for i in range(len(df_tr.index)):
+                          for j in range(len(df_tr.columns)):
+                              if df_tr.iloc[i, j] == 1:
+                                event_idx.append(i)
+                                event_clust.append(j)
+                    event_ts = [df_events_trace_clusters['time'][i] for i in event_idx]
+                    ts_idx = np.array([np.where(bcam_time[tr] == bcam_time[tr][np.abs(bcam_time[tr] - t).argmin()])[0][0] for t in event_ts])
+                    colors = [colors_cluster[cluster] for cluster in event_clust]
+                    plt.scatter(final_tracks_trials_phase[tr][0, p[n], ts_idx], final_tracks_trials_phase[tr][0,  p1, ts_idx], s=5, c=colors, marker="o")
+                    if save_plot:
+                        if not os.path.exists(os.path.join(self.save_path, 'phasemaps_' + paws[p[n]] + 'x' + paws[p1])):
+                            os.mkdir(os.path.join(self.save_path, 'phasemaps_' + paws[p[n]] + 'x' + paws[p1]))
+                        plt.savefig(os.path.join(self.save_path, 'phasemaps_' + paws[p[n]] + 'x' + paws[p1] + '\\','trial' + str(tr+1) + '.png'), dpi=self.my_dpi)
+            else:    
+                st_pts_trials = []
+                for tr in range (0,23):
+                    st_pts = np.where(final_tracks_trials_phase[tr][0, p[n], :] == 0)[0]
+                    st_pts_trials.append(st_pts)
+                    # plt.figure()
+                    # plt.plot(final_tracks_trials_phase[tr][0, 0, :])
+                    # plt.scatter(st_pts, final_tracks_trials_phase[tr][0, 0, st_pts], color='red', marker='o')
+                    
+                st_centered_phase = []
+                for tr in range(0,23):
+                    center_on_st = [val - 1 if val > 0.5 else val for val in final_tracks_trials_phase[tr][0, p[n], :]]
+                    st_centered_phase.append(center_on_st)
+                st_centered_phase = [np.array(l) for l in st_centered_phase]
+                
+                for tr in range(0,23):
+                    fig, ax = plt.subplots()
+                    plt.scatter(st_centered_phase[tr], final_tracks_trials_phase[tr][0, p1, :], s=3, c="gray", marker=".")
+                    ax.set_xlim(-0.5, 0.5)
+                    ax.set_ylim(0, 1)
+                    ax.set_xticks([-0.5, 0, 0.5])
+                    ax.set_yticks([0, 1])
+                    ax.tick_params(axis='both', which='major', labelsize=12)
+                    ax.spines['right'].set_visible(False)
+                    ax.spines['top'].set_visible(False)
+                    ax.spines['bottom'].set_linewidth(1.2)
+                    ax.spines['left'].set_linewidth(1.2)
+                    ax.axvline(x=0, color='red', linestyle = '--')
+                    ax.text(0, 1.02, 'St', ha='center', fontsize=12, color='red')
+                    ax.set_xlabel(paws[p[n]] + ' Stance Phase', fontsize=18)
+                    ax.set_ylabel(paws[p1] + ' St-St Phase', fontsize=18)
+                    fig.suptitle('Trial ' + str(tr+1), fontsize=18)
+                    plt.show()
+                    df_tr = df_events_trace_clusters.loc[df_events_trace_clusters['trial'] == tr+1].iloc[:, 2:]
+                    event_idx = []
+                    event_clust = []
+                    for i in range(len(df_tr.index)):
+                         for j in range(len(df_tr.columns)):
+                              if df_tr.iloc[i, j] == 1:
+                                event_idx.append(i)
+                                event_clust.append(j)
+                    event_ts = [df_events_trace_clusters['time'][i] for i in event_idx]
+                    ts_idx = np.array([np.where(bcam_time[tr] == bcam_time[tr][np.abs(bcam_time[tr] - t).argmin()])[0][0] for t in event_ts])
+                    colors = [colors_cluster[cluster] for cluster in event_clust]
+                    plt.scatter(st_centered_phase[tr][ts_idx], final_tracks_trials_phase[tr][0,  p1, ts_idx], s=5, c=colors, marker="o")
+                    if save_plot:
+                        if not os.path.exists(os.path.join(self.save_path, 'phasemaps_' + paws[p[n]] + 'x' + paws[p1])):
+                            os.mkdir(os.path.join(self.save_path, 'phasemaps_' + paws[p[n]] + 'x' + paws[p1]))
+                        plt.savefig(os.path.join(self.save_path, 'phasemaps_' + paws[p[n]] + 'x' + paws[p1] + '\\','trial' + str(tr+1) + '.png'), dpi=self.my_dpi)

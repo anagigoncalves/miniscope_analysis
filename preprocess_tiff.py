@@ -10,7 +10,7 @@ import glob
 import os
 import matplotlib.pyplot as plt
 
-path = 'E:\\TM RAW FILES\\split ipsi fast\\MC9226\\2021_06_13\\'
+path = 'F:\\TM RAW FILES\\split contra fast\\MC9194\\2021_07_02\\'
 delim = path[-1]
 if delim == '/':
     path_output = path+'/Suite2p'

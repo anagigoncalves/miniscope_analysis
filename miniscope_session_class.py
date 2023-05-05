@@ -461,20 +461,53 @@ class miniscope_session:
         return colors_session
 
     @staticmethod
-    def get_session_data(trials, session_type, animal):
+    def get_session_data(trials, session_type, animal, session):
         """Get the transition trials, different phases name and the different trials for each phase of the session
         Inputs:
         trials: list of trials
         session_type: (str) split or tied
-        animal: (str) name animal"""
+        animal: (str) name animal
+        session: (int) session number"""
         if session_type == 'tied' and animal == 'MC8855':
             trials_ses = np.array([[1, 3], [4, 6]])
             trials_ses_name = ['baseline speed', 'fast speed']
             cond_plot = ['baseline', 'fast']
-        if session_type == 'tied' and animal != 'MC8855':
+        if session_type == 'tied' and animal == 'MC9194':
             trials_ses = np.array([[1, 6], [7, 12], [13, 18]])
             trials_ses_name = ['baseline speed', 'slow speed', 'fast speed']
             cond_plot = ['baseline', 'slow', 'fast']
+        if session_type == 'tied' and animal == 'MC9308':
+            trials_ses = np.array([[1, 6], [7, 12], [13, 18]])
+            trials_ses_name = ['baseline speed', 'slow speed', 'fast speed']
+            cond_plot = ['baseline', 'slow', 'fast']
+        if session_type == 'tied' and animal == 'MC9513':
+            trials_ses = np.array([[1, 6], [7, 12], [13, 18]])
+            trials_ses_name = ['baseline speed', 'slow speed', 'fast speed']
+            cond_plot = ['baseline', 'slow', 'fast']
+        if session_type == 'tied' and animal == 'MC13419':
+            trials_ses = np.array([[1, 6], [7, 12], [13, 18]])
+            trials_ses_name = ['baseline speed', 'fast speed', 'slow speed']
+            cond_plot = ['baseline', 'fast', 'slow']
+        if session_type == 'tied' and animal == 'MC13420':
+            trials_ses = np.array([[1, 6], [7, 12], [13, 18]])
+            trials_ses_name = ['baseline speed', 'fast speed', 'slow speed']
+            cond_plot = ['baseline', 'fast', 'slow']
+        if session_type == 'tied' and animal == 'MC10221' and session == 2:
+            trials_ses = np.array([[1, 6], [7, 12], [13, 18]])
+            trials_ses_name = ['baseline speed', 'slow speed', 'fast speed']
+            cond_plot = ['baseline', 'slow', 'fast']
+        if session_type == 'tied' and animal == 'MC10221' and session == 1:
+            trials_ses = np.array([[1, 6], [7, 12], [13, 18]])
+            trials_ses_name = ['slow speed', 'baseline speed', 'fast speed']
+            cond_plot = ['slow', 'baseline', 'fast']
+        if session_type == 'tied' and animal == 'MC9226' and session == 2:
+            trials_ses = np.array([[1, 12], [13, 20], [21, 26]])
+            trials_ses_name = ['baseline speed', 'fast speed', 'slow speed']
+            cond_plot = ['baseline', 'fast', 'slow']
+        if session_type == 'tied' and animal == 'MC9226' and session == 3:
+            trials_ses = np.array([[1, 6], [7, 12], [13, 18]])
+            trials_ses_name = ['slow speed', 'baseline speed', 'fast speed']
+            cond_plot = ['slow', 'baseline', 'fast']
         if session_type == 'split' and animal == 'MC8855':
             trials_ses = np.array([[1, 3], [4, 13], [14, 23]])
             trials_ses_name = ['baseline', 'early split', 'late split', 'early washout']
@@ -491,10 +524,14 @@ class miniscope_session:
             trials_baseline = np.array([1, 2, 3, 4, 5, 6])
             trials_split = np.array([7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
             trials_washout = np.array([17, 18, 19, 20, 21, 22, 23, 24, 25, 26])
-        elif len(trials) < 24:
+        elif len(trials) < 24 and session_type == 'tied':
             trials_baseline = np.arange(trials_ses[0, 0], trials_ses[0, -1]+1)
             trials_split = trials
             trials_washout = trials
+        elif animal=='MC9226' and session==1:
+            trials_baseline = np.array([1, 2, 3, 4, 5, 6])
+            trials_split = np.array([7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+            trials_washout = np.array([17, 18, 19, 20, 21, 22, 23])
         return trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout
 
     @staticmethod

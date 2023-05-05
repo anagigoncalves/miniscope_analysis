@@ -59,7 +59,9 @@ for s in range(len(session_data)):
     corr_data_all.append(corr_data)
 
 cmap = plt.get_cmap('magma')
-color_animals = [cmap(i) for i in np.linspace(0, 1, int(np.shape(session_data)[0]))]
+color_animals = [cmap(i) for i in np.linspace(0, 1, 8)]
+#order
+#MC8855, MC9194, MC10221, MC9513, MC9226, MC9308, MC13419, MC13420
 fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True, sharey=True)
 for a in range(len(color_animals)):
     plt.scatter(corr_data_all[a][:, 0], corr_data_all[a][:, 1], s=15, color=color_animals[a])

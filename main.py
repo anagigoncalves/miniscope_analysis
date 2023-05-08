@@ -59,7 +59,7 @@ trials = mscope.get_trial_id()
 strobe_nr_txt = loco.bcam_strobe_number() 
 trial_start_blip_nr = loco.trial_start_blips()
 ops_s2p = mscope.get_s2p_parameters()
-print(ops_s2p)
+# print(ops_s2p)
 session_type = path.split(mscope.delim)[-4].split(' ')[0]  # tied or split
 colors_session = mscope.colors_session(session_type, trials, 1)
 [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal)
@@ -151,10 +151,31 @@ nxb.fr_distr_trial(df_events_extract_rawtrace, trials, clusters_rois, colors_clu
 # Isi, cv and cv2
 traces_type = 'raw'
 csv_name = 'MC8855_isi'
-isi_df = mscope.compute_isi(df_events_extract, traces_type, csv_name)
+isi_df = mscope.compute_isi(df_events_extract_rawtrace.iloc[0:trial_changes[0]], traces_type, csv_name)
 [isi_cv_df, isi_cv2_df] = mscope.compute_isi_cv(isi_df, trials)
 mean_isi = isi_df.iloc[:, 0].mean()
+print(mean_isi)
+median_isi = isi_df.iloc[:, 0].median()
+print(median_isi)
 std_isi = isi_df.iloc[:, 0].std()
+print(std_isi)
+p15 = np.quantile(isi_df.iloc[:, 0].dropna(), 0.15)
+print(p15)
+min_isi = isi_df.iloc[:, 0].min()
+print(min_isi)
+max_isi = isi_df.iloc[:, 0].max()
+print(max_isi)
+bin_size = 0.05
+fig, ax = plt.subplots()
+ax.hist(isi_df.iloc[:, 0], bins=int((max_isi-min_isi)/bin_size), color = 'gray')
+plt.axvline(median_isi, color='red', linestyle = '--')
+ax.set_xlabel('ISI (s)', fontsize=15)
+ax.set_ylabel('Count', fontsize=15)
+ax.set_xlim(0, 2)
+ax.tick_params(axis='both', which='major', labelsize=12)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+plt.show()
 
 
 # Population cross-correlation
@@ -166,8 +187,37 @@ mscope.compute_clustered_traces_events_correlations(df_events_extract_rawtrace, 
 # df = mscope.norm_traces(df_extract_rawtrace_detrended, norm_name = 'zscore', axis = 'trial') # Normalize dF/F traces
 df = df_events_extract_rawtrace
 plot_type = 'popul_raster'  # 'popul_heatmap', 'cluster_traces' or 'popul_raster'
-window = [0, 60]
+window = [0, 1]
 nxb.df_behav_align(df, clusters_rois, frame_time, final_tracks_trials, sl_time_all_array, sl_sym_all_array, trials, plot_type, window, save_plot = False)
+
+
+# Spike-triggered average
+# # Compute matrix of events by cluster 
+# clusters_rois_flat = np.transpose(sum(clusters_rois, []))
+# clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
+# clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
+# cluster_transition_idx = np.cumsum([len(clusters_rois[c]) for c in range(len(clusters_rois))]) - 1
+# df = df_events_extract_rawtrace[clusters_rois_flat].iloc[:,2:]
+# # Compute sums for each cluster
+# cluster_spikes = []
+# start = 0
+# for end in cluster_transition_idx:
+#     cluster_sum = np.sum(df.iloc[:, start:end+1], axis=1)
+#     cluster_spikes.append(cluster_sum)
+#     start = end+1
+# # Set values to 1 if sum is greater than 0
+# cluster_spikes = np.vstack(cluster_spikes).T  # Transpose to have frames as rows
+# df_events_clust = pd.DataFrame(np.where(cluster_spikes > 0, 1, 0))
+# df_events_clust.columns = ['cluster1', 'cluster2', 'cluster3', 'cluster4', 'cluster5']
+from scipy import stats
+df_events = df_events_extract_rawtrace.iloc[0:2000, 2:]
+behavior = bodycenter_aligned[0:2000]
+mean_behav = np.mean(behavior)
+behavior_zs = stats.zscore(behavior)
+# behavior_perc = (behavior - mean_behav) / mean_behav * 100
+window = np.arange(-8, 8 + 1) # define the time window in samples
+behav_name = 'Body position'
+nxb.sta(df_events, behavior_zs, behav_name, window, save_plot = False)
 
 
 # Phase maps
@@ -183,6 +233,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 df = df_trace_clusters_ave.iloc[:, 2:]
 # df = df_extract_rawtrace_detrended.iloc[:, 2:]
+
 
 # Standardize the data
 scaler = StandardScaler()

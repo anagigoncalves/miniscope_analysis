@@ -11,6 +11,7 @@ import pandas as pd
 import os
 import seaborn as sns
 from scipy.signal import savgol_filter, find_peaks
+from scipy import stats
 
 
 class df_behav_analysis:  
@@ -134,11 +135,12 @@ class df_behav_analysis:
         end = window[1]
         
         # Sort ROIs by cluster
-        clusters_rois_flat = np.transpose(sum(clusters_rois, []))
-        clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
-        clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
-        cluster_transition_idx = np.cumsum([len(clusters_rois[c]) for c in range(len(clusters_rois))]) - 1
-        df = df[clusters_rois_flat]
+        if plot_type == 'popul_heatmap' or plot_type == 'popul_raster':
+            clusters_rois_flat = np.transpose(sum(clusters_rois, []))
+            clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
+            clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
+            cluster_transition_idx = np.cumsum([len(clusters_rois[c]) for c in range(len(clusters_rois))]) - 1
+            df = df[clusters_rois_flat]
         
         # Loop through trials
         for trial in range(trials[0], len(trials)+1):
@@ -175,22 +177,19 @@ class df_behav_analysis:
             elif plot_type == 'popul_raster': # Population raster plot
                     spikes = df.loc[df['trial'] == trial].iloc[beg*self.sr:end*self.sr, 2:].values
                     ts = df.loc[df['trial'] == trial].iloc[beg*self.sr:end*self.sr, 1].values
-                    spikes_idx_all = []
-                    spikes_ts_all = []
                     for i in range(spikes.shape[1]):
                         # Get the indices of all spike events and respective timestamps for each column
                         spikes_idx = np.where(spikes[:, i] == 1)[0]
                         spikes_ts = ts[spikes_idx]
-                        spikes_idx_all.append(spikes_idx)
-                        spikes_ts_all.append(spikes_ts)
                         axs[0].vlines(spikes_ts, (i+1) - 0.8, (i+1) + 0.8, color = 'grey')
                     axs[0].set_xlim([0, ts[-1]])
-                    axs[0].set_ylabel('Neuron #')
+                    axs[0].set_ylabel('ROIs')
                     axs[0].spines['right'].set_visible(False)
                     axs[0].spines['top'].set_visible(False)
                     axs[0].spines['bottom'].set_visible(False)
                     axs[0].tick_params(left=False, bottom=False)
                     axs[0].set(xticklabels=[]) 
+                    axs[0].set(yticklabels=[])
                     plt.show()
                             
         # Behavior
@@ -360,4 +359,44 @@ class df_behav_analysis:
                     if save_plot:
                         if not os.path.exists(os.path.join(self.save_path, 'phasemaps_' + paws[p[n]] + 'x' + paws[p1])):
                             os.mkdir(os.path.join(self.save_path, 'phasemaps_' + paws[p[n]] + 'x' + paws[p1]))
-                        plt.savefig(os.path.join(self.save_path, 'phasemaps_' + paws[p[n]] + 'x' + paws[p1] + '\\','trial' + str(tr+1) + '.png'), dpi=self.my_dpi)
+                        plt.savefig(os.path.join(self.save_path, 'phasemaps_' + paws[p[n]] + 'x' + paws[p1] + '\\','trial' + str(tr+1) + '.png'), dpi=self.my_dpi)                        
+                        
+
+    def sta(self, df_events, behavior, behav_name, window, save_plot):
+        signal_chunks = []
+        sta = []
+        # sta_std = []
+        # Loop over each column 
+        for i in range(df_events.shape[1]):
+            # Get the indices of all spike events for this column
+            spike_idx = np.where(df_events.iloc[:, i] == 1)[0]
+            # Loop over each spike index and extract the corresponding signal chunk
+            for j in spike_idx:
+                # Check that the window around this index does not extend past the beginning or end of the signal
+                if j + window[0] >= 0 and j + window[-1] < behavior.shape[0]:
+                    # Extract the signal chunk and append it to the list
+                    signal_chunks.append(behavior[j + window[0]:j + window[-1] + 1])
+            
+            sta.append(np.mean(signal_chunks, axis=0))
+            # sta_std.append(np.std(signal_chunks, axis=0))    
+        max_val = max(max(arr) for arr in sta)
+        min_val = min(min(arr) for arr in sta)
+        for i in range(len(sta)):
+            plt.figure()
+            plt.plot(window*(1/self.sr), sta[i])
+            # upper_bound = sta[i] + sta_std[i]
+            # lower_bound = sta[i] - sta_std[i]
+            # plt.fill_between(window*(1/30), upper_bound, lower_bound, alpha=0.2)
+            plt.ylim([min_val, max_val])
+            plt.axvline(x=0, color='k', linewidth = 1.5)
+            plt.xlabel('Time around spike event (s)')
+            plt.ylabel(behav_name)
+            plt.title(df_events.columns[i])
+            ax = plt.gca()
+            ax.spines['right'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            if save_plot:
+                if not os.path.exists(os.path.join(self.save_path, 'STA')):
+                    os.mkdir(os.path.join(self.save_path, 'STA'))
+                plt.savefig(os.path.join(self.save_path, 'STA_' + df_events.columns[i] + '.png'), dpi=self.my_dpi)                        
+        plt.show()

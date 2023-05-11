@@ -383,8 +383,7 @@ class miniscope_session:
                     peaks.append(IncremSet[i][1] + peak_idx)
         return np.array(peaks)
 
-    @staticmethod
-    def colors_session(session_type, trials, bar_boolean):
+    def colors_session(self, animal, session_type, trials, bar_boolean):
         """Get the colors of trials for this particular session"""
         greys = mp.cm.get_cmap('Greys', 14)
         reds = mp.cm.get_cmap('Reds', 23)
@@ -405,12 +404,17 @@ class miniscope_session:
                                       9: oranges(16), 10: oranges(13), 11: oranges(10), 12: oranges(6), 13: purples(23), 14: purples(19),
                                       15: purples(16), 16: purples(13), 17: purples(10), 18: purples(6)}
             if session_type == 'split':
-                if len(trials) == 23:
+                if len(trials) == 23 and animal == 'MC8855':
                     colors_session = {1: greys(12), 2: greys(7), 3: greys(4), 4: reds(23), 5: reds(21), 6: reds(19), 7: reds(17), 8: reds(15),
                                       9: reds(13),
                                       10: reds(11), 11: reds(9), 12: reds(7), 13: reds(5), 14: blues(23), 15: blues(21), 16: blues(19), 17: blues(17),
                                       18: blues(15), 19: blues(13),
                                       20: blues(11), 21: blues(9), 22: blues(7), 23: blues(5)}
+                if len(trials) == 23 and animal == 'MC9226':
+                    colors_session = {1: greys(14), 2: greys(12), 3: greys(10), 4: greys(8), 5: greys(6), 6: greys(4), 7: reds(23), 8: reds(21),
+                                      9: reds(19), 10: reds(17), 11: reds(15), 12: reds(13),
+                                      13: reds(11), 14: reds(9), 15: reds(7), 16: reds(5), 17: blues(23), 18: blues(21), 19: blues(19), 20: blues(17),
+                                      21: blues(15), 22: blues(13), 23: blues(11)}
                 if len(trials) > 23:
                     colors_session = {1: greys(14), 2: greys(12), 3: greys(10), 4: greys(8), 5: greys(6), 6: greys(4), 7: reds(23), 8: reds(21),
                                       9: reds(19), 10: reds(17), 11: reds(15), 12: reds(13),
@@ -453,23 +457,57 @@ class miniscope_session:
                                       19: blues(19), 20: blues(17),
                                       21: blues(15), 22: blues(13),
                                       23: blues(11), 24: blues(9), 25: blues(7), 26: blues(5)}
+        np.save(os.path.join(self.path, 'processed files', 'colors_session.npy'), colors_session)
         return colors_session
 
     @staticmethod
-    def get_session_data(trials, session_type, animal):
+    def get_session_data(trials, session_type, animal, session):
         """Get the transition trials, different phases name and the different trials for each phase of the session
         Inputs:
         trials: list of trials
         session_type: (str) split or tied
-        animal: (str) name animal"""
+        animal: (str) name animal
+        session: (int) session number"""
         if session_type == 'tied' and animal == 'MC8855':
             trials_ses = np.array([[1, 3], [4, 6]])
             trials_ses_name = ['baseline speed', 'fast speed']
             cond_plot = ['baseline', 'fast']
-        if session_type == 'tied' and animal != 'MC8855':
+        if session_type == 'tied' and animal == 'MC9194':
             trials_ses = np.array([[1, 6], [7, 12], [13, 18]])
             trials_ses_name = ['baseline speed', 'slow speed', 'fast speed']
             cond_plot = ['baseline', 'slow', 'fast']
+        if session_type == 'tied' and animal == 'MC9308':
+            trials_ses = np.array([[1, 6], [7, 12], [13, 18]])
+            trials_ses_name = ['baseline speed', 'slow speed', 'fast speed']
+            cond_plot = ['baseline', 'slow', 'fast']
+        if session_type == 'tied' and animal == 'MC9513':
+            trials_ses = np.array([[1, 6], [7, 12], [13, 18]])
+            trials_ses_name = ['baseline speed', 'slow speed', 'fast speed']
+            cond_plot = ['baseline', 'slow', 'fast']
+        if session_type == 'tied' and animal == 'MC13419':
+            trials_ses = np.array([[1, 6], [7, 12], [13, 18]])
+            trials_ses_name = ['baseline speed', 'fast speed', 'slow speed']
+            cond_plot = ['baseline', 'fast', 'slow']
+        if session_type == 'tied' and animal == 'MC13420':
+            trials_ses = np.array([[1, 6], [7, 12], [13, 18]])
+            trials_ses_name = ['baseline speed', 'fast speed', 'slow speed']
+            cond_plot = ['baseline', 'fast', 'slow']
+        if session_type == 'tied' and animal == 'MC10221' and session == 2:
+            trials_ses = np.array([[1, 6], [7, 12], [13, 18]])
+            trials_ses_name = ['baseline speed', 'slow speed', 'fast speed']
+            cond_plot = ['baseline', 'slow', 'fast']
+        if session_type == 'tied' and animal == 'MC10221' and session == 1:
+            trials_ses = np.array([[1, 6], [7, 12], [13, 18]])
+            trials_ses_name = ['slow speed', 'baseline speed', 'fast speed']
+            cond_plot = ['slow', 'baseline', 'fast']
+        if session_type == 'tied' and animal == 'MC9226' and session == 2:
+            trials_ses = np.array([[1, 12], [13, 20], [21, 26]])
+            trials_ses_name = ['baseline speed', 'fast speed', 'slow speed']
+            cond_plot = ['baseline', 'fast', 'slow']
+        if session_type == 'tied' and animal == 'MC9226' and session == 3:
+            trials_ses = np.array([[1, 6], [7, 12], [13, 18]])
+            trials_ses_name = ['slow speed', 'baseline speed', 'fast speed']
+            cond_plot = ['slow', 'baseline', 'fast']
         if session_type == 'split' and animal == 'MC8855':
             trials_ses = np.array([[1, 3], [4, 13], [14, 23]])
             trials_ses_name = ['baseline', 'early split', 'late split', 'early washout']
@@ -486,10 +524,14 @@ class miniscope_session:
             trials_baseline = np.array([1, 2, 3, 4, 5, 6])
             trials_split = np.array([7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
             trials_washout = np.array([17, 18, 19, 20, 21, 22, 23, 24, 25, 26])
-        elif len(trials) < 24:
+        elif len(trials) < 24 and session_type == 'tied':
             trials_baseline = np.arange(trials_ses[0, 0], trials_ses[0, -1]+1)
             trials_split = trials
             trials_washout = trials
+        elif animal=='MC9226' and session==1:
+            trials_baseline = np.array([1, 2, 3, 4, 5, 6])
+            trials_split = np.array([7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+            trials_washout = np.array([17, 18, 19, 20, 21, 22, 23])
         return trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout
 
     @staticmethod
@@ -666,6 +708,11 @@ class miniscope_session:
         y_offset = ops[()]['yoff']  # y shifts in registration
         x_offset = ops[()]['xoff']  # x shifts in registration
         corrXY = ops[()]['corrXY']  # phase correlation between ref image and each frame
+        if not os.path.exists(self.path + 'processed files'):
+            os.mkdir(self.path + 'processed files')
+        np.save(os.path.join(self.path, 'processed files', 'x_offsets.npy'), x_offset)
+        np.save(os.path.join(self.path, 'processed files', 'y_offsets.npy'), y_offset)
+        np.save(os.path.join(self.path, 'processed files', 'corrXY_frames.npy'), corrXY)
         return x_offset, y_offset, corrXY
 
     def corr_FOV_movement(self, th, df_dFF, corrXY):
@@ -729,7 +776,7 @@ class miniscope_session:
             ax[1].set_title('ROIs height and Y max and min offsets', fontsize=self.fsize - 4)
         return [coord_ext_nomotion, df_extract]
 
-    def correlation_signal_motion(self, df_extract, x_offset, y_offset, trial, idx_to_nan, plot_data, print_plots):
+    def correlation_signal_motion(self, df_extract, x_offset, y_offset, trial, idx_to_nan, traces_type, plot_data, print_plots):
         """Function to compute the ROIs signal correlation with the shift of the FOV done during motion correction-
         It outputs the correlation plot between the traces and the FOV offsets and an example ROI trace with the shifts.
         Inputs:
@@ -738,6 +785,7 @@ class miniscope_session:
             y_offset: y shift of frames during motion correction
             trial: (int) example trial to do this computation
             idx_to_nan: indices of frames to make nan, parts where motion was large
+            traes_type: (str) raw deconv or cluster
             plot_data: boolean
             print_plots: boolean"""
         data = np.transpose(np.array(df_extract.loc[df_extract['trial'] == trial].iloc[:, 2:]))
@@ -764,36 +812,36 @@ class miniscope_session:
         y_offset_clean_norm = (y_offset_clean - np.max(y_offset_clean)) / (
                 np.max(y_offset_clean) - np.min(y_offset_clean))
         if plot_data:
-            r = np.random.randint(1, roi_nr + 1)
+            r = np.random.choice(df_extract.columns[2:])
             df_extract_norm = self.norm_traces(df_extract, 'min_max', 'session')
             fig, ax = plt.subplots(2, 1, figsize=(20, 10), tight_layout=True)
             ax = ax.ravel()
-            ax[0].plot(np.array(df_extract_norm.loc[df_extract['trial'] == trial, 'ROI' + str(r)]), color='darkgrey')
+            ax[0].plot(np.array(df_extract_norm.loc[df_extract_norm['trial'] == trial, r]), color='darkgrey')
             ax[0].plot(
                 x_offset_clean_norm[
-                    np.array(df_extract_norm.loc[df_extract_norm['trial'] == trial, 'ROI' + str(r)].index)],
+                    np.array(df_extract_norm.loc[df_extract_norm['trial'] == trial, r].index)],
                 color='blue')
             ax[0].spines['right'].set_visible(False)
             ax[0].spines['top'].set_visible(False)
             ax[0].set_title('Example ROI trace with X offset', fontsize=self.fsize - 4)
-            ax[1].plot(np.array(df_extract_norm.loc[df_extract_norm['trial'] == trial, 'ROI' + str(r)]),
+            ax[1].plot(np.array(df_extract_norm.loc[df_extract_norm['trial'] == trial, r]),
                        color='darkgrey')
             ax[1].plot(
                 y_offset_clean_norm[
-                    np.array(df_extract_norm.loc[df_extract_norm['trial'] == trial, 'ROI' + str(r)].index)],
+                    np.array(df_extract_norm.loc[df_extract_norm['trial'] == trial, r].index)],
                 color='blue')
             ax[1].spines['right'].set_visible(False)
             ax[1].spines['top'].set_visible(False)
             ax[1].set_title('Example ROI trace with Y offset', fontsize=16)
 
             fig, ax = plt.subplots(figsize=(10, 7), tight_layout=True)
-            ax.plot(np.arange(1, roi_nr + 1), p_corrcoef[:, 0], color='blue', marker='o',
+            ax.plot(df_extract.columns[2:], p_corrcoef[:, 0], color='blue', marker='o',
                     label='correlation of trace with x shifts')
-            ax.plot(np.arange(1, roi_nr + 1), p_corrcoef[:, 1], color='orange', marker='o',
+            ax.plot(df_extract.columns[2:], p_corrcoef[:, 1], color='orange', marker='o',
                     label='correlation of trace with y shifts')
             ax.legend(frameon=False, fontsize=self.fsize - 6)
             ax.set_title('Correlation of traces with FOV shift during motion correction', fontsize=self.fsize - 4)
-            ax.set_xticks(np.arange(1, roi_nr + 1)[::10])
+            ax.set_xticks(df_extract.columns[2:][::10])
             ax.set_xticklabels(list(df_extract.columns[2::10]))
             ax.set_xlabel('ROI ID', fontsize=self.fsize - 6)
             ax.set_ylabel('Correlation coefficient', fontsize=self.fsize - 6)
@@ -802,7 +850,7 @@ class miniscope_session:
             ax.tick_params(axis='x', labelsize=self.fsize - 6)
             ax.tick_params(axis='y', labelsize=self.fsize - 6)
             if print_plots:
-                plt.savefig(os.path.join(self.path, 'images', 'corr_trace_motionreg_shifts'),
+                plt.savefig(os.path.join(self.path, 'images', 'corr_trace_motionreg_shifts_'+traces_type),
                             dpi=self.my_dpi)
         return p_corrcoef
 
@@ -2014,6 +2062,8 @@ class miniscope_session:
         idx_roi_cluster_ordered = np.load(os.path.join(self.path, 'processed files', 'clusters_rois_idx_order.npy'), allow_pickle=True)
         ref_image = np.load(os.path.join(self.path, 'processed files', 'ref_image.npy'), allow_pickle=True)
         frames_dFF = np.load(os.path.join(self.path, 'processed files', 'black_frames.npy'), allow_pickle=True)
+        # colors_session = np.load(os.path.join(self.path, 'processed files', 'colors_session.npy'), allow_pickle=True)
+        # return df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames, trials, clusters_rois, colors_cluster, colors_session, idx_roi_cluster_ordered, ref_image, frames_dFF
         return df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames, trials, clusters_rois, colors_cluster, idx_roi_cluster_ordered, ref_image, frames_dFF
 
     def load_processed_files_clusters(self):
@@ -2142,9 +2192,9 @@ class miniscope_session:
                 count_t += 1
             count_r += 1
         if len(csv_name) > 0:
-            if not os.path.exists(self.path + 'processed files'):
-                os.mkdir(self.path + 'processed files')
-            df_events.to_csv(self.path + '\\processed files\\' + csv_name + '.csv', sep=',', index=False)
+            if not os.path.exists(os.path.join(self.path, 'processed files')):
+                os.mkdir(os.path.join(self.path, 'processed files'))
+            df_events.to_csv(os.path.join(self.path, 'processed files', csv_name + '.csv'), sep=',', index=False)
         return df_events
 
     def compute_isi(self, df_events, traces_type, csv_name):

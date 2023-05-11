@@ -18,8 +18,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'D:\\Miniscope processed files'
-session_data = pd.read_excel('D:\\session_data.xlsx')
+path_session_data = 'C:\\Users\\Ana\\Desktop\\Miniscope processed files\\'
+session_data = pd.read_excel('C:\\Users\\Ana\\Desktop\\Miniscope processed files\\session_data_all.xlsx')
 for s in range(len(session_data)):
     ses_info = session_data.iloc[s, :]
     date = ses_info[3]
@@ -38,7 +38,7 @@ for s in range(len(session_data)):
      clusters_rois, colors_cluster, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
 
     [trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
-    colors_session = mscope.colors_session(session_type, trials, 1)
+    colors_session = mscope.colors_session(animal, session_type, trials, 1)
     [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal)
     if session_type == 'split':
         colors_phases = ['black', 'crimson', 'teal']
@@ -125,5 +125,4 @@ for s in range(len(session_data)):
     ax.spines['top'].set_visible(False)
     if print_plots:
         plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'corr_summary_events_cluster_mean_raw'), dpi=mscope.my_dpi)
-
     plt.close('all')

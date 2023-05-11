@@ -1353,99 +1353,103 @@ class loco_class:
             animal: (str) animal name
             session: (int) session number
         Outputs:
-            triggers_ordered: (array) number of bcam triggers in each trial 
-            strobes_ordered: (array) number of bcam strobes in each trial (effective frames)
+            triggers: (array) number of bcam triggers in each trial
+            strobes: (array) number of bcam strobes in each trial (effective frames)
             frame_rec_start_full: (array) number of bcam frames to be discarded in beginning of trial
-            mscope_align_time_ordered: (array) time start of bcam after mscope cam
-            frame_time_bcam_ordered: (list) timestamps of bcam frames for each trial
+            mscope_align_time: (array) time start of bcam after mscope cam
+            frame_time_bcam: (list) timestamps of bcam frames for each trial
             """
-        delim = self.path[-1]
-        tdmslist = glob.glob(self.path+'*.tdms') 
-        h5list = glob.glob(self.path+'*.h5') 
+        tdmslist = glob.glob(self.path + '*.tdms')
+        h5list = glob.glob(self.path + '*.h5')
         tdms_sr = 10000
         h5filename = []
         for f in h5list:
-            if delim == '/':
+            if self.delim == '/':
                 h5filename.append(f.split('/')[-1])
-            if delim == '\\':
+            if self.delim == '\\':
                 h5filename.append(f.split('\\')[-1])
         h5_trialorder = []
         h5list_animal = []
         for f in h5filename:
             if f.split('_')[0] == animal and int(f.split('_')[7]) == session:
                 h5_trialorder.append(int(f.split('_')[8][:-3]))
-                h5list_animal.append(self.path+f)               
+                h5list_animal.append(self.path + f)
+        # order tdms list for the animal and session that are going to be computed
+        tdmslist_animal = []
+        for f in tdmslist:
+            if self.delim == '/':
+                filename = f.split('/')[-1]
+            else:
+                filename = f.split('\\')[-1]
+            filename_split = filename.split('_')
+            if filename_split[0] == animal and np.int64(filename_split[7]) == session:
+                tdmslist_animal.append(f)
+        trialorder_tdms = []
+        for f in tdmslist_animal:
+            if self.delim == '/':
+                filename = f.split('/')[-1]
+            else:
+                filename = f.split('\\')[-1]
+            filename_split = filename.split('_')
+            trialorder_tdms.append(np.int64(filename_split[8][:-5]))
+        trial_order_idx = np.argsort(trialorder_tdms)
+        tdmslist_animal_ordered = list(np.array(tdmslist_animal)[trial_order_idx])
         frame_nr = []
         trial = []
         triggers = []
         strobes = []
         frame_rec_start = []
-        mscope_align_time = [] #if miniscope start is before behavior cam (should never happen)
+        mscope_align_time = []  # if miniscope start is before behavior cam (should never happen)
         frame_time_bcam = []
-        for f in tdmslist:
-            if delim == '/':
-                filename = f.split('/')[-1]
+        for f in tdmslist_animal_ordered:
+            tdms_file = tdms.TdmsFile.read(f)
+            trial.append(int(filename.split('_')[-1][:-5]))
+            h5_trial = np.where(np.array(h5_trialorder) == int(filename.split('_')[-1][:-5]))[0][0]
+            track_df = pd.read_hdf(h5list_animal[h5_trial], 'df_with_missing')
+            frame_nr.append(track_df.shape[0])
+            tdms_groups = tdms_file.groups()
+            tdms_channels = tdms_groups[0].channels()
+            ch1 = tdms_channels[0].data  # triggers
+            ch2 = tdms_channels[1].data  # miniscope pulse
+            ch3 = tdms_channels[2].data  # strobes
+            triggers.append(len(np.where(np.diff(ch1) > 1)[0] + 1))
+            idx_peaks = np.where(np.diff(ch3) > 1)[0] + 1
+            cam_start = idx_peaks[0]
+            strobes.append(len(idx_peaks))
+            idx_miniscope_start = np.where(ch2)[0][0]  # tdms time point from bcam at which mscope frame started
+            frame_behavior_miniscope = len(np.where(idx_peaks < idx_miniscope_start)[
+                                               0]) + 1  # frame from bcam at which mscope frame started (tdms starts before trigger)
+            if frame_behavior_miniscope == 1:  # if miniscope start is before behavior cam (should never happen)
+                mscope_idx_0 = np.where(ch2 == 1)[0][0]
+                mscope_start = (cam_start - mscope_idx_0) / tdms_sr
+                mscope_align_time.append(mscope_start)
+                frame_rec_start.append(0)
+                frame_time_bcam.append(((
+                                                    idx_peaks - cam_start) / tdms_sr) + mscope_start)  # need to add to bcam time the difference of time since mscope started
             else:
-                filename = f.split('\\')[-1]
-            if filename.split('_')[0]==animal and int(filename.split('_')[7])==session:
-                tdms_file = tdms.TdmsFile.read(f)
-                trial.append(int(filename.split('_')[-1][:-5]))   
-                h5_trial = np.where(np.array(h5_trialorder) == int(filename.split('_')[-1][:-5]))[0][0]
-                track_df = pd.read_hdf(h5list_animal[h5_trial],'df_with_missing')
-                frame_nr.append(track_df.shape[0])
-                tdms_groups = tdms_file.groups()
-                tdms_channels = tdms_groups[0].channels()
-                ch1 = tdms_channels[0].data #triggers
-                ch2 = tdms_channels[1].data #miniscope pulse
-                ch3 = tdms_channels[2].data #strobes
-                triggers.append(len(np.where(np.diff(ch1)>1)[0]+1))
-                idx_peaks = np.where(np.diff(ch3)>1)[0]+1
-                cam_start = idx_peaks[0]
-                strobes.append(len(idx_peaks))
-                idx_miniscope_start = np.where(ch2)[0][0] #tdms time point from bcam at which mscope frame started
-                frame_behavior_miniscope = len(np.where(idx_peaks<idx_miniscope_start)[0])+1 #frame from bcam at which mscope frame started (tdms starts before trigger)
-                if frame_behavior_miniscope == 1: #if miniscope start is before behavior cam (should never happen)
-                    mscope_idx_0 = np.where(ch2==1)[0][0]
-                    mscope_start = (cam_start-mscope_idx_0)/tdms_sr 
-                    mscope_align_time.append(mscope_start)
-                    frame_rec_start.append(0)
-                    frame_time_bcam.append(((idx_peaks-cam_start)/tdms_sr)+mscope_start) #need to add to bcam time the difference of time since mscope started
-                else:
-                    frame_rec_start.append(frame_behavior_miniscope)
-                    mscope_start = 0
-                    mscope_align_time.append(mscope_start)
-                    cam_frames_time = (idx_peaks-idx_peaks[0])/tdms_sr
-                    frame_time_bcam.append(cam_frames_time) #bcam time starts from 0
-        trial_order = np.argsort(trial) #reorder trials  
-        triggers_ordered = np.zeros(len(triggers))
-        strobes_ordered = np.zeros(len(triggers))
-        frame_rec_start_ordered = np.zeros(len(triggers)) 
-        frame_nr_ordered = np.zeros(len(triggers))
-        mscope_align_time_ordered = np.zeros(len(triggers))
-        frame_time_bcam_ordered = []
-        for count_t, t in enumerate(trial_order):
-            triggers_ordered[t] = triggers[count_t]
-            strobes_ordered[t] = strobes[count_t]
-            frame_rec_start_ordered[t] = frame_rec_start[count_t]
-            frame_nr_ordered[t] = frame_nr[count_t]
-            mscope_align_time_ordered[t] = mscope_align_time[count_t]
-            frame_time_bcam_ordered.append(frame_time_bcam[count_t])
+                frame_rec_start.append(frame_behavior_miniscope)
+                mscope_start = 0
+                mscope_align_time.append(mscope_start)
+                cam_frames_time = (idx_peaks - idx_peaks[0]) / tdms_sr
+                frame_time_bcam.append(cam_frames_time)  # bcam time starts from 0
         if len(black_frames) == 0:
-            frame_rec_start_full = frame_rec_start_ordered
+            frame_rec_start_full = frame_rec_start
         else:
             frame_rec_start_full = np.zeros(len(triggers))
-            for i in range(len(trial_order)):
-                frame_rec_start_full[i] = frame_rec_start_ordered[i]+(black_frames[i]/30)*self.sr
-        #change frame_time_bcam to account for black frames that were excluded
+            for i in range(len(frame_rec_start)):
+                frame_rec_start_full[i] = frame_rec_start[i] + (black_frames[i] / 30) * self.sr
+        # change frame_time_bcam to account for black frames that were excluded
         bcam_time = []
-        for t in range(len(frame_time_bcam_ordered)):
-            if frame_rec_start_full[t]/self.sr > frame_time_bcam_ordered[t][0]: #if black frames is larger than the gap between mscope start and bcam start
-                bcam_time_clean = frame_time_bcam_ordered[t][int(frame_rec_start_full[t]):]
-                bcam_time.append(bcam_time_clean-bcam_time_clean[0]) #because extra frames will be deleted from tracking
+        for t in range(len(frame_time_bcam)):
+            if frame_rec_start_full[t] / self.sr > frame_time_bcam[t][
+                0]:  # if black frames is larger than the gap between mscope start and bcam start
+                bcam_time_clean = frame_time_bcam[t][int(frame_rec_start_full[t]):]
+                bcam_time.append(
+                    bcam_time_clean - bcam_time_clean[0])  # because extra frames will be deleted from tracking
             else:
-                bcam_time.append(frame_time_bcam_ordered[t])
+                bcam_time.append(frame_time_bcam[t])
                 frame_rec_start_full[t] = 0
-        return triggers_ordered, strobes_ordered,frame_rec_start_full,mscope_align_time_ordered,bcam_time
+        return triggers, strobes, frame_rec_start_full, mscope_align_time, bcam_time
     
     def backwards_locomotion(self,bodycenter,plot_data):
         """Function to get indices of trial where animal was being dragged backwards by treadmill

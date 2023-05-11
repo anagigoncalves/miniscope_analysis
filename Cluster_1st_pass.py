@@ -8,8 +8,8 @@ import matplotlib as mp
 warnings.filterwarnings('ignore')
 
 # path inputs
-path = 'J:\\TM RAW FILES\\split ipsi fast\\MC9226\\2021_06_09\\'
-path_loco = 'J:\\TM TRACKING FILES\\split ipsi fast S1 090621\\'
+path = 'E:\\Miniscope processed files\\TM RAW FILES\\split ipsi fast\\MC8855\\2021_04_05\\'
+path_loco = 'E:\\Miniscope processed files\\TM TRACKING FILES\\split ipsi fast S1 050421\\'
 session_type = path.split('\\')[-4].split(' ')[0]
 version_mscope = 'v4'
 plot_data = 1

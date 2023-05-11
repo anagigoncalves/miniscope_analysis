@@ -19,7 +19,7 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'E:\\Miniscope processed files'
-session_data = pd.read_excel('E:\\Miniscope processed files\\session_data_split_ipsi.xlsx')
+session_data = pd.read_excel('E:\\Miniscope processed files\\session_data_split_S1.xlsx')
 event_count_loco_split_all = []
 event_count_loco_washout_all = []
 event_count_loco_baseline_all = []
@@ -94,7 +94,7 @@ def get_colors_plot(animal_name, color_animals):
     return color_plot
 
 animals = ['MC8855', 'MC9194', 'MC10221', 'MC9513', 'MC9226', 'MC9308', 'MC13419', 'MC13420']
-fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True, sharey=True)
+fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True, sharey=True)
 for i in range(len(event_count_loco_split_all)):
     plt.scatter(np.repeat(3, len(event_count_loco_split_all[i]))+np.random.rand(len(event_count_loco_split_all[i])), event_count_loco_split_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
     plt.scatter(np.repeat(5, len(event_count_loco_washout_all[i]))+np.random.rand(len(event_count_loco_washout_all[i])), event_count_loco_washout_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
@@ -116,9 +116,9 @@ ax.set_ylabel('FR forward locomotion', fontsize=mscope.fsize - 4)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 6)
-plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_phases'), dpi=mscope.my_dpi)
+plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_phases_S1'), dpi=mscope.my_dpi)
 
-fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True, sharey=True)
+fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True, sharey=True)
 for i in range(len(event_count_loco_split_all)):
     plt.scatter(3 + np.random.rand(1)[0], event_count_loco_split_all[i][0], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
     plt.scatter(5 + np.random.rand(1)[0], event_count_loco_washout_all[i][0], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
@@ -140,6 +140,6 @@ ax.set_ylabel('FR forward locomotion', fontsize=mscope.fsize - 4)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 6)
-plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_initial_error_after_effect'), dpi=mscope.my_dpi)
+plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_initial_error_after_effect_S1'), dpi=mscope.my_dpi)
 
 

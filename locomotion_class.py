@@ -1424,8 +1424,7 @@ class loco_class:
                 mscope_start = (cam_start - mscope_idx_0) / tdms_sr
                 mscope_align_time.append(mscope_start)
                 frame_rec_start.append(0)
-                frame_time_bcam.append(((
-                                                    idx_peaks - cam_start) / tdms_sr) + mscope_start)  # need to add to bcam time the difference of time since mscope started
+                frame_time_bcam.append((( idx_peaks - cam_start) / tdms_sr) + mscope_start)  # need to add to bcam time the difference of time since mscope started
             else:
                 frame_rec_start.append(frame_behavior_miniscope)
                 mscope_start = 0

@@ -55,8 +55,10 @@ for s in range(len(session_data)):
     # Load behavioral data
     filelist = loco.get_track_files(animal, session)
     st_strides_trials = []
+    final_tracks_trials = []
     for count_trial, f in enumerate(filelist):
         [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f, 0.9, int(frames_loco[count_trial]))
+        final_tracks_trials.append(final_tracks)
         [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
         st_strides_trials.append(st_strides_mat)
 
@@ -104,9 +106,8 @@ def get_colors_plot(animal_name, color_animals):
         color_plot = color_animals[7]
     return color_plot
 
-#CONSIDER DOING ONLY S1 SESSIONS, OR S2
 animals = ['MC8855', 'MC9194', 'MC10221', 'MC9513', 'MC9226', 'MC9308', 'MC13419', 'MC13420']
-fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True, sharey=True)
+fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True, sharey=True)
 for i in range(len(event_count_loco_slow_all)):
     plt.scatter(np.repeat(1, len(event_count_loco_slow_all[i]))+np.random.rand(len(event_count_loco_slow_all[i])), event_count_loco_slow_all[i], s=15, color=get_colors_plot(event_count_loco_animals[i], color_animals))
     plt.scatter(np.repeat(5, len(event_count_loco_fast_all[i]))+np.random.rand(len(event_count_loco_fast_all[i])), event_count_loco_fast_all[i], s=15, color=get_colors_plot(event_count_loco_animals[i], color_animals))

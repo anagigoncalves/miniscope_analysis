@@ -46,9 +46,8 @@ strobe_nr_txt = loco.bcam_strobe_number()
 trial_start_blip_nr = loco.trial_start_blips()
 ops_s2p = mscope.get_s2p_parameters()
 print(ops_s2p)
-session_type = path.split(mscope.delim)[-4].split(' ')[0]  # tied or split
 colors_session = mscope.colors_session(animal, session_type, trials, 1)
-[trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal)
+[trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
 trials_ses = np.array([[1, 6], [7, 16], [17, 23]])
 if session_type == 'split':
     colors_phases = ['black', 'crimson', 'teal']

@@ -39,7 +39,7 @@ class loco_class:
         path_split = self.path.split(self.delim)
         self.experiment = path_split[-3]
         self.pixel_to_mm = 1/1.955 #dana's setup
-        #self.pixel_to_mm = 0.83647 #jovin setup
+        # self.pixel_to_mm = 1/1.98 #jovin setup
         self.sr = 330 #sampling rate of behavior camera for treadmill
         self.sr_F = 30
         self.my_dpi = 96 #resolution for plotting

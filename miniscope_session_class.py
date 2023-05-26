@@ -385,6 +385,7 @@ class miniscope_session:
 
     def colors_session(self, animal, session_type, trials, bar_boolean):
         """Get the colors of trials for this particular session"""
+        #TODO wtf is bar_boolean
         greys = mp.cm.get_cmap('Greys', 14)
         reds = mp.cm.get_cmap('Reds', 23)
         blues = mp.cm.get_cmap('Blues', 23)
@@ -1872,10 +1873,10 @@ class miniscope_session:
             for count_line, r in enumerate(roi_list_ordered[::plot_ratio]):
                 count_r = np.where(r == roi_list_ordered)[0][0]
                 plt.plot(dFF_trial.loc[dFF_trial['trial'] == trial_plot, 'time'], dFF_trial[r] + count_line, color=colors[idx_ordered[count_r] - 1])
-            ax.set_xlabel('Time (s)', fontsize=self.fsize - 4)
-            ax.set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=self.fsize - 4)
-            plt.xticks(fontsize=self.fsize - 4)
-            plt.yticks(fontsize=self.fsize - 4)
+            ax.set_xlabel('Time (s)', fontsize=self.fsize - 2)
+            ax.set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=self.fsize - 2)
+            plt.xticks(fontsize=self.fsize - 2)
+            plt.yticks(fontsize=self.fsize - 2)
             plt.setp(ax.get_yticklabels(), visible=False)
             ax.tick_params(axis='y', which='y', length=0)
             ax.spines['right'].set_visible(False)

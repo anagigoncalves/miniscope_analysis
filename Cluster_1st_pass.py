@@ -8,8 +8,8 @@ import matplotlib as mp
 warnings.filterwarnings('ignore')
 
 # path inputs
-path = 'J:\\TM RAW FILES\\split ipsi fast\\MC9226\\2021_06_09\\'
-path_loco = 'J:\\TM TRACKING FILES\\split ipsi fast S1 090621\\'
+path = 'E:\\Miniscope processed files\\TM RAW FILES\\split ipsi fast\\MC8855\\2021_04_05\\'
+path_loco = 'E:\\Miniscope processed files\\TM TRACKING FILES\\split ipsi fast S1 050421\\'
 session_type = path.split('\\')[-4].split(' ')[0]
 version_mscope = 'v4'
 plot_data = 1
@@ -46,9 +46,8 @@ strobe_nr_txt = loco.bcam_strobe_number()
 trial_start_blip_nr = loco.trial_start_blips()
 ops_s2p = mscope.get_s2p_parameters()
 print(ops_s2p)
-session_type = path.split(mscope.delim)[-4].split(' ')[0]  # tied or split
 colors_session = mscope.colors_session(animal, session_type, trials, 1)
-[trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal)
+[trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
 trials_ses = np.array([[1, 6], [7, 16], [17, 23]])
 if session_type == 'split':
     colors_phases = ['black', 'crimson', 'teal']
@@ -70,7 +69,7 @@ if load_data == 0:
     [coord_ext, df_extract_allframes] = mscope.read_extract_output(thrs_spatial_weights, frame_time, trials)
 
     # Good periods after motion correction
-    th = 0.0105 # change with the notes from EXCEL
+    th = 0.0103 # change with the notes from EXCEL
     [x_offset, y_offset, corrXY] = mscope.get_reg_data()  # registration bad moments
     if len(del_trials_index)>0:
         trial_beg = np.insert(trial_length_cumsum[:-1], 0, 0)
@@ -111,7 +110,7 @@ if load_data == 0:
     # Data as clusters
     centroid_ext = mscope.get_roi_centroids(coord_ext_curated)
     distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 0.7
+    th_cluster = 0.62
     colormap_cluster = 'hsv'
     [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
                                                                       distance_neurons, trials_baseline, th_cluster,
@@ -141,7 +140,7 @@ if load_data:
     time_cumulative = mscope.cumulative_time(df_extract_rawtrace_detrended, trials)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
     distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 0.65
+    th_cluster = 0.6
     colormap_cluster = 'hsv'
     [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
                                                                       distance_neurons, trials_baseline, th_cluster,

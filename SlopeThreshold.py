@@ -83,7 +83,7 @@ def Estim_Baseline_PosEvents(rawdata, acq_fq, dtau=0.2, bmax_tslope=3, filtcut=N
     # Cleaning minima that, between pairs, have positive slopes too big to be baseline
     idx = 0; valid_num = len(MinPnts); MinSel = MinPnts.copy()
     while True:
-        if SlopePnts[idx] > TrueStd*2/bmax_tslope:
+        if SlopePnts[idx] > (TrueStd*2/bmax_tslope):
             if idx == 0: prev = 0
             else: prev = MinSel[idx-1]
             if idx != len(MinSel) - 1:

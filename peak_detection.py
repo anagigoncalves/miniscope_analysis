@@ -29,7 +29,6 @@ rawdata = -loco.inpaint_nans(bodycenter_trials[0])
 Wn = 0.05 #0.1 for moving filter
 acq_fq = 330
 TimePntThres = 50
-AmpPntThres = 30 # or TrueStd*2
 
 # Filter the data
 if isinstance(Wn, float):
@@ -46,9 +45,9 @@ dff = np.where(dff < 0, np.zeros_like(dff), dff)  # Remove negative dff values
 
 # Find the most approximated noise amplitude estimation using the 'gaussian derivative' trick:
 TrueStd, deriv_mean, deriv_std = ST.DerivGauss_NoiseEstim(dff, thres=2)
-
+AmpPntThres = TrueStd*2
 # Use that noise amplitude to define regions of slope change / stability
-IncremSet, DecremSet, F_Values = ST.SlopeThreshold(rawdata_filtered, AmpPntThres, TimePntThres,
+IncremSet, DecremSet, F_Values = ST.SlopeThreshold(dff, AmpPntThres, TimePntThres,
                                                 CollapSeq=False, acausal=True, graph=None)
 Ev_Onset = np.array(list(map(lambda x: x[0], IncremSet)))
 Ev_Peaks = np.array(list(map(lambda x: x[1], IncremSet)))
@@ -89,11 +88,11 @@ for count_j, j in enumerate(Ev_Peak_max):
         Ev_Offset_sel.append(Ev_Offset_good[count_j])
 
 plt.figure()
-for i in range(len(Ev_Onset_sel)):
-    rectangle = plt.Rectangle((Ev_Onset_sel[i], np.max(rawdata)), Ev_Offset_sel[i]-Ev_Onset_sel[i],
-                          np.min(rawdata), fc='darkgrey', alpha=0.3, zorder=0)
-    plt.gca().add_patch(rectangle)
+# for i in range(len(Ev_Onset_sel)):
+#     rectangle = plt.Rectangle((Ev_Onset_sel[i], np.max(rawdata)), Ev_Offset_sel[i]-Ev_Onset_sel[i],
+#                           np.min(rawdata), fc='darkgrey', alpha=0.3, zorder=0)
+#     plt.gca().add_patch(rectangle)
 plt.plot(rawdata, color='black')
 plt.scatter(Ev_Peak_sel, rawdata[Ev_Peak_sel], s=150, marker = '.', c='k')
-# plt.scatter(Ev_Onset_sel, rawdata[Ev_Onset_sel], s=300, marker = '.', c='g')
-# plt.scatter(Ev_Offset_sel, rawdata[Ev_Offset_sel], s=150, marker = '.', c='r')
+plt.scatter(Ev_Onset_sel, rawdata[Ev_Onset_sel], s=300, marker = '.', c='g')
+plt.scatter(Ev_Offset_sel, rawdata[Ev_Offset_sel], s=150, marker = '.', c='r')

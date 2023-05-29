@@ -39,6 +39,7 @@ class loco_class:
         path_split = self.path.split(self.delim)
         self.experiment = path_split[-3]
         self.pixel_to_mm = 1/1.955 #dana's setup
+        # self.pixel_to_mm = 1/1.98 #jovin setup
         self.sr = 330 #sampling rate of behavior camera for treadmill
         self.sr_F = 30
         self.my_dpi = 96 #resolution for plotting
@@ -1424,8 +1425,7 @@ class loco_class:
                 mscope_start = (cam_start - mscope_idx_0) / tdms_sr
                 mscope_align_time.append(mscope_start)
                 frame_rec_start.append(0)
-                frame_time_bcam.append(((
-                                                    idx_peaks - cam_start) / tdms_sr) + mscope_start)  # need to add to bcam time the difference of time since mscope started
+                frame_time_bcam.append((( idx_peaks - cam_start) / tdms_sr) + mscope_start)  # need to add to bcam time the difference of time since mscope started
             else:
                 frame_rec_start.append(frame_behavior_miniscope)
                 mscope_start = 0

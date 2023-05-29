@@ -385,6 +385,7 @@ class miniscope_session:
 
     def colors_session(self, animal, session_type, trials, bar_boolean):
         """Get the colors of trials for this particular session"""
+        #TODO wtf is bar_boolean
         greys = mp.cm.get_cmap('Greys', 14)
         reds = mp.cm.get_cmap('Reds', 23)
         blues = mp.cm.get_cmap('Blues', 23)
@@ -516,11 +517,13 @@ class miniscope_session:
             trials_ses = np.array([[1, 6], [7, 16], [17, 26]])
             trials_ses_name = ['baseline', 'early split', 'late split', 'early washout']
             cond_plot = ['baseline', 'split', 'washout']
-        if (len(trials)>18) and (len(trials)<24):
+        if (len(trials)>18) and (len(trials)<24) and session_type == 'split':
+            trials_ses = np.array([[1, 3], [4, 13], [14, 23]])
             trials_baseline = np.array([1, 2, 3])
             trials_split = np.array([4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
             trials_washout = np.array([14, 15, 16, 17, 18, 19, 20, 21, 22, 23])
-        elif (len(trials)>23) and (len(trials)<27):
+        elif (len(trials)>23) and (len(trials)<27) and session_type == 'split':
+            trials_ses = np.array([[1, 6], [7, 16], [17, 26]])
             trials_baseline = np.array([1, 2, 3, 4, 5, 6])
             trials_split = np.array([7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
             trials_washout = np.array([17, 18, 19, 20, 21, 22, 23, 24, 25, 26])
@@ -529,6 +532,7 @@ class miniscope_session:
             trials_split = trials
             trials_washout = trials
         elif animal=='MC9226' and session==1:
+            trials_ses = np.array([[1, 6], [7, 16], [17, 23]])
             trials_baseline = np.array([1, 2, 3, 4, 5, 6])
             trials_split = np.array([7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
             trials_washout = np.array([17, 18, 19, 20, 21, 22, 23])
@@ -1872,10 +1876,10 @@ class miniscope_session:
             for count_line, r in enumerate(roi_list_ordered[::plot_ratio]):
                 count_r = np.where(r == roi_list_ordered)[0][0]
                 plt.plot(dFF_trial.loc[dFF_trial['trial'] == trial_plot, 'time'], dFF_trial[r] + count_line, color=colors[idx_ordered[count_r] - 1])
-            ax.set_xlabel('Time (s)', fontsize=self.fsize - 4)
-            ax.set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=self.fsize - 4)
-            plt.xticks(fontsize=self.fsize - 4)
-            plt.yticks(fontsize=self.fsize - 4)
+            ax.set_xlabel('Time (s)', fontsize=self.fsize - 2)
+            ax.set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=self.fsize - 2)
+            plt.xticks(fontsize=self.fsize - 2)
+            plt.yticks(fontsize=self.fsize - 2)
             plt.setp(ax.get_yticklabels(), visible=False)
             ax.tick_params(axis='y', which='y', length=0)
             ax.spines['right'].set_visible(False)
@@ -2062,9 +2066,9 @@ class miniscope_session:
         idx_roi_cluster_ordered = np.load(os.path.join(self.path, 'processed files', 'clusters_rois_idx_order.npy'), allow_pickle=True)
         ref_image = np.load(os.path.join(self.path, 'processed files', 'ref_image.npy'), allow_pickle=True)
         frames_dFF = np.load(os.path.join(self.path, 'processed files', 'black_frames.npy'), allow_pickle=True)
-        # colors_session = np.load(os.path.join(self.path, 'processed files', 'colors_session.npy'), allow_pickle=True)
-        # return df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames, trials, clusters_rois, colors_cluster, colors_session, idx_roi_cluster_ordered, ref_image, frames_dFF
-        return df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames, trials, clusters_rois, colors_cluster, idx_roi_cluster_ordered, ref_image, frames_dFF
+        colors_session = np.load(os.path.join(self.path, 'processed files', 'colors_session.npy'), allow_pickle=True)
+        colors_session = colors_session[()]
+        return df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames, trials, clusters_rois, colors_cluster, colors_session, idx_roi_cluster_ordered, ref_image, frames_dFF
 
     def load_processed_files_clusters(self):
         """Loads processed files that were saved under path/processed files for clustered data"""

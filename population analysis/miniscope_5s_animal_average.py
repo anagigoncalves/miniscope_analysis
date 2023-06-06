@@ -9,7 +9,7 @@ warnings.filterwarnings('ignore')
 version_mscope = 'v4'
 fsize = 24
 
-plot_protocol = 'split contra fast'
+plot_protocol = 'split ipsi fast'
 plot_session = 'S1'
 
 # import classes
@@ -37,11 +37,9 @@ for s in range(len(session_data)):
         # Session data and inputs
         animal = mscope.get_animal_id()
         session = loco.get_session_id()
-        # [df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames, trials,
-        #  clusters_rois, colors_cluster, colors_session, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
         [df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames, trials,
-         clusters_rois, colors_cluster, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
-        [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal)
+         clusters_rois, colors_cluster, colors_session, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
+        [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
         animal_in.append(animal)
 
         # Order ROIs by cluster
@@ -91,17 +89,36 @@ for s in range(len(session_data)):
         sl_animals.append(sl_trials-np.nanmean(sl_trials[trials_baseline-1]))
         ds_animals.append(ds_trials-np.nanmean(ds_trials[trials_baseline-1]))
 
-color_animals = ['black', 'indianred', 'maroon', 'darkorange', 'dodgerblue', 'mediumblue', 'dimgrey', 'darkorchid']
+cmap = plt.get_cmap('magma')
+color_animals = [cmap(i) for i in np.linspace(0, 1, 8)]
+def get_colors_plot(animal_name, color_animals):
+    if animal_name=='MC8855':
+        color_plot = color_animals[0]
+    if animal_name=='MC9194':
+        color_plot = color_animals[1]
+    if animal_name=='MC10221':
+        color_plot = color_animals[2]
+    if animal_name=='MC9513':
+        color_plot = color_animals[3]
+    if animal_name=='MC9226':
+        color_plot = color_animals[4]
+    if animal_name=='MC9308':
+        color_plot = color_animals[5]
+    if animal_name=='MC13419':
+        color_plot = color_animals[6]
+    if animal_name=='MC13420':
+        color_plot = color_animals[7]
+    return color_plot
 fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
 ax.add_patch(plt.Rectangle((6.5, -1.5), 10, 5, fc='lightgrey', alpha=0.3))
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
         if len(mean_data_animals[a][c]) == 23:
-            ax.plot(np.arange(4, 27), mean_data_animals[a][c], marker='o', color=color_animals[a], markersize=5)
-        elif len(mean_data_animals[a][c]) == 25: #if mc10221 misisng trial 10 if split contra fast S1
-            ax.plot(np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]), mean_data_animals[a][c], marker='o', color=color_animals[a], markersize=5)
+            ax.plot(np.arange(4, 27), mean_data_animals[a][c], marker='o', color=get_colors_plot(animal_in[a], color_animals), markersize=5)
+        elif len(mean_data_animals[a][c]) == 25: #if mc10221 missing trial 10 if split contra fast S1
+            ax.plot(np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]), mean_data_animals[a][c], marker='o', color=get_colors_plot(animal_in[a], color_animals), markersize=5)
         else:
-            ax.plot(np.arange(1, 27), mean_data_animals[a][c], marker='o', color=color_animals[a], markersize=5)
+            ax.plot(np.arange(1, 27), mean_data_animals[a][c], marker='o', color=get_colors_plot(animal_in[a], color_animals), markersize=5)
 ax.set_xlabel('Trials', fontsize=mscope.fsize - 8)
 ax.set_ylabel('Mean activity (dFF)', fontsize=mscope.fsize - 8)
 ax.spines['right'].set_visible(False)
@@ -114,9 +131,9 @@ ax = ax.ravel()
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
         if len(mean_data_animals[a][c]) == 23:
-            ax[0].scatter(mean_data_animals[a][c][3], np.abs(sl_animals[a][3]), s=60,  color=color_animals[a])
+            ax[0].scatter(mean_data_animals[a][c][3], np.abs(sl_animals[a][3]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         else:
-            ax[0].scatter(mean_data_animals[a][c][6], np.abs(sl_animals[a][6]), s=60, color=color_animals[a])
+            ax[0].scatter(mean_data_animals[a][c][6], np.abs(sl_animals[a][6]), s=60, color=get_colors_plot(animal_in[a], color_animals))
 ax[0].set_xlabel('Calcium signal for initial error trial', fontsize=mscope.fsize - 8)
 ax[0].set_ylabel('Initial error absolute value (mm)', fontsize=mscope.fsize - 8)
 ax[0].spines['right'].set_visible(False)
@@ -124,11 +141,11 @@ ax[0].spines['top'].set_visible(False)
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
         if len(mean_data_animals[a][c]) == 23:
-            ax[1].scatter(mean_data_animals[a][c][13], np.abs(sl_animals[a][13]), s=60,  color=color_animals[a])
+            ax[1].scatter(mean_data_animals[a][c][13], np.abs(sl_animals[a][13]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         elif len(mean_data_animals[a][c]) == 25: #if mc10221 missing trial 10 if split contra fast S1
-            ax[1].scatter(mean_data_animals[a][c][12], np.abs(sl_animals[a][12]), s=60, color=color_animals[a])
+            ax[1].scatter(mean_data_animals[a][c][12], np.abs(sl_animals[a][12]), s=60, color=get_colors_plot(animal_in[a], color_animals))
         else:
-            ax[1].scatter(mean_data_animals[a][c][16], np.abs(sl_animals[a][16]), s=60, color=color_animals[a])
+            ax[1].scatter(mean_data_animals[a][c][16], np.abs(sl_animals[a][16]), s=60, color=get_colors_plot(animal_in[a], color_animals))
 ax[1].set_xlabel('Calcium signal for after-effect trial', fontsize=mscope.fsize - 8)
 ax[1].set_ylabel('After-effect absolute value (mm)', fontsize=mscope.fsize - 8)
 ax[1].spines['right'].set_visible(False)
@@ -136,12 +153,12 @@ ax[1].spines['top'].set_visible(False)
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
         if len(mean_data_animals[a][c]) == 23:
-            ax[2].scatter(mean_data_animals[a][c][3], np.abs(sl_animals[a][3])-np.abs(sl_animals[a][13]), s=60,  color=color_animals[a])
+            ax[2].scatter(mean_data_animals[a][c][3], np.abs(sl_animals[a][3])-np.abs(sl_animals[a][13]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         elif len(mean_data_animals[a][c]) == 25: #if mc10221 missing trial 10 if split contra fast S1
             ax[2].scatter(mean_data_animals[a][c][3], np.abs(sl_animals[a][3]) - np.abs(sl_animals[a][12]), s=60,
                           color=color_animals[a])
         else:
-            ax[2].scatter(mean_data_animals[a][c][6], np.abs(sl_animals[a][6])-np.abs(sl_animals[a][16]), s=60, color=color_animals[a])
+            ax[2].scatter(mean_data_animals[a][c][6], np.abs(sl_animals[a][6])-np.abs(sl_animals[a][16]), s=60, color=get_colors_plot(animal_in[a], color_animals))
 ax[2].set_xlabel('Calcium signal for initial error trial', fontsize=mscope.fsize - 8)
 ax[2].set_ylabel('Amount of adaptation during split (mm)', fontsize=mscope.fsize - 8)
 ax[2].spines['right'].set_visible(False)
@@ -149,12 +166,12 @@ ax[2].spines['top'].set_visible(False)
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
         if len(mean_data_animals[a][c]) == 23:
-            ax[3].scatter(mean_data_animals[a][c][13], np.abs(sl_animals[a][3])-np.abs(sl_animals[a][13]), s=60,  color=color_animals[a])
+            ax[3].scatter(mean_data_animals[a][c][13], np.abs(sl_animals[a][3])-np.abs(sl_animals[a][13]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         elif len(mean_data_animals[a][c]) == 25: #if mc10221 missing trial 10 if split contra fast S1
             ax[3].scatter(mean_data_animals[a][c][12], np.abs(sl_animals[a][3]) - np.abs(sl_animals[a][12]), s=60,
                           color=color_animals[a])
         else:
-            ax[3].scatter(mean_data_animals[a][c][16], np.abs(sl_animals[a][6])-np.abs(sl_animals[a][16]), s=60, color=color_animals[a])
+            ax[3].scatter(mean_data_animals[a][c][16], np.abs(sl_animals[a][6])-np.abs(sl_animals[a][16]), s=60, color=get_colors_plot(animal_in[a], color_animals))
 ax[3].set_xlabel('Calcium signal for after-effect trial', fontsize=mscope.fsize - 8)
 ax[3].set_ylabel('Amount of adaptation during split (mm)', fontsize=mscope.fsize - 8)
 ax[3].spines['right'].set_visible(False)
@@ -166,9 +183,9 @@ ax = ax.ravel()
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
         if len(mean_data_animals[a][c]) == 23:
-            ax[0].scatter(mean_data_animals[a][c][3], np.abs(ds_animals[a][3]), s=60,  color=color_animals[a])
+            ax[0].scatter(mean_data_animals[a][c][3], np.abs(ds_animals[a][3]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         else:
-            ax[0].scatter(mean_data_animals[a][c][6], np.abs(ds_animals[a][6]), s=60, color=color_animals[a])
+            ax[0].scatter(mean_data_animals[a][c][6], np.abs(ds_animals[a][6]), s=60, color=get_colors_plot(animal_in[a], color_animals))
 ax[0].set_xlabel('Calcium signal for initial error trial', fontsize=mscope.fsize - 8)
 ax[0].set_ylabel('Initial error absolute value (mm)', fontsize=mscope.fsize - 8)
 ax[0].spines['right'].set_visible(False)
@@ -176,11 +193,11 @@ ax[0].spines['top'].set_visible(False)
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
         if len(mean_data_animals[a][c]) == 23:
-            ax[1].scatter(mean_data_animals[a][c][13], np.abs(ds_animals[a][13]), s=60,  color=color_animals[a])
+            ax[1].scatter(mean_data_animals[a][c][13], np.abs(ds_animals[a][13]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         elif len(mean_data_animals[a][c]) == 25: #if mc10221 missing trial 10 if split contra fast S1
-            ax[1].scatter(mean_data_animals[a][c][12], np.abs(sl_animals[a][12]), s=60, color=color_animals[a])
+            ax[1].scatter(mean_data_animals[a][c][12], np.abs(sl_animals[a][12]), s=60, color=get_colors_plot(animal_in[a], color_animals))
         else:
-            ax[1].scatter(mean_data_animals[a][c][16], np.abs(ds_animals[a][16]), s=60, color=color_animals[a])
+            ax[1].scatter(mean_data_animals[a][c][16], np.abs(ds_animals[a][16]), s=60, color=get_colors_plot(animal_in[a], color_animals))
 ax[1].set_xlabel('Calcium signal for after-effect trial', fontsize=mscope.fsize - 8)
 ax[1].set_ylabel('After-effect absolute value (mm)', fontsize=mscope.fsize - 8)
 ax[1].spines['right'].set_visible(False)
@@ -188,12 +205,12 @@ ax[1].spines['top'].set_visible(False)
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
         if len(mean_data_animals[a][c]) == 23:
-            ax[2].scatter(mean_data_animals[a][c][3], np.abs(ds_animals[a][3])-np.abs(ds_animals[a][13]), s=60,  color=color_animals[a])
+            ax[2].scatter(mean_data_animals[a][c][3], np.abs(ds_animals[a][3])-np.abs(ds_animals[a][13]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         elif len(mean_data_animals[a][c]) == 25: #if mc10221 missing trial 10 if split contra fast S1
             ax[2].scatter(mean_data_animals[a][c][3], np.abs(ds_animals[a][3]) - np.abs(ds_animals[a][12]), s=60,
                           color=color_animals[a])
         else:
-            ax[2].scatter(mean_data_animals[a][c][6], np.abs(ds_animals[a][6])-np.abs(ds_animals[a][16]), s=60, color=color_animals[a])
+            ax[2].scatter(mean_data_animals[a][c][6], np.abs(ds_animals[a][6])-np.abs(ds_animals[a][16]), s=60, color=get_colors_plot(animal_in[a], color_animals))
 ax[2].set_xlabel('Calcium signal for initial error trial', fontsize=mscope.fsize - 8)
 ax[2].set_ylabel('Amount of adaptation during split (mm)', fontsize=mscope.fsize - 8)
 ax[2].spines['right'].set_visible(False)
@@ -201,12 +218,12 @@ ax[2].spines['top'].set_visible(False)
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
         if len(mean_data_animals[a][c]) == 23:
-            ax[3].scatter(mean_data_animals[a][c][13], np.abs(ds_animals[a][3])-np.abs(ds_animals[a][13]), s=60,  color=color_animals[a])
+            ax[3].scatter(mean_data_animals[a][c][13], np.abs(ds_animals[a][3])-np.abs(ds_animals[a][13]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         elif len(mean_data_animals[a][c]) == 25: #if mc10221 missing trial 10 if split contra fast S1
             ax[3].scatter(mean_data_animals[a][c][12], np.abs(ds_animals[a][3]) - np.abs(ds_animals[a][12]), s=60,
                           color=color_animals[a])
         else:
-            ax[3].scatter(mean_data_animals[a][c][16], np.abs(ds_animals[a][6])-np.abs(ds_animals[a][16]), s=60, color=color_animals[a])
+            ax[3].scatter(mean_data_animals[a][c][16], np.abs(ds_animals[a][6])-np.abs(ds_animals[a][16]), s=60, color=get_colors_plot(animal_in[a], color_animals))
 ax[3].set_xlabel('Calcium signal for after-effect trial', fontsize=mscope.fsize - 8)
 ax[3].set_ylabel('Amount of adaptation during split (mm)', fontsize=mscope.fsize - 8)
 ax[3].spines['right'].set_visible(False)

@@ -5,11 +5,10 @@ import matplotlib.pyplot as plt
 import pickle
 import warnings
 import matplotlib as mp
-warnings.filterwarnings('ignore')
 
 # path inputs
-path = 'H:\\TM RAW FILES\\tied baseline\\MC8855\\2021_04_04\\'
-path_loco = 'H:\\TM TRACKING FILES\\tied baseline S1 040421\\'
+path = 'D:\\TM RAW FILES\\tied baseline\\MC9194\\2021_07_03\\'
+path_loco = 'D:\\TM TRACKING FILES\\tied baseline S2 030721\\'
 session_type = path.split('\\')[-4].split(' ')[0]
 version_mscope = 'v4'
 plot_data = 1
@@ -68,7 +67,7 @@ if load_data == 0:
     [coord_ext, df_extract_allframes] = mscope.read_extract_output(thrs_spatial_weights, frame_time, trials)
 
     # Good periods after motion correction
-    th = 0.0065 # change with the notes from EXCEL
+    th = 0.0085 # change with the notes from EXCEL
     [x_offset, y_offset, corrXY] = mscope.get_reg_data()  # registration bad moments
     if len(del_trials_index)>0:
         trial_beg = np.insert(trial_length_cumsum[:-1], 0, 0)
@@ -109,7 +108,7 @@ if load_data == 0:
     # Data as clusters
     centroid_ext = mscope.get_roi_centroids(coord_ext_curated)
     distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 0.45
+    th_cluster = 0.7
     colormap_cluster = 'hsv'
     [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
                                                                       distance_neurons, trials_baseline, th_cluster,
@@ -139,7 +138,7 @@ if load_data:
     time_cumulative = mscope.cumulative_time(df_extract_rawtrace_detrended, trials)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
     distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 0.45
+    th_cluster = 0.7
     colormap_cluster = 'hsv'
     [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
                                                                       distance_neurons, trials_baseline, th_cluster,

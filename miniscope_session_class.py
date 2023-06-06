@@ -536,6 +536,10 @@ class miniscope_session:
             trials_baseline = np.array([1, 2, 3, 4, 5, 6])
             trials_split = np.array([7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
             trials_washout = np.array([17, 18, 19, 20, 21, 22, 23])
+        if session_type == 'tied':
+            trials_baseline = trials
+            trials_split = trials
+            trials_washout = trials
         return trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout
 
     @staticmethod
@@ -3026,6 +3030,7 @@ class miniscope_session:
         align: (str) st or sw
         trials: trial list
         p1: reference paw to get events (FR, HR, FL, HL)
+        roi: roi number (int)
         time_window: (float) window in seconds
         traj: (str) time or phase"""
         if align == 'st':

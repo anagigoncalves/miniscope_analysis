@@ -45,7 +45,7 @@ for s in range(len(session_data)):
 
     [trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
     colors_session = mscope.colors_session(animal, session_type, trials, 1)
-    [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal)
+    [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
     if session_type == 'split':
         colors_phases = ['black', 'crimson', 'teal']
     if session_type == 'tied':

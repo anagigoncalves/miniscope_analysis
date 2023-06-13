@@ -21,6 +21,8 @@ import locomotion_class
 path_session_data = 'C:\\Users\\Ana\\Desktop\\Miniscope processed files\\'
 session_data = pd.read_excel('C:\\Users\\Ana\\Desktop\\Miniscope processed files\\session_data_split_S1.xlsx')
 event_count_loco_split_all = []
+event_count_loco_ie_all = []
+event_count_loco_ae_all = []
 event_count_loco_washout_all = []
 event_count_loco_baseline_all = []
 event_count_loco_animals = []
@@ -67,9 +69,11 @@ for s in range(len(session_data)):
     for roi_plot in df_events_extract_rawtrace.columns[2:]:
         event_count_loco = mscope.get_event_count_locomotion(df_events_extract_rawtrace, traces_type, colors_session, trials,
                                                              bcam_time, st_strides_trials, np.int64(roi_plot[3:]), 0, 0)
-        event_count_loco_split_all.append(event_count_loco[trials_split_idx])
-        event_count_loco_washout_all.append(event_count_loco[trials_washout_idx])
-        event_count_loco_baseline_all.append(event_count_loco[trials_baseline_idx])
+        event_count_loco_split_all.append(np.nanmean(event_count_loco[trials_split_idx]))
+        event_count_loco_washout_all.append(np.nanmean(event_count_loco[trials_washout_idx]))
+        event_count_loco_baseline_all.append(np.nanmean(event_count_loco[trials_baseline_idx]))
+        event_count_loco_ie_all.append(event_count_loco[trials_split_idx[0]])
+        event_count_loco_ae_all.append(event_count_loco[trials_washout_idx[0]])
         event_count_loco_animals.append(animal)
 
 cmap = plt.get_cmap('magma')
@@ -90,18 +94,18 @@ def get_colors_plot(animal_name, color_animals):
 animals = ['MC8855', 'MC9194', 'MC10221', 'MC9513', 'MC9226']
 fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True, sharey=True)
 for i in range(len(event_count_loco_split_all)):
-    plt.scatter(np.repeat(3, len(event_count_loco_split_all[i]))+np.random.rand(len(event_count_loco_split_all[i])), event_count_loco_split_all[i], s=1, color=get_colors_plot(event_count_loco_animals[i], color_animals))
-    plt.scatter(np.repeat(5, len(event_count_loco_washout_all[i]))+np.random.rand(len(event_count_loco_washout_all[i])), event_count_loco_washout_all[i], s=1, color=get_colors_plot(event_count_loco_animals[i], color_animals))
-    plt.scatter(np.repeat(1, len(event_count_loco_baseline_all[i]))+np.random.rand(len(event_count_loco_baseline_all[i])), event_count_loco_baseline_all[i], s=1, color=get_colors_plot(event_count_loco_animals[i], color_animals))
+    plt.scatter(3 + np.random.rand(), event_count_loco_split_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
+    plt.scatter(5 + np.random.rand(), event_count_loco_washout_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
+    plt.scatter(1 + np.random.rand(), event_count_loco_baseline_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
 for count_a, a in enumerate(animals):
     animal_idx = np.where(np.isin(event_count_loco_animals, a))[0]
     split_values = []
     washout_values = []
     bs_values = []
     for i in animal_idx:
-        split_values.extend(event_count_loco_split_all[i])
-        washout_values.extend(event_count_loco_washout_all[i])
-        bs_values.extend(event_count_loco_baseline_all[i])
+        split_values.append(event_count_loco_split_all[i])
+        washout_values.append(event_count_loco_washout_all[i])
+        bs_values.append(event_count_loco_baseline_all[i])
     plt.plot(np.array([1.5, 3.5, 5.5]), np.array([np.mean(split_values), np.mean(bs_values), np.mean(washout_values)]), linewidth=4, color=color_animals[count_a])
 ax.set_xticks([1.5, 3.5, 5.5])
 ax.set_xticklabels(['baseline', 'split', 'washout'])
@@ -114,18 +118,18 @@ plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_phases_S1'
 
 fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True, sharey=True)
 for i in range(len(event_count_loco_split_all)):
-    plt.scatter(3 + np.random.rand(1)[0], event_count_loco_split_all[i][0], s=1, color=get_colors_plot(event_count_loco_animals[i], color_animals))
-    plt.scatter(5 + np.random.rand(1)[0], event_count_loco_washout_all[i][0], s=1, color=get_colors_plot(event_count_loco_animals[i], color_animals))
-    plt.scatter(np.repeat(1, len(event_count_loco_baseline_all[i]))+np.random.rand(len(event_count_loco_baseline_all[i])), event_count_loco_baseline_all[i], s=1, color=get_colors_plot(event_count_loco_animals[i], color_animals))
+    plt.scatter(3 + np.random.rand(), event_count_loco_ie_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
+    plt.scatter(5 + np.random.rand(), event_count_loco_ae_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
+    plt.scatter(1 + np.random.rand(), event_count_loco_baseline_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
 for count_a, a in enumerate(animals):
     animal_idx = np.where(np.isin(event_count_loco_animals, a))[0]
     split_values = []
     washout_values = []
     bs_values = []
     for i in animal_idx:
-        split_values.append(event_count_loco_split_all[i][0])
-        washout_values.append(event_count_loco_washout_all[i][0])
-        bs_values.extend(event_count_loco_baseline_all[i])
+        split_values.append(event_count_loco_ie_all[i])
+        washout_values.append(event_count_loco_ae_all[i])
+        bs_values.append(event_count_loco_baseline_all[i])
     plt.plot(np.array([1.5, 3.5, 5.5]), np.array([np.mean(split_values), np.mean(bs_values), np.mean(washout_values)]), linewidth=4, color=color_animals[count_a])
 ax.set_xticks([1.5, 3.5, 5.5])
 ax.set_xticklabels(['baseline', 'initial error', 'after-effect'])

@@ -76,9 +76,9 @@ for s in range(len(session_data)):
     for roi_plot in df_events_extract_rawtrace.columns[2:]:
         event_count_loco = mscope.get_event_count_locomotion(df_events_extract_rawtrace, traces_type, colors_session, trials,
                                                              bcam_time, st_strides_trials, np.int64(roi_plot[3:]), 0, 0)
-        event_count_loco_slow_all.append(event_count_loco[trials_slow_idx])
-        event_count_loco_fast_all.append(event_count_loco[trials_fast_idx])
-        event_count_loco_baseline_all.append(event_count_loco[trials_baseline_idx])
+        event_count_loco_slow_all.append(np.nanmean(event_count_loco[trials_slow_idx]))
+        event_count_loco_fast_all.append(np.nanmean(event_count_loco[trials_fast_idx]))
+        event_count_loco_baseline_all.append(np.nanmean(event_count_loco[trials_baseline_idx]))
         event_count_loco_animals.append(animal)
 
 cmap = plt.get_cmap('magma')
@@ -100,19 +100,19 @@ def get_colors_plot(animal_name, color_animals):
 animals = ['MC8855', 'MC9194', 'MC10221', 'MC9513', 'MC9226']
 fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True, sharey=True)
 for i in range(len(event_count_loco_slow_all)):
-    plt.scatter(np.repeat(1, len(event_count_loco_slow_all[i]))+np.random.rand(len(event_count_loco_slow_all[i])), event_count_loco_slow_all[i], s=1, color=get_colors_plot(event_count_loco_animals[i], color_animals))
-    plt.scatter(np.repeat(5, len(event_count_loco_fast_all[i]))+np.random.rand(len(event_count_loco_fast_all[i])), event_count_loco_fast_all[i], s=1, color=get_colors_plot(event_count_loco_animals[i], color_animals))
-    plt.scatter(np.repeat(3, len(event_count_loco_baseline_all[i]))+np.random.rand(len(event_count_loco_baseline_all[i])), event_count_loco_baseline_all[i], s=1, color=get_colors_plot(event_count_loco_animals[i], color_animals))
+    plt.scatter(1+np.random.rand(), event_count_loco_slow_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
+    plt.scatter(5+np.random.rand(), event_count_loco_fast_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
+    plt.scatter(3+np.random.rand(), event_count_loco_baseline_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
 for count_a, a in enumerate(animals):
     animal_idx = np.where(np.isin(event_count_loco_animals, a))[0]
     slow_values = []
     fast_values = []
     bs_values = []
     for i in animal_idx:
-        slow_values.extend(event_count_loco_slow_all[i])
-        fast_values.extend(event_count_loco_fast_all[i])
-        bs_values.extend(event_count_loco_baseline_all[i])
-    plt.plot(np.array([1.5, 3.5, 5.5]), np.array([np.mean(slow_values), np.mean(bs_values), np.mean(fast_values)]), linewidth=4, color=color_animals[count_a])
+        slow_values.append(np.array(event_count_loco_slow_all)[i])
+        fast_values.append(np.array(event_count_loco_fast_all[i]))
+        bs_values.append(np.array(event_count_loco_baseline_all[i]))
+    plt.plot(np.array([1.5, 3.5, 5.5]), np.array([np.mean(slow_values), np.mean(bs_values), np.mean(fast_values)]), linewidth=7, color=color_animals[count_a])
 ax.set_xticks([1.5, 3.5, 5.5])
 ax.set_xticklabels(['slow', 'baseline', 'fast'])
 ax.set_xlabel('Speed', fontsize=mscope.fsize - 4)

@@ -18,8 +18,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'E:\\Miniscope processed files'
-session_data = pd.read_excel('E:\\Miniscope processed files\\session_data_tied.xlsx')
+path_session_data = 'C:\\Users\\Ana\\Desktop\\Miniscope processed files\\'
+session_data = pd.read_excel('C:\\Users\\Ana\\Desktop\\Miniscope processed files\\session_data_tied.xlsx')
 event_count_loco_slow_all = []
 event_count_loco_fast_all = []
 event_count_loco_baseline_all = []
@@ -39,7 +39,7 @@ for s in range(len(session_data)):
     session = loco.get_session_id()
     traces_type = 'raw'
     [df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames, trials,
-     clusters_rois, colors_cluster, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
+     clusters_rois, colors_cluster, colors_session, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
 
     # FOV coordinates
     centroid_ext = mscope.get_roi_centroids(coord_ext)
@@ -82,7 +82,7 @@ for s in range(len(session_data)):
         event_count_loco_animals.append(animal)
 
 cmap = plt.get_cmap('magma')
-color_animals = [cmap(i) for i in np.linspace(0, 1, 8)]
+color_animals = [cmap(i) for i in np.linspace(0, 1, 6)]
 def get_colors_plot(animal_name, color_animals):
     if animal_name=='MC8855':
         color_plot = color_animals[0]
@@ -94,21 +94,15 @@ def get_colors_plot(animal_name, color_animals):
         color_plot = color_animals[3]
     if animal_name=='MC9226':
         color_plot = color_animals[4]
-    if animal_name=='MC9308':
-        color_plot = color_animals[5]
-    if animal_name=='MC13419':
-        color_plot = color_animals[6]
-    if animal_name=='MC13420':
-        color_plot = color_animals[7]
     return color_plot
 
 #CONSIDER DOING ONLY S1 SESSIONS, OR S2
-animals = ['MC8855', 'MC9194', 'MC10221', 'MC9513', 'MC9226', 'MC9308', 'MC13419', 'MC13420']
+animals = ['MC8855', 'MC9194', 'MC10221', 'MC9513', 'MC9226']
 fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True, sharey=True)
 for i in range(len(event_count_loco_slow_all)):
-    plt.scatter(np.repeat(1, len(event_count_loco_slow_all[i]))+np.random.rand(len(event_count_loco_slow_all[i])), event_count_loco_slow_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
-    plt.scatter(np.repeat(5, len(event_count_loco_fast_all[i]))+np.random.rand(len(event_count_loco_fast_all[i])), event_count_loco_fast_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
-    plt.scatter(np.repeat(3, len(event_count_loco_baseline_all[i]))+np.random.rand(len(event_count_loco_baseline_all[i])), event_count_loco_baseline_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
+    plt.scatter(np.repeat(1, len(event_count_loco_slow_all[i]))+np.random.rand(len(event_count_loco_slow_all[i])), event_count_loco_slow_all[i], s=1, color=get_colors_plot(event_count_loco_animals[i], color_animals))
+    plt.scatter(np.repeat(5, len(event_count_loco_fast_all[i]))+np.random.rand(len(event_count_loco_fast_all[i])), event_count_loco_fast_all[i], s=1, color=get_colors_plot(event_count_loco_animals[i], color_animals))
+    plt.scatter(np.repeat(3, len(event_count_loco_baseline_all[i]))+np.random.rand(len(event_count_loco_baseline_all[i])), event_count_loco_baseline_all[i], s=1, color=get_colors_plot(event_count_loco_animals[i], color_animals))
 for count_a, a in enumerate(animals):
     animal_idx = np.where(np.isin(event_count_loco_animals, a))[0]
     slow_values = []
@@ -127,6 +121,4 @@ ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 6)
 plt.savefig(os.path.join(path_session_data, 'rois_fr_forwardloco_speed'), dpi=mscope.my_dpi)
-
-
 

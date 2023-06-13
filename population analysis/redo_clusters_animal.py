@@ -2,17 +2,12 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-import pickle
+import pandas as pd
 import warnings
-import matplotlib as mp
+warnings.filterwarnings('ignore')
 
-# path inputs
-path = 'D:\\TM RAW FILES\\tied baseline\\MC9194\\2021_07_03\\'
-path_loco = 'D:\\TM TRACKING FILES\\tied baseline S2 030721\\'
-session_type = path.split('\\')[-4].split(' ')[0]
 version_mscope = 'v4'
 plot_data = 1
-load_data = 1
 print_plots = 1
 save_data = 1
 paw_colors = ['red', 'magenta', 'blue', 'cyan']
@@ -22,226 +17,46 @@ fsize = 24
 # import classes
 os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
-mscope = miniscope_session_class.miniscope_session(path)
 import locomotion_class
-loco = locomotion_class.loco_class(path_loco)
 
-# create plots folders
-path_images = os.path.join(path, 'images')
-path_cluster = os.path.join(path, 'images', 'cluster')
-path_events = os.path.join(path, 'images', 'events')
-if not os.path.exists(path_images):
-    os.mkdir(path_images)
-if not os.path.exists(path_cluster):
-    os.mkdir(path_cluster)
-if not os.path.exists(path_events):
-    os.mkdir(path_events)
+path_session_data = 'C:\\Users\\Ana\\Desktop\\Miniscope processed files'
+session_data = pd.read_excel('C:\\Users\\Ana\\Desktop\\Miniscope processed files\\session_data_MC9226.xlsx')
+th_cluster_list = np.array([1, 1, 0.9, 0.8, 1, 0.8, 1, 0.9])
+for s in range(len(session_data)):
+    ses_info = session_data.iloc[s, :]
+    print(ses_info)
+    date = ses_info[3]
+    # path inputs
+    path = os.path.join(path_session_data, 'TM RAW FILES', ses_info[0], ses_info[1], date + '\\')
+    path_loco = os.path.join(path_session_data, 'TM TRACKING FILES', ses_info[0] + ' ' + ses_info[2] + ' ' + date.split('_')[-1]+date.split('_')[-2]+date.split('_')[-3][2:] + '\\')
+    session_type = path.split('\\')[-4].split(' ')[0]
+    mscope = miniscope_session_class.miniscope_session(path)
+    loco = locomotion_class.loco_class(path_loco)
 
-# Trial structure, reference image and triggers
-animal = mscope.get_animal_id()
-session = loco.get_session_id()
-trials = mscope.get_trial_id()
-strobe_nr_txt = loco.bcam_strobe_number()
-trial_start_blip_nr = loco.trial_start_blips()
-ops_s2p = mscope.get_s2p_parameters()
-print(ops_s2p)
-colors_session = mscope.colors_session(animal, session_type, trials, 1)
-[trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
-if session_type == 'split':
-    colors_phases = ['black', 'crimson', 'teal']
-if session_type == 'tied':
-    colors_phases = ['black', 'orange', 'purple']
-traces_type = 'raw'
+    # Session data and inputs
+    animal = mscope.get_animal_id()
+    session = loco.get_session_id()
+    traces_type = 'raw'
+    [df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames, trials,
+     clusters_rois, colors_cluster, colors_session, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
 
-if load_data == 0:
-    ref_image = mscope.get_ref_image()
-    frames_dFF = mscope.get_black_frames()  # black frames removed before ROI segmentation
-    frame_time = mscope.get_miniscope_frame_time(trials, frames_dFF, version_mscope)  # get frame time for each trial
-    trial_length_cumsum = mscope.cumulative_trial_length(frame_time)
     [trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
-    [trials, trial_start, strobe_nr, bcam_time, colors_session, frame_time, frames_dFF, frames_loco,
-     del_trials_index] = mscope.correct_for_deleted_trials(trials, trial_start, strobe_nr, bcam_time, colors_session,
-                                                           frame_time, frames_dFF, frames_loco)
-    # Load ROIs and traces - EXTRACT
-    thrs_spatial_weights = 0
-    [coord_ext, df_extract_allframes] = mscope.read_extract_output(thrs_spatial_weights, frame_time, trials)
-
-    # Good periods after motion correction
-    th = 0.0085 # change with the notes from EXCEL
-    [x_offset, y_offset, corrXY] = mscope.get_reg_data()  # registration bad moments
-    if len(del_trials_index)>0:
-        trial_beg = np.insert(trial_length_cumsum[:-1], 0, 0)
-        trial_end = trial_length_cumsum[1:]
-        for t in del_trials_index:
-            x_offset = np.delete(x_offset, np.arange(trial_beg[t], trial_end[t]))
-            y_offset = np.delete(y_offset, np.arange(trial_beg[t], trial_end[t]))
-            corrXY = np.delete(corrXY, np.arange(trial_beg[t], trial_end[t]))
-            np.save(os.path.join(mscope.path, 'processed files', 'x_offsets.npy'), x_offset)
-            np.save(os.path.join(mscope.path, 'processed files', 'y_offsets.npy'), y_offset)
-            np.save(os.path.join(mscope.path, 'processed files', 'corrXY_frames.npy'), corrXY)
-    [idx_to_nan, df_extract] = mscope.corr_FOV_movement(th, df_extract_allframes, corrXY)
-    [width_roi_ext, height_roi_ext, aspect_ratio_ext] = mscope.get_roi_stats(coord_ext)
-    [coord_ext, df_extract] = mscope.rois_larger_motion(df_extract, coord_ext, idx_to_nan, x_offset, y_offset, width_roi_ext, height_roi_ext, 1)
-    corr_rois_motion = mscope.correlation_signal_motion(df_extract, x_offset, y_offset, trials_baseline[-1], idx_to_nan, traces_type, plot_data, print_plots)
-
-    # ROI spatial stats
-    [width_roi_rois_nomotion, height_roi_rois_nomotion, aspect_ratio_rois_nomotion] = mscope.get_roi_stats(coord_ext)
-    # ROI curation
-    [coord_ext_curated, df_extract_curated] = mscope.roi_curation(ref_image, df_extract, coord_ext, aspect_ratio_rois_nomotion, trials_baseline[-1])
-
-    # Get raw trace from EXTRACT ROIs
-    roi_list = list(df_extract_curated.columns[2:])
-    df_extract_rawtrace = mscope.compute_extract_rawtrace(coord_ext_curated, df_extract_curated, roi_list, trials, frame_time)
-    # Find calcium events - label as synchronous or asynchronous
-    df_events_extract = mscope.get_events(df_extract_curated, 0, 'df_events_extract') # 0 for no detrending
-    df_events_extract_rawtrace = mscope.get_events(df_extract_rawtrace, 1, 'df_events_extract_rawtrace')  # 1 for detrending"
-    roi_plot = np.int64(np.random.choice(roi_list)[3:])
-    trial_plot = np.random.choice(trials)
-    mscope.plot_events_roi_trial(trial_plot, roi_plot, frame_time, df_extract_rawtrace, traces_type, df_events_extract_rawtrace, trials, plot_data, print_plots)
-
-    # Detrend calcium trace
-    df_extract_rawtrace_detrended = mscope.compute_detrended_traces(df_extract_rawtrace, 'df_extract_rawtrace_detrended')
-
-    # Save data
-    mscope.save_processed_files(df_extract_curated, trials, df_events_extract,  df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext_curated, th, idx_to_nan)
-
-    # Data as clusters
-    centroid_ext = mscope.get_roi_centroids(coord_ext_curated)
-    distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 0.7
-    colormap_cluster = 'hsv'
-    [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
-                                                                      distance_neurons, trials_baseline, th_cluster,
-                                                                      colormap_cluster, plot_data, print_plots)
-    [clusters_rois, idx_roi_cluster_ordered] = mscope.get_rois_clusters_mediolateral(df_extract_rawtrace_detrended,
-                                                                                     idx_roi_cluster, centroid_ext)
-    mscope.plot_roi_clustering_spatial(ref_image, colors_cluster, idx_roi_cluster_ordered, coord_ext_curated, plot_data,
-                                       0)
-    plot_ratio = 3
-    mscope.plot_roi_clustering_temporal(df_extract_rawtrace_detrended, centroid_ext, distance_neurons,
-                                        trials_baseline[-1], colors_cluster, idx_roi_cluster_ordered, plot_ratio,
-                                        plot_data, 0)
-    [df_events_extract_rawtrace_clustered, df_extract_rawtrace_detrended_clustered] = mscope.compute_clustered_traces_events_correlations(df_events_extract_rawtrace, df_extract_rawtrace_detrended, clusters_rois, colors_cluster, trials, 1, 0)
-    [df_trace_clusters_ave, df_trace_clusters_std] = mscope.clusters_dataframe(df_extract_rawtrace_detrended, clusters_rois, 0, save_data) #no detrending because it comes from detrended traces
-    df_events_trace_clusters = mscope.get_events(df_trace_clusters_ave, 0, 'df_events_trace_clusters')  #no detrending because it comes from detrended traces
-    corr_rois_motion = mscope.correlation_signal_motion(df_extract_rawtrace, x_offset, y_offset, trials_baseline[-1],
-                                                        idx_to_nan, 'raw', plot_data, print_plots)
-    corr_rois_motion = mscope.correlation_signal_motion(df_trace_clusters_ave, x_offset, y_offset, trials_baseline[-1],
-                                                        idx_to_nan, 'cluster', plot_data, print_plots)
-
-if load_data:
-    frames_dFF = np.load(os.path.join(path, 'processed files', 'black_frames.npy'))
-    [trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
-    [df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace,
-     coord_ext, reg_th, reg_bad_frames, trials, clusters_rois, colors_cluster, colors_session, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
+    [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
     [df_trace_clusters_ave, df_trace_clusters_std, df_events_trace_clusters] = mscope.load_processed_files_clusters()
     time_cumulative = mscope.cumulative_time(df_extract_rawtrace_detrended, trials)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
     distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 0.7
+    th_cluster = th_cluster_list[s]
     colormap_cluster = 'hsv'
     [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
                                                                       distance_neurons, trials_baseline, th_cluster,
                                                                       colormap_cluster, plot_data, print_plots)
     [clusters_rois, idx_roi_cluster_ordered] = mscope.get_rois_clusters_mediolateral(df_extract_rawtrace_detrended,
                                                                                      idx_roi_cluster, centroid_ext)
-    # remove bad frames
-    df_extract = df_extract.drop(reg_bad_frames)
-    df_events_extract = df_events_extract.drop(reg_bad_frames)
-    df_extract_rawtrace = df_extract_rawtrace.drop(reg_bad_frames)
-    df_extract_rawtrace_detrended = df_extract_rawtrace_detrended.drop(reg_bad_frames)
-    df_events_extract_rawtrace = df_events_extract_rawtrace.drop(reg_bad_frames)
-    df_trace_clusters_ave = df_trace_clusters_ave.drop(reg_bad_frames)
-    df_trace_clusters_std = df_trace_clusters_std.drop(reg_bad_frames)
-    df_events_trace_clusters = df_events_trace_clusters.drop(reg_bad_frames)
-    df_extract.to_csv(os.path.join(mscope.path, 'processed files', 'df_extract.csv'), sep=',', index=False)
-    df_events_extract.to_csv(os.path.join(mscope.path, 'processed files', 'df_events_extract.csv'), sep=',', index=False)
-    df_extract_rawtrace.to_csv(os.path.join(mscope.path, 'processed files', 'df_extract_raw.csv'), sep=',',
-                               index=False)
-    df_extract_rawtrace_detrended.to_csv(
-        os.path.join(mscope.path, 'processed files', 'df_extract_rawtrace_detrended.csv'), sep=',',
-        index=False)
-    df_events_extract_rawtrace.to_csv(os.path.join(mscope.path, 'processed files', 'df_events_extract_rawtrace.csv'),
-                                      sep=',', index=False)
-    df_trace_clusters_ave.to_csv(os.path.join(mscope.path, 'processed files', 'df_trace_clusters_ave.csv'),
-                                 sep=',', index=False)
-    df_trace_clusters_std.to_csv(os.path.join(mscope.path, 'processed files', 'df_trace_clusters_std.csv'),
-                                 sep=',', index=False)
-    df_events_trace_clusters.to_csv(os.path.join(mscope.path, 'processed files', 'df_events_trace_clusters.csv'), sep=',', index=False)
-
-    # For sessions where trial structure is different
-    if path.split('\\')[-4] == 'tied baseline':
-        greys = mp.cm.get_cmap('Greys', 14)
-        oranges = mp.cm.get_cmap('Oranges', 23)
-        purples = mp.cm.get_cmap('Purples', 23)
-        colors_switched = {1: greys(14), 2: greys(12), 3: greys(10), 4: greys(8), 5: greys(6), 6: greys(4), 7: purples(23),
-                        8: purples(19), 9: purples(16), 10: purples(13), 11: purples(10), 12: purples(6), 13: oranges(23),
-                        14: oranges(19), 15: oranges(16), 16: oranges(13), 17: oranges(10), 18: oranges(6)}
-        colors_slow_first = {1: purples(23), 2: purples(19), 3: purples(16), 4: purples(13), 5: purples(10), 6: purples(6),
-                        7: greys(14), 8: greys(12), 9: greys(10), 10: greys(8), 11: greys(6), 12: greys(4),
-                        13: oranges(23), 14: oranges(19), 15: oranges(16), 16: oranges(13), 17: oranges(10), 18: oranges(6)}
-        if animal == 'MC9226' and session == 2:
-            colors_session = {1: greys(4), 2: greys(4), 3: greys(4), 4: greys(4), 5: greys(4), 6: greys(4),
-                              7: greys(14), 8: greys(12), 9: greys(10), 10: greys(8), 11: greys(6), 12: greys(4),
-                              13: oranges(21), 14: oranges(19), 15: oranges(17), 16: oranges(15), 17: oranges(13), 18: oranges(11),
-                              19: oranges(9), 20: oranges(7), 21: purples(19), 22: purples(17), 23: purples(15),
-                              24: purples(13), 25: purples(11), 26: purples(9)}
-        if animal == 'MC9226' and session == 3:
-            colors_session = colors_slow_first
-        if animal == 'MC10221' and session == 1:
-            colors_session = colors_slow_first
-        if animal == 'MC10221' and session == 2:
-            colors_session = colors_switched
-        if animal == 'MC9513' and session == 1:
-            colors_session = colors_switched
-        if animal == 'MC9513' and session == 2:
-            colors_session = colors_switched
-        if animal == 'MC9194' and session == 1:
-            colors_session = colors_switched
-        if animal == 'MC9194' and session == 2:
-            colors_session = colors_switched
-        if animal == 'MC9308' and session == 1:
-            colors_session = colors_switched
-        if animal == 'MC9308' and session == 2:
-            colors_session = colors_switched
-    np.save(os.path.join(mscope.path, 'processed files', 'colors_session.npy'), colors_session)
-
-    # ROI map and ID and some ROIs with high correlation with motion to see in GUI
-    fig = plt.figure(figsize=(25, 25), tight_layout=True)
-    for r in range(len(coord_ext)):
-        plt.scatter(coord_ext[r][:, 0], coord_ext[r][:, 1], s=1, alpha=0.6)
-        plt.text(coord_ext[r][0, 0], coord_ext[r][0, 1], df_extract.columns[2:][r][3:], color='white')
-    plt.imshow(ref_image, cmap='gray', extent=[0, np.shape(ref_image)[1] / mscope.pixel_to_um, np.shape(ref_image)[0] / mscope.pixel_to_um, 0])
-    plt.title('ROIs grouped by activity', fontsize=mscope.fsize)
-    plt.xlabel('FOV in micrometers', fontsize=mscope.fsize - 4)
-    plt.ylabel('FOV in micrometers', fontsize=mscope.fsize - 4)
-    plt.xticks(fontsize=mscope.fsize - 4)
-    plt.yticks(fontsize=mscope.fsize - 4)
-    pickle.dump(fig, open(os.path.join(mscope.path, 'images', 'cluster', 'roi_maps_names'), 'wb'))
-    # to open the figure
-    # figx = pickle.load(open(os.path.join(mscope.path, 'images', 'cluster', 'roi_maps_names'), 'rb'))
-    # figx.show()
-
-    # Clustering maps spatial and temporal
-    mscope.plot_roi_clustering_spatial(ref_image, colors_cluster, idx_roi_cluster_ordered, coord_ext, plot_data, print_plots)
-    plot_ratio = 2
-    mscope.plot_roi_clustering_temporal(df_extract_rawtrace_detrended, centroid_ext, distance_neurons, trials_baseline[-1], colors_cluster, idx_roi_cluster_ordered, plot_ratio, plot_data, print_plots)
-    plt.close('all')
-    # Correlation maps for the clusters
-    [df_events_extract_rawtrace_clustered, df_extract_rawtrace_detrended_clustered] = mscope.compute_clustered_traces_events_correlations(df_events_extract_rawtrace, df_extract_rawtrace_detrended, clusters_rois, colors_cluster, trials, plot_data, print_plots)
-    plt.close('all')
-
-    # ROIs correlation with mediolateral distance
-    corr_rois_mat = df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == trials_baseline[-1]].iloc[:, 2:].corr()
-    fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True, sharey=True)
-    plt.scatter(distance_neurons[1:, 0], corr_rois_mat.iloc[1:, 0], s=30, color='black')
-    ax.set_xlabel('Mediolateral distance (um)', fontsize=mscope.fsize - 4)
-    ax.set_ylabel('Correlation between ROIs', fontsize=mscope.fsize - 4)
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 6)
-    if print_plots:
-        plt.savefig(os.path.join(mscope.path, 'images', 'corr_rois_mediolateral_separation'), dpi=mscope.my_dpi)
+    if session_type == 'split':
+        colors_phases = ['black', 'crimson', 'teal']
+    if session_type == 'tied':
+        colors_phases = ['black', 'orange', 'purple']
 
     # Load behavioral data
     filelist = loco.get_track_files(animal, session)
@@ -593,5 +408,6 @@ if load_data:
                 ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 8)
             if print_plots:
                 plt.savefig(os.path.join(mscope.path, 'images', 'cluster', traces_type, 'step_length_isi_rolling_mean_window_'+str(window)), dpi=mscope.my_dpi)
+        plt.close('all')
 
 

@@ -536,6 +536,10 @@ class miniscope_session:
             trials_baseline = np.array([1, 2, 3, 4, 5, 6])
             trials_split = np.array([7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
             trials_washout = np.array([17, 18, 19, 20, 21, 22, 23])
+        if session_type == 'tied':
+            trials_baseline = trials
+            trials_split = trials
+            trials_washout = trials
         return trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout
 
     @staticmethod
@@ -1538,10 +1542,9 @@ class miniscope_session:
                         dpi=self.my_dpi)
         return
 
-    def plot_stacked_traces(self, frame_time, df_dFF, traces_type, trials, trials_plot, plot_data, print_plots):
+    def plot_stacked_traces(self, df_dFF, traces_type, trials, trials_plot, plot_data, print_plots):
         """"Funtion to compute stacked traces for a single trial or for the transition trials in the session.
         Input:
-        frame_time: list with mscope timestamps
         df_dFF: dataframe with calcium trace
         traces_type: (str) raw or deconv
         trials: list of trials in the session
@@ -1557,14 +1560,14 @@ class miniscope_session:
         if isinstance(trials_plot, np.ndarray):
             count_t = 0
             if plot_data:
-                fig, ax = plt.subplots(2, 2, figsize=(25, 30), tight_layout=True)
+                fig, ax = plt.subplots(2, 2, figsize=(15, 20), tight_layout=True)
                 ax = ax.ravel()
                 for t in trials_plot:
                     idx_trial = np.where(trials==t)[0][0]
                     dFF_trial = df_dFF.loc[df_dFF['trial'] == t]  # get dFF for the desired trial
                     count_r = 0
                     for r in df_dFF.columns[2:]:
-                        ax[count_t].plot(frame_time[idx_trial], dFF_trial[r] + (count_r / 2), color='black')
+                        ax[count_t].plot(dFF_trial['time'], dFF_trial[r] + (count_r / 2), color='black')
                         count_r += 1
                     ax[count_t].set_xlabel('Time (s)', fontsize=self.fsize - 4)
                     ax[count_t].set_ylabel('Calcium trace for trial ' + str(t), fontsize=self.fsize - 4)
@@ -1583,7 +1586,7 @@ class miniscope_session:
                 fig, ax = plt.subplots(figsize=(10, 20), tight_layout=True)
                 count_r = 0
                 for r in df_dFF.columns[2:]:
-                    plt.plot(frame_time[trials_plot - 1], dFF_trial[r] + (count_r / 2), color='black')
+                    plt.plot(dFF_trial['time'], dFF_trial[r] + (count_r / 2), color='black')
                     count_r += 1
                 ax.set_xlabel('Time (s)', fontsize=self.fsize - 4)
                 ax.set_ylabel('Calcium trace for trial ' + str(trials_plot), fontsize=self.fsize - 4)
@@ -3026,6 +3029,7 @@ class miniscope_session:
         align: (str) st or sw
         trials: trial list
         p1: reference paw to get events (FR, HR, FL, HL)
+        roi: roi number (int)
         time_window: (float) window in seconds
         traj: (str) time or phase"""
         if align == 'st':

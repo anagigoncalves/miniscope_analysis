@@ -18,8 +18,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'D:\\Miniscope processed files'
-session_data = pd.read_excel('D:\\session_data.xlsx')
+path_session_data = 'C:\\Users\\Ana\\Desktop\\Miniscope processed files\\'
+session_data = pd.read_excel('C:\\Users\\Ana\\Desktop\\Miniscope processed files\\session_data_all.xlsx')
 for s in range(len(session_data)):
     ses_info = session_data.iloc[s, :]
     date = ses_info[3]
@@ -35,10 +35,9 @@ for s in range(len(session_data)):
     session = loco.get_session_id()
     traces_type = 'raw'
     [df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames, trials,
-     clusters_rois, colors_cluster, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
+     clusters_rois, colors_cluster, colors_session, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
     [trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
-    colors_session = mscope.colors_session(session_type, trials, 1)
-    [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal)
+    [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
     if session_type == 'split':
         colors_phases = ['black', 'crimson', 'teal']
     if session_type == 'tied':
@@ -72,8 +71,8 @@ for s in range(len(session_data)):
     final_tracks_trials_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials, 'st-st')
 
     traj = 'time'
-    time_window = 0.2 #default 0.2
-    bin_number = 20 #default 10 or 20?
+    time_window = 1 #default 0.2
+    bin_number = 50 #default 10 or 20?
     sym = 1
     remove_nan = 0
     align_str = ['st', 'sw']

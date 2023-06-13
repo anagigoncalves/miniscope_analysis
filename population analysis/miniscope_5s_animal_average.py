@@ -18,7 +18,7 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'C:\\Users\\Ana\\Desktop\\Miniscope processed files'
-session_data = pd.read_excel('C:\\Users\\Ana\\Desktop\\Miniscope processed files\\session_data_all.xlsx')
+session_data = pd.read_excel('C:\\Users\\Ana\\Desktop\\Miniscope processed files\\session_data_split_S1.xlsx')
 mean_data_animals = []
 animal_in = []
 sl_animals = []
@@ -90,7 +90,7 @@ for s in range(len(session_data)):
         ds_animals.append(ds_trials-np.nanmean(ds_trials[trials_baseline-1]))
 
 cmap = plt.get_cmap('magma')
-color_animals = [cmap(i) for i in np.linspace(0, 1, 8)]
+color_animals = [cmap(i) for i in np.linspace(0, 1, 6)]
 def get_colors_plot(animal_name, color_animals):
     if animal_name=='MC8855':
         color_plot = color_animals[0]
@@ -102,12 +102,6 @@ def get_colors_plot(animal_name, color_animals):
         color_plot = color_animals[3]
     if animal_name=='MC9226':
         color_plot = color_animals[4]
-    if animal_name=='MC9308':
-        color_plot = color_animals[5]
-    if animal_name=='MC13419':
-        color_plot = color_animals[6]
-    if animal_name=='MC13420':
-        color_plot = color_animals[7]
     return color_plot
 fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
 ax.add_patch(plt.Rectangle((6.5, -1.5), 10, 5, fc='lightgrey', alpha=0.3))

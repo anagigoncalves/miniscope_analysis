@@ -37,30 +37,28 @@ for s in range(len(session_data)):
     traces_type = 'raw'
     [df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames, trials,
      clusters_rois, colors_cluster, colors_session, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
+    [trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
     [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
+
+    # Load behavioral data
+    filelist = loco.get_track_files(animal, session)
+    st_strides_trials = []
+    sw_strides_trials = []
+    for count_trial, f in enumerate(filelist):
+        [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f, 0.9, int(frames_loco[count_trial]))
+        [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
+        paws_rel = loco.get_paws_rel(final_tracks, 'X')
+        st_strides_trials.append(st_strides_mat)
+        sw_strides_trials.append(sw_pts_mat)
 
     roi_list = mscope.get_roi_list(df_events_extract_rawtrace)
     centroids_mediolateral = []
     for c in range(len(centroid_ext)):
         centroids_mediolateral.append(centroid_ext[c][0])
     distance_neurons_ordered = np.argsort(centroids_mediolateral)
+    rois_ordered_distance = []
     rois_ordered_distance_str = []
     for i in distance_neurons_ordered:
+        rois_ordered_distance.append(np.int64(roi_list[i][3:]))
         rois_ordered_distance_str.append(roi_list[i])
-
-    columns_ordered_ratio = ['time', 'trial'] + rois_ordered_distance_str[::3]
-    df_extract_rawtrace_detrended_ordered = df_extract_rawtrace_detrended[columns_ordered_ratio]
-
-    if session_type == 'split':
-        trials_plot = np.array([trials_ses[0, 1], trials_ses[1, 0], trials_ses[1, 1], trials_ses[2, 0]])
-    if session_type == 'tied' and animal != 'MC8855':
-        trials_plot = np.array([trials_ses[0, 1], trials_ses[1, 1], trials_ses[2, 1]])
-    if session_type == 'tied' and animal == 'MC8855':
-        trials_plot = np.array([trials_ses[0, 1], trials_ses[1, 1]])
-    mscope.plot_stacked_traces(df_extract_rawtrace_detrended_ordered, traces_type, trials, trials_plot, plot_data, 1)
-    plt.close('all')
-
-
-
-

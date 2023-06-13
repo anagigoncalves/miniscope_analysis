@@ -39,14 +39,7 @@ for s in range(len(session_data)):
      clusters_rois, colors_cluster, colors_session, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
     [trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
     [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
-    if session_type == 'split':
-        colors_phases = ['black', 'crimson', 'teal']
-    if session_type == 'tied':
-        colors_phases = ['black', 'orange', 'purple']
-    time_cumulative = mscope.cumulative_time(df_extract_rawtrace_detrended, trials)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
-    distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    [df_trace_clusters_ave, df_trace_clusters_std, df_events_trace_clusters] = mscope.load_processed_files_clusters()
 
     # Load behavioral data
     filelist = loco.get_track_files(animal, session)
@@ -61,8 +54,8 @@ for s in range(len(session_data)):
         sw_strides_trials.append(sw_pts_mat)
 
     traj = 'time'
-    time_window = 1 #default 0.2
-    bin_number = 50 #default 20
+    time_window = 0.2 #default 1
+    bin_number = 20 #default 50
     align_str = ['st', 'sw']
     roi_list = mscope.get_roi_list(df_events_extract_rawtrace)
     for align in align_str:
@@ -97,22 +90,69 @@ for s in range(len(session_data)):
         if align == 'sw':
             df_psth_sw = pd.DataFrame(dict_psth_single)
 
-distance_neurons_ordered = np.argsort(distance_neurons[:, 0])
-rois_ordered_distance = []
-rois_ordered_distance_str = []
-for i in distance_neurons_ordered:
-    rois_ordered_distance.append(np.int64(roi_list[i][3:]))
-    rois_ordered_distance_str.append(roi_list[i])
-df_psth_plot = df_psth_st.loc[(df_psth_st['paw'] == 'FR') & (df_psth_st['trial_type'] == 'baseline')]
-df_psth_plot_pivot = df_psth_plot.pivot(index='roi', column='time', values='psth')
-df_psth_plot_pivot_ordered = df_psth_plot_pivot.loc[rois_ordered_distance]
+    #save psth dataframe
+    df_psth_st.to_csv(os.path.join(path, 'processed files', 'psth_st_dataframe.csv'), sep=',',
+                                   index=False)
+    df_psth_sw.to_csv(os.path.join(path, 'processed files', 'psth_sw_dataframe.csv'), sep=',',
+                                   index=False)
 
-fig, ax = plt.subplots(figsize=(10, 7), tight_layout=True)
-sns.heatmap(df_psth_plot_pivot_ordered, cmap='viridis')
-ax.vlines(bin_number/2, *ax.get_ylim(), color='white', linestyle='dashed')
-ax.set_yticks(np.arange(0, len(rois_ordered_distance), 4))
-ax.set_yticklabels(rois_ordered_distance_str[::4], rotation=45, fontsize=mscope.fsize - 12)
-ax.set_xticks(np.arange(0, len(df_psth_plot_pivot_ordered.columns), 4))
-ax.set_xticklabels(df_psth_plot_pivot_ordered.columns[::4], rotation=45, fontsize=mscope.fsize - 12)
-ax.set_xlabel('Time (ms)', fontsize=mscope.fsize - 4)
+    centroids_mediolateral = []
+    for c in range(len(centroid_ext)):
+        centroids_mediolateral.append(centroid_ext[c][0])
+    distance_neurons_ordered = np.argsort(centroids_mediolateral)
+    rois_ordered_distance = []
+    rois_ordered_distance_str = []
+    for i in distance_neurons_ordered:
+        rois_ordered_distance.append(np.int64(roi_list[i][3:]))
+        rois_ordered_distance_str.append(roi_list[i])
+
+    mscope.plot_single_roi_ref_image(ref_image, coord_ext, rois_ordered_distance[0], traces_type, roi_list, colors_cluster,
+                              idx_roi_cluster_ordered, 0)
+    plt.savefig(os.path.join(mscope.path, 'images', 'events', 'roi_most_lateral'), dpi=mscope.my_dpi)
+
+    # vmax_hist = np.max(np.array([np.max(df_psth_st['psth']), np.max(df_psth_sw['psth'])]))
+    # vmin_hist = np.min(np.array([np.min(df_psth_st['psth']), np.min(df_psth_sw['psth'])]))
+
+    for count_c, c in enumerate(cond_plot):
+        fig, ax = plt.subplots(1, 4, figsize=(20, 5), tight_layout=True)
+        ax = ax.ravel()
+        vmax_hist = np.max(np.array([np.max(df_psth_st.loc[df_psth_st['trial_type'] == c, 'psth']), np.max(df_psth_sw.loc[df_psth_sw['trial_type'] == c, 'psth'])]))
+        vmin_hist = np.min(np.array([np.min(df_psth_st.loc[df_psth_st['trial_type'] == c, 'psth']), np.min(df_psth_sw.loc[df_psth_sw['trial_type'] == c, 'psth'])]))
+        for count_p, p in enumerate(paws):
+            df_psth_plot = df_psth_st.loc[(df_psth_st['paw'] == p) & (df_psth_st['trial_type'] == c)]
+            df_psth_plot_pivot = df_psth_plot.pivot_table('psth', index='roi', columns='time')
+            df_psth_plot_pivot_ordered = df_psth_plot_pivot.loc[rois_ordered_distance]
+            sns.heatmap(df_psth_plot_pivot_ordered, cmap='viridis', ax=ax[count_p], vmax=vmax_hist, vmin=vmin_hist)
+            ax[count_p].vlines(bin_number/2, *ax[count_p].get_ylim(), color='white', linestyle='dashed')
+            ax[count_p].set_yticks(np.arange(0, len(rois_ordered_distance), 8))
+            ax[count_p].set_yticklabels(rois_ordered_distance_str[::8], rotation=45, fontsize=mscope.fsize - 10)
+            ax[count_p].set_xticks(np.arange(0, len(df_psth_plot_pivot_ordered.columns), 8))
+            ax[count_p].set_xticklabels(df_psth_plot_pivot_ordered.columns[::8], rotation=45, fontsize=mscope.fsize - 10)
+            ax[count_p].set_xlabel('Time (ms)', fontsize=mscope.fsize - 8)
+            ax[count_p].set_ylabel('ROI #', fontsize=mscope.fsize - 8)
+            ax[count_p].set_title(p, fontsize=mscope.fsize-8)
+        plt.savefig(os.path.join(mscope.path, 'images', 'events', 'rois_psth_st_0,2_diffscale_'+c), dpi=mscope.my_dpi)
+
+    for count_c, c in enumerate(cond_plot):
+        fig, ax = plt.subplots(1, 4, figsize=(20, 5), tight_layout=True)
+        ax = ax.ravel()
+        vmax_hist = np.max(np.array([np.max(df_psth_st.loc[df_psth_st['trial_type'] == c, 'psth']), np.max(df_psth_sw.loc[df_psth_sw['trial_type'] == c, 'psth'])]))
+        vmin_hist = np.min(np.array([np.min(df_psth_st.loc[df_psth_st['trial_type'] == c, 'psth']), np.min(df_psth_sw.loc[df_psth_sw['trial_type'] == c, 'psth'])]))
+        for count_p, p in enumerate(paws):
+            df_psth_plot = df_psth_sw.loc[(df_psth_sw['paw'] == p) & (df_psth_sw['trial_type'] == c)]
+            df_psth_plot_pivot = df_psth_plot.pivot_table('psth', index='roi', columns='time')
+            df_psth_plot_pivot_ordered = df_psth_plot_pivot.loc[rois_ordered_distance]
+            sns.heatmap(df_psth_plot_pivot_ordered, cmap='viridis', ax=ax[count_p], vmax=vmax_hist, vmin=vmin_hist)
+            ax[count_p].vlines(bin_number/2, *ax[count_p].get_ylim(), color='white', linestyle='dashed')
+            ax[count_p].set_yticks(np.arange(0, len(rois_ordered_distance), 8))
+            ax[count_p].set_yticklabels(rois_ordered_distance_str[::8], rotation=45, fontsize=mscope.fsize - 10)
+            ax[count_p].set_xticks(np.arange(0, len(df_psth_plot_pivot_ordered.columns), 8))
+            ax[count_p].set_xticklabels(df_psth_plot_pivot_ordered.columns[::8], rotation=45, fontsize=mscope.fsize - 10)
+            ax[count_p].set_xlabel('Time (ms)', fontsize=mscope.fsize - 8)
+            ax[count_p].set_ylabel('ROI #', fontsize=mscope.fsize - 8)
+            ax[count_p].set_title(p, fontsize=mscope.fsize-8)
+        plt.savefig(os.path.join(mscope.path, 'images', 'events', 'rois_psth_sw_0,2_diffscale_'+c), dpi=mscope.my_dpi)
+
+        plt.close('all')
+
 

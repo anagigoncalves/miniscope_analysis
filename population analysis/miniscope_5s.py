@@ -20,7 +20,7 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'C:\\Users\\Ana\\Desktop\\Miniscope processed files'
-session_data = pd.read_excel('C:\\Users\\Ana\\Desktop\\Miniscope processed files\\session_data.xlsx')
+session_data = pd.read_excel('C:\\Users\\Ana\\Desktop\\Miniscope processed files\\session_data_all.xlsx')
 for s in range(len(session_data)):
     ses_info = session_data.iloc[s, :]
     date = ses_info[3]

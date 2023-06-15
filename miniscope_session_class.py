@@ -513,29 +513,27 @@ class miniscope_session:
             trials_ses = np.array([[1, 3], [4, 13], [14, 23]])
             trials_ses_name = ['baseline', 'early split', 'late split', 'early washout']
             cond_plot = ['baseline', 'split', 'washout']
+            trials_baseline = np.array([1, 2, 3])
+            trials_split = np.array([4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
+            trials_washout = np.array([14, 15, 16, 17, 18, 19, 20, 21, 22, 23])
         if session_type == 'split' and animal != 'MC8855':
             trials_ses = np.array([[1, 6], [7, 16], [17, 26]])
             trials_ses_name = ['baseline', 'early split', 'late split', 'early washout']
             cond_plot = ['baseline', 'split', 'washout']
-        if (len(trials)>18) and (len(trials)<24) and session_type == 'split':
-            trials_ses = np.array([[1, 3], [4, 13], [14, 23]])
-            trials_baseline = np.array([1, 2, 3])
-            trials_split = np.array([4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
-            trials_washout = np.array([14, 15, 16, 17, 18, 19, 20, 21, 22, 23])
-        elif (len(trials)>23) and (len(trials)<27) and session_type == 'split':
-            trials_ses = np.array([[1, 6], [7, 16], [17, 26]])
             trials_baseline = np.array([1, 2, 3, 4, 5, 6])
             trials_split = np.array([7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
             trials_washout = np.array([17, 18, 19, 20, 21, 22, 23, 24, 25, 26])
-        elif len(trials) < 24 and session_type == 'tied':
-            trials_baseline = np.arange(trials_ses[0, 0], trials_ses[0, -1]+1)
-            trials_split = trials
-            trials_washout = trials
-        elif animal=='MC9226' and session==1:
+        if session_type == 'split' and animal == 'MC9226' and session == 1:
             trials_ses = np.array([[1, 6], [7, 16], [17, 23]])
             trials_baseline = np.array([1, 2, 3, 4, 5, 6])
             trials_split = np.array([7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
             trials_washout = np.array([17, 18, 19, 20, 21, 22, 23])
+            trials_ses_name = ['baseline', 'early split', 'late split', 'early washout']
+            cond_plot = ['baseline', 'split', 'washout']
+        if len(trials) < 24 and session_type == 'tied':
+            trials_baseline = np.arange(trials_ses[0, 0], trials_ses[0, -1]+1)
+            trials_split = trials
+            trials_washout = trials
         if session_type == 'tied':
             trials_baseline = trials
             trials_split = trials

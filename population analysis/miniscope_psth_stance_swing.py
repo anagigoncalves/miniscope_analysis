@@ -19,8 +19,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'C:\\Users\\Ana\\Desktop\\Miniscope processed files\\'
-session_data = pd.read_excel('C:\\Users\\Ana\\Desktop\\Miniscope processed files\\session_data_all.xlsx')
+path_session_data = 'E:\\Miniscope processed files\\'
+session_data = pd.read_excel('E:\\Miniscope processed files\\session_data_all.xlsx')
 for s in range(len(session_data)):
     ses_info = session_data.iloc[s, :]
     date = ses_info[3]
@@ -78,7 +78,8 @@ for s in range(len(session_data)):
                     [hist_result, xaxis] = np.histogram(events_stride_trial[np.where(trial_id_notnan == trials_ses[t, 0])[0][0]:
                                                                             np.where(trial_id_notnan == trials_ses[t, 1])[0][-1]], range=(-time_window*1000, time_window*1000), bins=bin_number)
                     time_align_single.extend(xaxis[:-1])
-                    psth_arr_single.extend(hist_result/nr_strides)
+                    # psth_arr_single.extend(hist_result/nr_strides)
+                    psth_arr_single.extend(hist_result / (time_window*2))
                     animal_id_single.extend(np.repeat(animal, len(hist_result)))
                     roi_id_single.extend(np.repeat(np.int64(roi_plot[3:]), len(hist_result)))
                     paw_id_single.extend(np.repeat(p, len(hist_result)))

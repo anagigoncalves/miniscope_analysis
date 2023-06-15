@@ -7,8 +7,8 @@ import warnings
 import matplotlib as mp
 
 # path inputs
-path = 'D:\\TM RAW FILES\\tied baseline\\MC9194\\2021_07_03\\'
-path_loco = 'D:\\TM TRACKING FILES\\tied baseline S2 030721\\'
+path = 'H:\\TM RAW FILES\\split ipsi fast\\MC9194\\2021_07_01\\'
+path_loco = 'H:\\TM TRACKING FILES\\split ipsi fast S3 010721\\'
 session_type = path.split('\\')[-4].split(' ')[0]
 version_mscope = 'v4'
 plot_data = 1
@@ -108,7 +108,7 @@ if load_data == 0:
     # Data as clusters
     centroid_ext = mscope.get_roi_centroids(coord_ext_curated)
     distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 0.7
+    th_cluster = 0.65
     colormap_cluster = 'hsv'
     [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
                                                                       distance_neurons, trials_baseline, th_cluster,
@@ -138,7 +138,7 @@ if load_data:
     time_cumulative = mscope.cumulative_time(df_extract_rawtrace_detrended, trials)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
     distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-    th_cluster = 0.7
+    th_cluster = 0.65
     colormap_cluster = 'hsv'
     [colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
                                                                       distance_neurons, trials_baseline, th_cluster,

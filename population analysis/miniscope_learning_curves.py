@@ -19,8 +19,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'J:\\Miniscope processed files\\'
-session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
+path_session_data = 'E:\\Miniscope processed files\\'
+session_data = pd.read_excel('E:\\Miniscope processed files\\session_data_split_S1.xlsx')
 if not os.path.exists(path_session_data + 'STA difference between paws'):
     os.mkdir(path_session_data + 'STA difference between paws')
 for s in range(len(session_data)):
@@ -49,11 +49,15 @@ for s in range(len(session_data)):
     coo_sym_mean = np.zeros(len(trials))
     ds_sym_mean = np.zeros(len(trials))
     fr_fl_diff_mean = np.zeros(len(trials))
+    fr_hr_diff_mean = np.zeros(len(trials))
+    hr_hl_diff_mean = np.zeros(len(trials))
     for count_trial, f in enumerate(filelist):
         [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f, 0.9, int(frames_loco[count_trial]))
         [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
         paws_rel = loco.get_paws_rel(final_tracks, 'X')
         fr_fl_diff_mean[count_trial] = np.nanmean(paws_rel[0]-paws_rel[2])
+        fr_hr_diff_mean[count_trial] = np.nanmean(paws_rel[0] - paws_rel[1])
+        hr_hl_diff_mean[count_trial] = np.nanmean(paws_rel[1] - paws_rel[3])
         sl_trials = loco.compute_gait_param(bodycenter, final_tracks, paws_rel, st_strides_mat, sw_pts_mat, 'step_length')
         sl_sym_mean[count_trial] = np.nanmean(sl_trials[0])-np.nanmean(sl_trials[2])
         ds_trials = loco.compute_gait_param(bodycenter, final_tracks, paws_rel, st_strides_mat, sw_pts_mat, 'double_support')
@@ -81,6 +85,48 @@ for s in range(len(session_data)):
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     plt.savefig(os.path.join(mscope.path, 'images', 'FR-FL_difference_curve'), dpi=mscope.my_dpi)
+
+    # FR-HR difference curve across trials
+    fr_hr_diff_baseline = np.nanmean(fr_hr_diff_mean[:trials_ses[0, 1]])
+    fr_hr_diff_bs = fr_hr_diff_mean - fr_hr_diff_baseline
+    fig, ax = plt.subplots(figsize=(5, 6), tight_layout=True)
+    if session_type == 'split':
+        rectangle = plt.Rectangle((trials_ses[0, 1] + 0.5, min(fr_hr_diff_bs)), 10,
+                                  max(fr_hr_diff_bs) - min(fr_hr_diff_bs), fc='grey', alpha=0.3)
+        ax.add_patch(rectangle)
+    ax.hlines(0, 1, len(fr_hr_diff_bs), colors='grey', linestyles='--')
+    ax.plot(trials, fr_hr_diff_bs, color='black')
+    for count_t, t in enumerate(trials):
+        idx_trial = np.where(trials == t)[0][0]
+        ax.scatter(t, fr_hr_diff_bs[idx_trial], s=80, color=colors_session[t])
+    ax.set_xlabel('Trials', fontsize=20)
+    ax.set_ylabel('FR-FL difference', fontsize=20)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    plt.savefig(os.path.join(mscope.path, 'images', 'FR-HR_difference_curve'), dpi=mscope.my_dpi)
+
+    # HR-HL difference curve across trials
+    hr_hl_diff_baseline = np.nanmean(hr_hl_diff_mean[:trials_ses[0, 1]])
+    hr_hl_diff_bs = hr_hl_diff_mean - hr_hl_diff_baseline
+    fig, ax = plt.subplots(figsize=(5, 6), tight_layout=True)
+    if session_type == 'split':
+        rectangle = plt.Rectangle((trials_ses[0, 1] + 0.5, min(hr_hl_diff_bs)), 10,
+                                  max(hr_hl_diff_bs) - min(hr_hl_diff_bs), fc='grey', alpha=0.3)
+        ax.add_patch(rectangle)
+    ax.hlines(0, 1, len(hr_hl_diff_bs), colors='grey', linestyles='--')
+    ax.plot(trials, hr_hl_diff_bs, color='black')
+    for count_t, t in enumerate(trials):
+        idx_trial = np.where(trials == t)[0][0]
+        ax.scatter(t, hr_hl_diff_bs[idx_trial], s=80, color=colors_session[t])
+    ax.set_xlabel('Trials', fontsize=20)
+    ax.set_ylabel('FR-FL difference', fontsize=20)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    plt.savefig(os.path.join(mscope.path, 'images', 'HR-HL_difference_curve'), dpi=mscope.my_dpi)
 
     # SL sym curve across trials
     sl_sym_baseline = np.nanmean(sl_sym_mean[:trials_ses[0, 1]])

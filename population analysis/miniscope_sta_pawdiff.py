@@ -19,8 +19,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'J:\\Miniscope processed files\\'
-session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
+path_session_data = 'E:\\Miniscope processed files\\'
+session_data = pd.read_excel('E:\\Miniscope processed files\\session_data_split_S1.xlsx')
 if not os.path.exists(path_session_data + 'STA difference between paws'):
     os.mkdir(path_session_data + 'STA difference between paws')
 for s in range(len(session_data)):

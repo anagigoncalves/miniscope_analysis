@@ -67,29 +67,55 @@ for s in range(len(session_data)):
             color_plot = color_animals[4]
         return color_plot
 
+    iter_n = 50
+    shuffled_spikes = []
+    trials_n = len(trials)
+    cum_tr_len = np.arange(0, (trials_n * mscope.trial_time) + mscope.trial_time, mscope.trial_time, dtype=int)
+    for n in df_events_extract_rawtrace.columns[2:]:
+        all_spikes_ts = np.array([])
+        for count_t, trial in enumerate(trials):
+            df_events_tr = df_events_extract_rawtrace[df_events_extract_rawtrace.trial == trial]
+            events_idx = np.array(df_events_tr.index[df_events_tr[n] == 1])
+            spikes_ts = np.array(df_events_tr.time[events_idx]) + mscope.trial_time * count_t
+            all_spikes_ts = np.concatenate((all_spikes_ts, spikes_ts))
+        isi = np.diff(all_spikes_ts)
+        for i in range(iter_n):
+            np.random.shuffle(isi)
+        shuffled_spikes_ts = np.insert(np.cumsum(isi), 0, 0)
+        shuffled_spikes_ts_all = []
+        for count_t, trial in enumerate(trials):
+            shuffled_data_trial_sorted = shuffled_spikes_ts[(cum_tr_len[count_t] < shuffled_spikes_ts) &
+                (shuffled_spikes_ts <= cum_tr_len[count_t+1])] - (mscope.trial_time * count_t)
+            shuffled_spikes_ts_all.append(shuffled_data_trial_sorted)
+        shuffled_spikes.append(shuffled_spikes_ts_all)
+
     window = 0.2
     max_pawdiff = []
     min_pawdiff = []
     fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True)
-    for roi in df_events_extract_rawtrace.columns[2:]:
+    for count_roi, roi in enumerate(df_events_extract_rawtrace.columns[2:]):
         paw_diff_trial_means = []
         event_trial_prob = []
-        for trial in trials:
+        event_trial_prob_shuffled = []
+        for count_trial, trial in enumerate(trials):
             trial_idx = np.where(trials == trial)[0][0]
             bcam_trial = bcam_time[trial_idx]
             events_trial = np.array(df_events_extract_rawtrace.loc[(df_events_extract_rawtrace[roi] == 1) & (
                         df_events_extract_rawtrace['trial'] == trial), 'time'])
+            events_trial_shuffled = shuffled_spikes[count_roi][count_trial]
             paw_diff_trial = paws_rel_trials[trial_idx][0] - paws_rel_trials[trial_idx][2]
             bins = np.arange(0, bcam_trial[-1], window)
             bcam_trial_idx_bins = np.digitize(bcam_trial, bins) #returns the indices of the bins to which each bcam timestamp belongs
             events_trial_idx_bins = np.digitize(events_trial, bins)  # returns the indices of the bins to which each calcium event time belongs
+            events_trial_idx_bins_shuffled = np.digitize(events_trial_shuffled, bins)
             paw_diff_trial_means.extend([np.nanmean(paw_diff_trial[bcam_trial_idx_bins[:len(paw_diff_trial)] == i]) for i in range(len(bins))])
             event_trial_prob.extend([len(events_trial[events_trial_idx_bins[:len(events_trial)] == i])/len(events_trial) for i in range(len(bins))])
-
+            event_trial_prob_shuffled.extend([len(events_trial_shuffled[events_trial_idx_bins_shuffled[:len(events_trial_shuffled)] == i]) / len(events_trial_shuffled) for i in range(len(bins))])
         paw_diff_trial_means_arr = np.array(paw_diff_trial_means)
         max_pawdiff.append(np.nanmax(paw_diff_trial_means_arr))
         min_pawdiff.append(np.nanmin(paw_diff_trial_means_arr))
         event_trial_prob_arr = np.array(event_trial_prob)
+        event_trial_prob_arr_shuffled = np.array(event_trial_prob_shuffled)
         # all event probabilities for all ROIs
         # plt.scatter(paw_diff_trial_means_arr[event_trial_prob_arr > 0], event_trial_prob_arr[event_trial_prob_arr > 0], s=1, color=get_colors_plot(animal, color_animals))
         # bin paw difference values to get the mean probability
@@ -97,7 +123,9 @@ for s in range(len(session_data)):
         # bins_pawdiff = np.arange(np.nanmin(paw_diff_trial_means_arr), np.nanmax(paw_diff_trial_means_arr), 5)
         pawdiff_idx_bins = np.digitize(paw_diff_trial_means_arr, bins_pawdiff)  # returns the indices of the bins to which each bcam timestamp belongs
         event_prob_bin = [np.nanmean(event_trial_prob_arr[pawdiff_idx_bins[:len(event_trial_prob_arr)] == i]) for i in range(len(bins_pawdiff))]
+        event_prob_bin_shuffled = [np.nanmean(event_trial_prob_arr_shuffled[pawdiff_idx_bins[:len(event_trial_prob_arr_shuffled)] == i]) for i in range(len(bins_pawdiff))]
         ax.scatter(bins_pawdiff, event_prob_bin, s=10, color=get_colors_plot(animal, color_animals))
+        ax.scatter(bins_pawdiff+2, event_prob_bin_shuffled, s=10, color='lightgray')
     ax.set_xlabel('FR-FL paw difference (mm)', fontsize=mscope.fsize - 4)
     ax.set_ylabel('Calcium event probability\n(count in bin/total count)', fontsize=mscope.fsize - 4)
     ax.set_ylim([-0.0025, 0.02])

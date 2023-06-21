@@ -48,6 +48,7 @@ class miniscope_session:
         self.my_dpi = 128  # resolution for plotting
         self.sr_loco = 330  # sampling rate of behavioral camera
         self.fsize = 20
+        self.trial_time = 60 #trial duration
 
     @staticmethod
     def z_score(A, axis_id):

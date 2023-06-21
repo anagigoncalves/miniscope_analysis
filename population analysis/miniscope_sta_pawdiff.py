@@ -19,8 +19,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'E:\\Miniscope processed files\\'
-session_data = pd.read_excel('E:\\Miniscope processed files\\session_data_split_S1.xlsx')
+path_session_data = 'J:\\Miniscope processed files\\'
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
 if not os.path.exists(path_session_data + 'STA difference between paws'):
     os.mkdir(path_session_data + 'STA difference between paws')
 for s in range(len(session_data)):
@@ -62,6 +62,29 @@ for s in range(len(session_data)):
         paws_rel = loco.get_paws_rel(final_tracks, 'X')
         paws_rel_trials.append(paws_rel)
 
+    iter_n = 1000
+    shuffled_spikes = []
+    trials_n = len(trials)
+    cum_tr_len = np.arange(0, (trials_n * mscope.trial_time) + mscope.trial_time, mscope.trial_time, dtype=int)
+    for n in df_events_extract_rawtrace.columns[2:]:
+        all_spikes_ts = np.array([])
+        for count_t, trial in enumerate(trials):
+            df_events_tr = df_events_extract_rawtrace[df_events_extract_rawtrace.trial == trial]
+            events_idx = np.array(df_events_tr.index[df_events_tr[n] == 1])
+            spikes_ts = np.array(df_events_tr.time[events_idx]) + mscope.trial_time * count_t
+            all_spikes_ts = np.concatenate((all_spikes_ts, spikes_ts))
+        isi = np.diff(all_spikes_ts)
+        for i in range(iter_n):
+            np.random.shuffle(isi)
+        shuffled_spikes_ts = np.insert(np.cumsum(isi), 0, 0)
+        shuffled_spikes_ts_all = []
+        for count_t, trial in enumerate(trials):
+            shuffled_data_trial_sorted = shuffled_spikes_ts[(cum_tr_len[count_t] < shuffled_spikes_ts) &
+                (shuffled_spikes_ts <= cum_tr_len[count_t+1])] - (mscope.trial_time * count_t)
+            shuffled_spikes_ts_all.append(shuffled_data_trial_sorted)
+        shuffled_spikes.append(shuffled_spikes_ts_all)
+
+    # PAW DIFFERENCE EVENT PROBABILITY - REAL DISTRIBUTION
     window = 0.2
     window_ave = 0.05 #window for averaging the CS
     paw_sta_mean_cstime_rois = np.zeros((len(rois_ordered_distance_str), len(trials)))

@@ -19,8 +19,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'E:\\Miniscope processed files\\'
-session_data = pd.read_excel('E:\\Miniscope processed files\\session_data_split_S1.xlsx')
+path_session_data = 'J:\\Miniscope processed files\\'
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
 if not os.path.exists(path_session_data + 'STA difference between paws'):
     os.mkdir(path_session_data + 'STA difference between paws')
 for s in range(len(session_data)):
@@ -68,6 +68,8 @@ for s in range(len(session_data)):
         return color_plot
 
     window = 0.2
+    max_pawdiff = []
+    min_pawdiff = []
     fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True)
     for roi in df_events_extract_rawtrace.columns[2:]:
         paw_diff_trial_means = []
@@ -85,23 +87,34 @@ for s in range(len(session_data)):
             event_trial_prob.extend([len(events_trial[events_trial_idx_bins[:len(events_trial)] == i])/len(events_trial) for i in range(len(bins))])
 
         paw_diff_trial_means_arr = np.array(paw_diff_trial_means)
+        max_pawdiff.append(np.nanmax(paw_diff_trial_means_arr))
+        min_pawdiff.append(np.nanmin(paw_diff_trial_means_arr))
         event_trial_prob_arr = np.array(event_trial_prob)
         # all event probabilities for all ROIs
         # plt.scatter(paw_diff_trial_means_arr[event_trial_prob_arr > 0], event_trial_prob_arr[event_trial_prob_arr > 0], s=1, color=get_colors_plot(animal, color_animals))
         # bin paw difference values to get the mean probability
-        bins_pawdiff = np.arange(np.nanmin(paw_diff_trial_means_arr), np.nanmax(paw_diff_trial_means_arr), 5)
+        bins_pawdiff = np.arange(-50, 50, 10)
+        # bins_pawdiff = np.arange(np.nanmin(paw_diff_trial_means_arr), np.nanmax(paw_diff_trial_means_arr), 5)
         pawdiff_idx_bins = np.digitize(paw_diff_trial_means_arr, bins_pawdiff)  # returns the indices of the bins to which each bcam timestamp belongs
         event_prob_bin = [np.nanmean(event_trial_prob_arr[pawdiff_idx_bins[:len(event_trial_prob_arr)] == i]) for i in range(len(bins_pawdiff))]
         ax.scatter(bins_pawdiff, event_prob_bin, s=10, color=get_colors_plot(animal, color_animals))
     ax.set_xlabel('FR-FL paw difference (mm)', fontsize=mscope.fsize - 4)
     ax.set_ylabel('Calcium event probability\n(count in bin/total count)', fontsize=mscope.fsize - 4)
+    ax.set_ylim([-0.0025, 0.02])
+    ax.set_xlim([-50, 50])
     plt.xticks(fontsize=mscope.fsize - 4)
     plt.yticks(fontsize=mscope.fsize - 4)
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     plt.savefig(os.path.join(path_session_data, 'STA difference between paws',
                              animal + '_' + ses_info['protocol'].replace(' ', '_') + '_S' + str(session) + '_FR-FL_eventprobability'), dpi=mscope.my_dpi)
-    plt.close('all')
 
-plt.figure()
-plt.scatter(paw_diff_trial_means_arr, event_trial_prob_arr, s=50)
+    fig, ax = plt.subplots(1, 2, tight_layout=True, figsize=(10, 5))
+    ax = ax.ravel()
+    ax[0].hist(np.array(max_pawdiff), bins=10)
+    ax[0].set_title('Max of pawdiff values')
+    ax[1].hist(np.array(min_pawdiff), bins=10)
+    ax[1].set_title('Min of pawdiff values')
+    plt.savefig(os.path.join(path_session_data, 'STA difference between paws',
+                             animal + '_' + ses_info['protocol'].replace(' ', '_') + '_S' + str(session) + '_FR-FL_histmaxmin'), dpi=mscope.my_dpi)
+    plt.close('all')

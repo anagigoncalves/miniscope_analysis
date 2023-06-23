@@ -19,8 +19,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'E:\\Miniscope processed files\\'
-session_data = pd.read_excel('E:\\Miniscope processed files\\session_data_split_S1.xlsx')
+path_session_data = 'J:\\Miniscope processed files\\'
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
 if not os.path.exists(path_session_data + 'STA difference between paws'):
     os.mkdir(path_session_data + 'STA difference between paws')
 for s in range(len(session_data)):
@@ -45,6 +45,9 @@ for s in range(len(session_data)):
 
     # Load behavioral data
     filelist = loco.get_track_files(animal, session)
+    st_strides_trials = []
+    sw_strides_trials = []
+    final_tracks_trials = []
     sl_sym_mean = np.zeros(len(trials))
     coo_sym_mean = np.zeros(len(trials))
     ds_sym_mean = np.zeros(len(trials))
@@ -54,6 +57,9 @@ for s in range(len(session_data)):
     for count_trial, f in enumerate(filelist):
         [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f, 0.9, int(frames_loco[count_trial]))
         [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
+        final_tracks_trials.append(final_tracks)
+        st_strides_trials.append(st_strides_mat)
+        sw_strides_trials.append(sw_pts_mat)
         paws_rel = loco.get_paws_rel(final_tracks, 'X')
         fr_fl_diff_mean[count_trial] = np.nanmean(paws_rel[0]-paws_rel[2])
         fr_hr_diff_mean[count_trial] = np.nanmean(paws_rel[0] - paws_rel[1])
@@ -64,6 +70,56 @@ for s in range(len(session_data)):
         ds_sym_mean[count_trial] = np.nanmean(ds_trials[0])-np.nanmean(ds_trials[2])
         coo_trials = loco.compute_gait_param(bodycenter, final_tracks, paws_rel, st_strides_mat, sw_pts_mat, 'coo')
         coo_sym_mean[count_trial] = np.nanmean(coo_trials[0])-np.nanmean(coo_trials[2])
+    final_tracks_trials_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials,
+                                                        sw_strides_trials, 'st-st')
+    fr_fl_phase_diff_mean = np.zeros(len(trials))
+    fr_hr_phase_diff_mean = np.zeros(len(trials))
+    for count_trial, trial in enumerate(trials):
+        fr_fl_phase_diff_mean[count_trial] = np.nanmean(final_tracks_trials_phase[count_trial][0][0]-final_tracks_trials_phase[count_trial][0][2])
+        fr_hr_phase_diff_mean[count_trial] = np.nanmean(
+            final_tracks_trials_phase[count_trial][0][0] - final_tracks_trials_phase[count_trial][0][1])
+
+    # FR-FL phase difference curve across trials
+    fr_fl_phase_diff_baseline = np.nanmean(fr_fl_phase_diff_mean[:trials_ses[0, 1]])
+    fr_fl_phase_diff_bs = fr_fl_phase_diff_mean - fr_fl_phase_diff_baseline
+    fig, ax = plt.subplots(figsize=(5, 6), tight_layout=True)
+    if session_type == 'split':
+        rectangle = plt.Rectangle((trials_ses[0, 1] + 0.5, min(fr_fl_phase_diff_bs)), 10,
+                                  max(fr_fl_phase_diff_bs) - min(fr_fl_phase_diff_bs), fc='grey', alpha=0.3)
+        ax.add_patch(rectangle)
+    ax.hlines(0, 1, len(fr_fl_phase_diff_bs), colors='grey', linestyles='--')
+    ax.plot(trials, fr_fl_phase_diff_bs, color='black')
+    for count_t, t in enumerate(trials):
+        idx_trial = np.where(trials == t)[0][0]
+        ax.scatter(t, fr_fl_phase_diff_bs[idx_trial], s=80, color=colors_session[t])
+    ax.set_xlabel('Trials', fontsize=20)
+    ax.set_ylabel('FR-FL difference', fontsize=20)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    plt.savefig(os.path.join(mscope.path, 'images', 'FR-FL_phase_difference_curve'), dpi=mscope.my_dpi)
+
+    # FR-HR phase difference curve across trials
+    fr_hr_phase_diff_baseline = np.nanmean(fr_hr_phase_diff_mean[:trials_ses[0, 1]])
+    fr_hr_phase_diff_bs = fr_hr_phase_diff_mean - fr_hr_phase_diff_baseline
+    fig, ax = plt.subplots(figsize=(5, 6), tight_layout=True)
+    if session_type == 'split':
+        rectangle = plt.Rectangle((trials_ses[0, 1] + 0.5, min(fr_hr_phase_diff_bs)), 10,
+                                  max(fr_hr_phase_diff_bs) - min(fr_hr_phase_diff_bs), fc='grey', alpha=0.3)
+        ax.add_patch(rectangle)
+    ax.hlines(0, 1, len(fr_hr_phase_diff_bs), colors='grey', linestyles='--')
+    ax.plot(trials, fr_hr_phase_diff_bs, color='black')
+    for count_t, t in enumerate(trials):
+        idx_trial = np.where(trials == t)[0][0]
+        ax.scatter(t, fr_hr_phase_diff_bs[idx_trial], s=80, color=colors_session[t])
+    ax.set_xlabel('Trials', fontsize=20)
+    ax.set_ylabel('FR-HR difference', fontsize=20)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    plt.savefig(os.path.join(mscope.path, 'images', 'FR-HR_phase_difference_curve'), dpi=mscope.my_dpi)
 
     # FR-FL difference curve across trials
     fr_fl_diff_baseline = np.nanmean(fr_fl_diff_mean[:trials_ses[0, 1]])

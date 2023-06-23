@@ -21,8 +21,8 @@ import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files\\'
 session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
-if not os.path.exists(path_session_data + 'STA difference between paws'):
-    os.mkdir(path_session_data + 'STA difference between paws')
+if not os.path.exists(path_session_data + 'Difference between paws at CS time'):
+    os.mkdir(path_session_data + 'Difference between paws at CS time')
 for s in range(len(session_data)):
     ses_info = session_data.iloc[s, :]
     date = ses_info[3]
@@ -154,7 +154,7 @@ for s in range(len(session_data)):
     ax.set_xticklabels(list(map(str,trials)), fontsize=mscope.fsize - 10, rotation=45)
     ax.set_xlabel('Trials', fontsize=mscope.fsize - 8)
     ax.set_title('average FR-FL around calcium event', fontsize=mscope.fsize - 8)
-    plt.savefig(os.path.join(path_session_data, 'STA difference between paws', animal + '_' + ses_info['protocol'].replace(' ', '_') + '_S' + str(session) + '_FR-FL'), dpi=mscope.my_dpi)
+    plt.savefig(os.path.join(path_session_data, 'Difference between paws at CS time', animal + '_' + ses_info['protocol'].replace(' ', '_') + '_S' + str(session) + '_FR-FL'), dpi=mscope.my_dpi)
 
     fig, ax = plt.subplots(figsize=(5, 7), tight_layout=True)
     sns.heatmap(paw_sta_mean_cstime_windowave_rois, cmap='viridis')
@@ -164,7 +164,7 @@ for s in range(len(session_data)):
     ax.set_xticklabels(list(map(str,trials)), fontsize=mscope.fsize - 10, rotation=45)
     ax.set_xlabel('Trials', fontsize=mscope.fsize - 8)
     ax.set_title('average FR-FL 50ms around calcium event', fontsize=mscope.fsize - 8)
-    plt.savefig(os.path.join(path_session_data, 'STA difference between paws', animal + '_' + ses_info['protocol'].replace(' ', '_') + '_S' + str(session) + '_FR-FL_windowave50msbefore'), dpi=mscope.my_dpi)
+    plt.savefig(os.path.join(path_session_data, 'Difference between paws at CS time', animal + '_' + ses_info['protocol'].replace(' ', '_') + '_S' + str(session) + '_FR-FL_windowave50msbefore'), dpi=mscope.my_dpi)
 
     fig, ax = plt.subplots(figsize=(5, 7), tight_layout=True)
     sns.heatmap(paw_sta_mean_cstime_wholewindowave_rois, cmap='viridis')
@@ -174,7 +174,7 @@ for s in range(len(session_data)):
     ax.set_xticklabels(list(map(str,trials)), fontsize=mscope.fsize - 10, rotation=45)
     ax.set_xlabel('Trials', fontsize=mscope.fsize - 8)
     ax.set_title('average FR-FL 200ms around calcium event', fontsize=mscope.fsize - 8)
-    plt.savefig(os.path.join(path_session_data, 'STA difference between paws', animal + '_' + ses_info['protocol'].replace(' ', '_') + '_S' + str(session) + '_FR-FL_windowave200msbefore'), dpi=mscope.my_dpi)
+    plt.savefig(os.path.join(path_session_data, 'Difference between paws at CS time', animal + '_' + ses_info['protocol'].replace(' ', '_') + '_S' + str(session) + '_FR-FL_windowave200msbefore'), dpi=mscope.my_dpi)
     plt.close('all')
 
 

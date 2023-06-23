@@ -1404,10 +1404,10 @@ class loco_class:
         frame_time_bcam = []
         for f in tdmslist_animal_ordered:
             tdms_file = tdms.TdmsFile.read(f)
-            trial.append(int(filename.split('_')[-1][:-5]))
-            h5_trial = np.where(np.array(h5_trialorder) == int(filename.split('_')[-1][:-5]))[0][0]
+            trial.append(int(f.split('_')[-1][:-5]))
+            h5_trial = np.where(np.array(h5_trialorder) == int(f.split('_')[-1][:-5]))[0][0]
             track_df = pd.read_hdf(h5list_animal[h5_trial], 'df_with_missing')
-            frame_nr.append(track_df.shape[0])
+            frame_nr.append(track_df.index[-1]+1)
             tdms_groups = tdms_file.groups()
             tdms_channels = tdms_groups[0].channels()
             ch1 = tdms_channels[0].data  # triggers
@@ -1441,13 +1441,13 @@ class loco_class:
         # change frame_time_bcam to account for black frames that were excluded
         bcam_time = []
         for t in range(len(frame_time_bcam)):
-            if frame_rec_start_full[t] / self.sr > frame_time_bcam[t][
-                0]:  # if black frames is larger than the gap between mscope start and bcam start
-                bcam_time_clean = frame_time_bcam[t][int(frame_rec_start_full[t]):]
+            if frame_rec_start_full[t] / self.sr > frame_time_bcam[t][0]:  # if black frames is larger than the gap between mscope start and bcam start
+                bcam_time_lostframes = frame_time_bcam[t][:frame_nr[t]]  # if it lost frames it was at the end
+                bcam_time_clean = bcam_time_lostframes[int(frame_rec_start_full[t]):]
                 bcam_time.append(
                     bcam_time_clean - bcam_time_clean[0])  # because extra frames will be deleted from tracking
             else:
-                bcam_time.append(frame_time_bcam[t])
+                bcam_time.append(frame_time_bcam[t][:frame_nr[t]])
                 frame_rec_start_full[t] = 0
         return triggers, strobes, frame_rec_start_full, mscope_align_time, bcam_time
     

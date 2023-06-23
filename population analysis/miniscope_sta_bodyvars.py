@@ -35,6 +35,8 @@ for s in range(len(session_data)):
     session_type = path.split('\\')[-4].split(' ')[0]
     mscope = miniscope_session_class.miniscope_session(path)
     loco = locomotion_class.loco_class(path_loco)
+    import df_behav_class
+    nxb = df_behav_class.df_behav_analysis('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 
     # Session data and inputs
     animal = mscope.get_animal_id()
@@ -101,3 +103,32 @@ for s in range(len(session_data)):
         if animal_name == 'MC9226':
             color_plot = color_animals[4]
         return color_plot
+
+
+    # Get kinematic variables (body position, speed, acceleration)
+    win_len = 81  # In samples
+    polyorder = 3
+    bodycenter, bodyspeed, bodyacc = nxb.kinematic(final_tracks_trials, trials, win_len, polyorder)
+    # Find timestamps of behavioral recording matching the ones of neural activity and compute kinematic variables downsampled and aligned to df/f
+    behav_ts_idx = nxb.find_behav_ts(df_extract_rawtrace_detrended, bcam_time)
+    bodycenter_aligned, bodyspeed_aligned, bodyacc_aligned = nxb.kinematic_aligned(final_tracks_trials, trials,
+                                                                                   behav_ts_idx, win_len, polyorder)
+
+    # Compute spike-triggered average (STA) of kinematic variables
+    window = np.arange(-330, 330 + 1)  # In samples
+    variable = bodyspeed
+    df_events, cluster_transition_idx = nxb.sort_rois_clust(df_events_extract_rawtrace,
+                                                            clusters_rois)  # Sort ROIs by cluster
+    sta_allrois, signal_chunks_allrois = nxb.sta(df_events, variable, bcam_time, window, trials)
+    # Plot STA
+    save_plot = False
+    plot_data = True
+    var_name = 'Speed'
+    blocks = [(1, 3), (3, 13), (13, 23)]
+    block_colors = 'black', 'crimson', 'navy'
+    split_blocks = [(1, 3), (3, 8), (8, 13), (13, 18), (18, 23)] #USE trials_ses
+    rois_sorted = []
+    for i in range(len(clusters_rois)):  # flatten 'clusters_rois'
+        rois_sorted = np.hstack((rois_sorted, clusters_rois[i]))
+    nxb.plot_sta(sta_allrois, signal_chunks_allrois, window, trials, blocks, block_colors, split_blocks, rois_sorted,
+                 var_name, save_plot)

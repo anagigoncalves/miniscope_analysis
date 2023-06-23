@@ -12,14 +12,7 @@ Created on Thu Mar  9 11:33:42 2023
 # Import modules
 import os
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
-import pickle
-import warnings
-from scipy.stats import zscore
-from scipy.signal import correlate
-from scipy.signal import savgol_filter
-warnings.filterwarnings('ignore')
 
 
 # Path inputs
@@ -56,14 +49,9 @@ if not os.path.exists(path_plots):
 # Trial structure, reference image and triggers
 animal = mscope.get_animal_id()
 session = loco.get_session_id()
-trials = mscope.get_trial_id()
 strobe_nr_txt = loco.bcam_strobe_number() 
 trial_start_blip_nr = loco.trial_start_blips()
-ops_s2p = mscope.get_s2p_parameters()
-# print(ops_s2p)
 session_type = path.split(mscope.delim)[-4].split(' ')[0]  # tied or split
-colors_session = mscope.colors_session(session_type, trials, 1)
-[trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal)
 if session_type == 'split':
     colors_phases = ['black', 'crimson', 'teal']
 if session_type == 'tied':
@@ -72,8 +60,6 @@ traces_type = 'raw'
 
 
 # Load miniscope data
-frames_dFF = np.load(os.path.join(path, 'processed files', 'black_frames.npy'))
-[trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
 [df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace,
      coord_ext, reg_th, reg_bad_frames, trials,
      clusters_rois, colors_cluster, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
@@ -81,14 +67,8 @@ frames_dFF = np.load(os.path.join(path, 'processed files', 'black_frames.npy'))
 time_cumulative = mscope.cumulative_time(df_extract_rawtrace_detrended, trials)
 centroid_ext = mscope.get_roi_centroids(coord_ext)
 distance_neurons = mscope.distance_neurons(centroid_ext, 0)
-th_cluster = 0.65
-colormap_cluster = 'hsv'
-[colors_cluster, idx_roi_cluster] = mscope.compute_roi_clustering(df_extract_rawtrace_detrended, centroid_ext,
-                                                                      distance_neurons, trials_baseline, th_cluster,
-                                                                      colormap_cluster, plot_data, print_plots)
-[clusters_rois, idx_roi_cluster_ordered] = mscope.get_rois_clusters_mediolateral(df_extract_rawtrace_detrended,
-                                                                                     idx_roi_cluster, centroid_ext)
-frame_time = mscope.get_miniscope_frame_time(trials, frames_dFF, version_mscope)  # get frame time for each trial
+[trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal)
+[trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
 
 
 # Load behavioral data
@@ -132,50 +112,26 @@ mscope.plot_sl_sym_session(param_trials_fr_mean, trials_ses, trials, session_typ
 
 
 # df/f traces single ROI
-traces_type = 'raw'
 roi_plot = 3
-line_ratio = 0.5
-mscope.plot_stacked_traces_singleROI(df_extract_rawtrace_detrended, traces_type, roi_plot, trials, colors_session, line_ratio, plot_data = True, print_plots = False)
+mscope.plot_stacked_traces_singleROI(df_extract_rawtrace_detrended, 'raw' , roi_plot, trials, colors_session, 0.5, plot_data = True, print_plots = False)
 
 
 # Event count single ROIs for trial
 roi_plot = 3
-traces_type = 'raw'   
-mscope.get_event_count_wholetrial(df_events_extract_rawtrace, traces_type, colors_session, trials, roi_plot, plot_data = True, print_plots = False)
+mscope.get_event_count_wholetrial(df_events_extract_rawtrace, 'raw' , colors_session, trials, roi_plot, plot_data = True, print_plots = False)
            
 
-# Firing rate distribution for trial and mean firing rate
-colors_clusters = ['red', 'yellow', 'green', 'purple', 'blue']
-nxb.fr_distr_trial(df_events_extract_rawtrace, trials, clusters_rois, colors_clusters, colors_session, save_plot = False)
-
-
 # Isi, cv and cv2
-traces_type = 'raw'
-csv_name = 'MC8855_isi'
-isi_df = mscope.compute_isi(df_events_extract_rawtrace, traces_type, csv_name)
-# [isi_cv_df, isi_cv2_df] = mscope.compute_isi_cv(isi_df, trials)
+isi_df = mscope.compute_isi(df_events_extract_rawtrace, 'raw', 'MC8855_isi')
 mean_isi = isi_df.iloc[:, 0].mean()
-print(mean_isi)
-median_isi = isi_df.iloc[:, 0].median()
-print(median_isi)
 std_isi = isi_df.iloc[:, 0].std()
-print(std_isi)
-p15 = np.quantile(isi_df.iloc[:, 0].dropna(), 0.15)
-print(p15)
 min_isi = isi_df.iloc[:, 0].min()
-print(min_isi)
 max_isi = isi_df.iloc[:, 0].max()
-print(max_isi)
 bin_size = 0.05
-fig, ax = plt.subplots()
-ax.hist(isi_df.iloc[:, 0], bins=int((max_isi-min_isi)/bin_size), color = 'gray')
-plt.axvline(median_isi, color='red', linestyle = '--')
-ax.set_xlabel('ISI (s)', fontsize=15)
-ax.set_ylabel('Count', fontsize=15)
-ax.set_xlim(0, 2)
-ax.tick_params(axis='both', which='major', labelsize=12)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
+plt.hist(isi_df.iloc[:, 0], bins=int((max_isi-min_isi)/bin_size), color = 'gray')
+plt.xlabel('ISI (s)', fontsize=15)
+plt.ylabel('Count', fontsize=15)
+plt.xlim(0, 2)
 plt.show()
 
 
@@ -185,66 +141,74 @@ mscope.compute_clustered_traces_events_correlations(df_events_extract_rawtrace, 
 
 ##############################################################################
 
-# Align dF/F and behavior (body position, speed, acceleration, SL symmetry) for each trial and desired epoch
-# df = df_events_extract_rawtrace
-# df = df_trace_clusters_ave
-df = mscope.norm_traces(df_extract_rawtrace_detrended, norm_name = 'zscore', axis = 'session') # Normalize dF/F traces
+
+# Align dF/F and behavior (body position, speed, acceleration) for each trial and desired epoch
+# df = df_events_extract_rawtrace # Spike events for 'popul_raster'
+# df = df_trace_clusters_ave # Cluster traces for 'cluster_traces'
+df = mscope.norm_traces(df_extract_rawtrace_detrended, norm_name = 'zscore', axis = 'session') # Normalized dF/F traces for 'popul_heatmap'
 plot_type = 'popul_heatmap'  # 'popul_heatmap', 'cluster_traces' or 'popul_raster'
-window = [0, 60]
+window = [0, 60] # Desired time window in seconds
 nxb.df_behav_align(df, clusters_rois, frame_time, final_tracks_trials, sl_time_all_array, sl_sym_all_array, trials, plot_type, window, save_plot = False)
 
 
-# Find timestamps of behavioral recording matching neural activity timestamps
-behav_ts_idx = nxb.find_behav_ts(df_extract_rawtrace_detrended, bcam_time)
-
-# Get kinematic variables
-win_len = 81
+# Get kinematic variables (body position, speed, acceleration)
+win_len = 81 # In samples
 polyorder = 3
-bodycenter_aligned, bodyspeed_aligned, bodyacc_aligned = nxb.kinematic(final_tracks_trials, trials, behav_ts_idx, win_len, polyorder)
-bodycenter = []
-bodyspeed = []
-bodyacc = []
-for tr in range(trials[-1]):
-    bodycenter_trial = np.nanmean(final_tracks_trials[tr][0,:4, :],axis=0)*nxb.pixel_to_mm # Get bodycenter position (x-axis) for the desired trial and interval
-    bodycenter.append(bodycenter_trial)        
-    bodyspeed_trial = savgol_filter(nxb.inpaint_nans(bodycenter_trial),win_len,polyorder,deriv=1) # Get body speed
-    bodyspeed.append(bodyspeed_trial)
-    bodyacc_trial = savgol_filter(nxb.inpaint_nans(bodycenter_trial),win_len,polyorder,deriv=2) # Get body acceleration
-    bodyacc.append(bodyacc_trial)
-    
+bodycenter, bodyspeed, bodyacc = nxb.kinematic(final_tracks_trials, trials, win_len, polyorder)
+# Find timestamps of behavioral recording matching the ones of neural activity and compute kinematic variables downsampled and aligned to df/f
+behav_ts_idx = nxb.find_behav_ts(df_extract_rawtrace_detrended, bcam_time)
+bodycenter_aligned, bodyspeed_aligned, bodyacc_aligned = nxb.kinematic_aligned(final_tracks_trials, trials, behav_ts_idx, win_len, polyorder) 
 
-# Spike-triggered average
-df_events, cluster_transition_idx = nxb.sort_rois_clust(df_events_extract_rawtrace, clusters_rois) # Sort ROIs by cluster
-window = np.arange(-330, 330 + 1) # define the time window in samples
+
+# Compute spike-triggered average (STA) of kinematic variables
+window = np.arange(-330, 330 + 1) # In samples
 variable = bodyspeed
-var_name = 'Speed (z-score)'
-zs_signal = True
-save_plot = True
+df_events, cluster_transition_idx = nxb.sort_rois_clust(df_events_extract_rawtrace, clusters_rois) # Sort ROIs by cluster
+sta_allrois, signal_chunks_allrois = nxb.sta(df_events, variable, bcam_time, window, trials)
+# Plot STA
+save_plot = False
 plot_data = True
-sta_tr_all, sta_roi, _ = nxb.sta(df_events, variable, var_name, bcam_time, window, zs_signal, plot_data, save_plot)
+var_name = 'Speed'
+blocks = [(1, 3), (3, 13), (13, 23)]
+block_colors = 'black', 'crimson', 'navy'
+split_blocks = [(1, 3), (3, 8), (8, 13), (13, 18), (18, 23)]
+rois_sorted=[]
+for i in range(len(clusters_rois)): # flatten 'clusters_rois'
+    rois_sorted = np.hstack((rois_sorted, clusters_rois[i]))
+nxb.plot_sta(sta_allrois,signal_chunks_allrois, window, trials, blocks, block_colors, split_blocks, rois_sorted, var_name, save_plot)
 
-# Normalize STA on STA you would observe by chance (randomly shuffled CSs timestamps)
-iter_n = 20
-shuffled_spikes_ts = nxb.shuffle_spikes_ts(df_events_extract, iter_n)
+
+# Shuffle CS timestamps
+iter_n = 3
+shuffled_spikes_ts = nxb.shuffle_spikes_ts(df_events_extract_rawtrace, iter_n)
+
 # Compute STA for each iteration of CSs timestamps shuffling
-sta_shuffled_ts_all = []
+sta_shuffled_ts_alliter = []
 for i in range(iter_n):
-    sta_shuffled_ts = nxb.sta_shuffled(shuffled_spikes_ts[i], variable, var_name, bcam_time, window)
-    sta_shuffled_ts_all.append(sta_shuffled_ts)
+    sta_shuffled_ts = nxb.sta_shuffled(shuffled_spikes_ts[i], variable, bcam_time, window, trials)
+    sta_shuffled_ts_alliter.append(sta_shuffled_ts)   
     
-# Average the STA traces obtained from the different iteration of random shuffling of CS timestamps
+# Average the STA traces obtained from the different iterations of random shuffling of CS timestamps
 sta_chance = np.zeros((df_events.iloc[:, 2:].shape[1], trials[-1], len(window)))
 stsd_chance = np.zeros((df_events.iloc[:, 2:].shape[1], trials[-1], len(window)))
 for n in range(df_events.iloc[:, 2:].shape[1]):
-    roi_sta_tr = [sublist[n] for sublist in sta_shuffled_ts_all]
+    roi_sta_tr = [sublist[n] for sublist in sta_shuffled_ts_alliter]
     for tr in range(trials[-1]):
         sta_chance[n, tr] = np.mean([array[tr] for array in roi_sta_tr], axis=0)
         stsd_chance[n, tr] = np.std([array[tr] for array in roi_sta_tr], axis=0)
+        
+# Standardize observed STA on STA computed with shuffled data
+sta_zs = np.zeros((len(sta_allrois), len(trials), len(window)))
+for n in range(len(sta_allrois)):
+    sta_zs[n] = (sta_allrois[n] - sta_chance[n]) / stsd_chance[n]
+    
+# Plot observed STA, STA you would expect by chance and standardized STA
+nxb.plot_sta_shuffled(sta_zs, sta_allrois, sta_chance, window, var_name, blocks, rois_sorted)
 
-# Plot observed STA, STA that you would expect by chance and normalized STA
-sta_zs = nxb.plot_sta_shuffled(sta_roi, sta_chance, stsd_chance, df_events, window, var_name)
 
+###### TRANSFORM THIS INTO A METHOD ######
 # Detect min and max z-score for every peak
+sr_cam = 330
 max_abs_zs = np.zeros((df_events.iloc[:, 2:].shape[1], trials[-1]))
 max_abs_zs[:] = np.nan
 latency = np.zeros((df_events.iloc[:, 2:].shape[1], trials[-1]))
@@ -261,6 +225,7 @@ for n in range(df_events.iloc[:, 2:].shape[1]):
             latency[n, tr] = (np.argmin(sta_zs[n, tr, 248:413])/sr_cam)-0.25
 
 # Plot distribution of max z-score for the whole session
+signif_thresh = 2
 median_max_zs = np.nanmedian(max_abs_zs, axis=1)
 min_val = min(median_max_zs)
 max_val = max(median_max_zs)
@@ -280,12 +245,10 @@ plt.ylabel('Count', fontsize = 15)
 plt.title('Max z-score', fontsize = 15)
 
 # Boxplot latency of max z-score for the whole session
-idx_neg = np.where(max_abs_zs < -2)
-idx_pos = np.where(max_abs_zs > 2)
-latency_neg = latency[idx_neg]
-latency_pos = latency[idx_pos]
+latency_negzs = latency[np.where(max_abs_zs < -2)]
+latency_poszs = latency[np.where(max_abs_zs > 2)]
 fig, ax = plt.subplots()
-boxplot = ax.boxplot([latency_neg, latency_pos], showfliers=False, patch_artist=True)
+boxplot = ax.boxplot([latency_negzs, latency_poszs], showfliers=False, patch_artist=True)
 ax.set_xticklabels([]) 
 ax.tick_params(bottom=False)
 colors = ['blue', 'yellow']
@@ -306,8 +269,25 @@ plt.title('Latency of max z-score')
 
 ##############################################################################
 
+
+# Detect drops in body position
+tr_trans_idx = nxb.trial_transition_idx(df_events) # Find indexes of trial transitions
+bodycenter_aligned_tr = []
+for tr in range(1, len(tr_trans_idx)): # Re-organize bodycenter array by trial
+    bodycenter_aligned_tr.append(bodycenter_aligned[tr_trans_idx[tr-1]:tr_trans_idx[tr]])
+TimePntThres = 100
+ampl=20
+nxb.peak_detection(bodycenter_aligned_tr, ampl, TimePntThres, trials)
+
+# Compute heatmap 
+
+
+
+##############################################################################
+
+    
 # Phase maps
-p1 = 0
+p1 = 0 # Reference paw (FR = 0)
 colors_clusters = ['red', 'yellow', 'green', 'purple', 'blue']
 nxb.phasemap(final_tracks_trials_phase, df_events_trace_clusters, bcam_time, p1, colors_clusters, st_align = False, save_plot = False)
 
@@ -333,16 +313,10 @@ df_centered = df_scaled - df_scaled.mean(axis=0)
 pca = PCA(n_components=3)
 PC = pca.fit_transform(df_centered)
 
-# Colormap
-# cmap = plt.cm.get_cmap('Reds')
-# colors = cmap(values)
-
 # Plot
 fig, ax = plt.subplots()
 ax = fig.add_subplot(111, projection='3d')
 ax.scatter(PC[:, 0], PC[:, 1], PC[:,2], marker='.', c='navy')
-# for i in range(len(df)):
-#     ax.scatter(PC[i, 0], PC[i, 1], PC[i,2], marker='.', c=colors_session[trial_idx.iloc[i]]) # To plot PCs colorcoded by trial
 ax.set_xlabel('PC1', fontsize=20)
 ax.set_ylabel('PC2', fontsize=20)
 ax.set_zlabel('PC3', fontsize=20)
@@ -369,53 +343,6 @@ plt.xticks(range(len(df.columns)), df.columns, rotation=30, fontsize=25)
 colorbar.ax.tick_params(labelsize=25)  # Set the font size of the tick labels
 # plt.gca().axes.get_yaxis().set_visible(False)
 plt.yticks(range(0, pca.n_components_), ['PC{}'.format(i) for i in range(1, pca.n_components_+1)], fontsize=25)
-
-# # Plot on PC in time
-# fig, ax = plt.subplots()
-# ax.plot(np.linspace(0, 23, len(PC)), PC[:,0])
-
-# # Plot one PC in time per trial
-# for i in range(0, 21):
-#     plt.figure() 
-#     plt.plot(np.linspace(0, 60, len(PC[trial_changes[i]:trial_changes[i+1]])), PC[trial_changes[i]:trial_changes[i+1],0])
-#     plt.xlabel('PC1') 
-#     plt.ylabel('PC2')
-#     plt.title('Figure {}'.format(i+2))
-# plt.show()
-
-# # Plot neural trajectories 
-# plt.plot(PC[trial_changes[i]:trial_changes[i+1],0], PC[trial_changes[i]:trial_changes[i+1],1])
-# plt.xlabel("PC1")
-# plt.ylabel("PC2")
-# plt.show()
-
-
-# # t-SNE on df/f
-# from sklearn.manifold import TSNE
-
-# tsne = TSNE(n_components=3, random_state=42)
-# tsne_results = tsne.fit_transform(df_scaled)
-
-# fig, ax = plt.subplots()
-# ax = fig.add_subplot(111, projection='3d')
-# ax.scatter(tsne_results[:, 0], tsne_results[:, 1], tsne_results[:, 2], marker='.', c = 'navy')
-# ax.set_xlabel('t-SNE 1')
-# ax.set_ylabel('t-SNE 2')
-# ax.set_zlabel('t-SNE 3')
-
-
-# # Isomap on df/f
-# from sklearn.manifold import Isomap
-
-# isomap = Isomap(n_components=3, n_neighbors=30)
-# isomap_results = isomap.fit_transform(df_scaled)
-
-# fig, ax = plt.subplots()
-# ax = fig.add_subplot(111, projection='3d')
-# ax.scatter(isomap_results[:, 0], isomap_results[:, 1], isomap_results[:, 2], marker='.')
-# ax.set_xlabel('Isomap 1')
-# ax.set_ylabel('Isomap 2')
-# ax.set_zlabel('Isomap 3')
 
 
 ##############################################################################

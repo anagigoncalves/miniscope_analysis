@@ -21,10 +21,10 @@ import locomotion_class
 
 path_session_data = 'E:\\Miniscope processed files\\'
 session_data = pd.read_excel('E:\\Miniscope processed files\\session_data_split_S1.xlsx')
-if not os.path.exists(path_session_data + 'CS probability at difference between paws'):
-    os.mkdir(path_session_data + 'CS probability at difference between paws')
-if not os.path.exists(path_session_data + 'Paw difference at CS time'):
-    os.mkdir(path_session_data + 'Paw difference at CS time')
+if not os.path.exists(path_session_data + 'CS probability at phase difference between paws'):
+    os.mkdir(path_session_data + 'CS probability at phase difference between paws')
+if not os.path.exists(path_session_data + 'Phase difference at CS time'):
+    os.mkdir(path_session_data + 'Phase difference at CS time')
 for s in range(len(session_data)):
     ses_info = session_data.iloc[s, :]
     print(ses_info)
@@ -58,12 +58,16 @@ for s in range(len(session_data)):
 
     # Load behavioral data
     filelist = loco.get_track_files(animal, session)
-    paws_rel_trials = []
+    st_strides_trials = []
+    sw_strides_trials = []
+    final_tracks_trials = []
     for count_trial, f in enumerate(filelist):
         [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f, 0.9, int(frames_loco[count_trial]))
         [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
-        paws_rel = loco.get_paws_rel(final_tracks, 'X')
-        paws_rel_trials.append(paws_rel)
+        final_tracks_trials.append(final_tracks)
+        st_strides_trials.append(st_strides_mat)
+        sw_strides_trials.append(sw_pts_mat)
+    final_tracks_trials_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials, 'st-st')
 
     cmap = plt.get_cmap('magma')
     color_animals = [cmap(i) for i in np.linspace(0, 1, 6)]
@@ -90,7 +94,7 @@ for s in range(len(session_data)):
             trial_idx = np.where(trials == trial)[0][0]
             bcam_trial = bcam_time[trial_idx]
             events_trial = np.array(df_events_extract_rawtrace.loc[(df_events_extract_rawtrace[roi] == 1) & (df_events_extract_rawtrace['trial'] == trial), 'time'])
-            paw_diff_trial = paws_rel_trials[trial_idx][0] - paws_rel_trials[trial_idx][2]
+            paw_diff_trial = final_tracks_trials_phase[trial_idx][0][0] - final_tracks_trials_phase[trial_idx][0][2]
             events_trial_idx = [np.argmin(np.abs(e - bcam_trial)) for e in events_trial]
             paw_diff_trial_events = paw_diff_trial[events_trial_idx]
             mean_pawdiff_events[count_roi, count_trial] = np.nanmean(paw_diff_trial_events)
@@ -129,7 +133,7 @@ for s in range(len(session_data)):
     ax[1].set_xlabel('Trials', fontsize=mscope.fsize - 8)
     ax[1].set_ylabel('ROI', fontsize=mscope.fsize - 8)
     ax[1].set_title('Generated calcium events from Poisson\ndistribution for each trial', fontsize=mscope.fsize - 8)
-    plt.savefig(os.path.join(path_session_data, 'Paw difference at CS time',
+    plt.savefig(os.path.join(path_session_data, 'Phase difference at CS time',
                              animal + '_' + ses_info['protocol'].replace(' ', '_') + '_S' + str(session) + '_pawdiff_eventtime_generatedevents'), dpi=mscope.my_dpi)
 
     # SHUFFLING SPIKES
@@ -172,7 +176,7 @@ for s in range(len(session_data)):
             bcam_trial = bcam_time[trial_idx]
             events_trial = np.array(df_events_extract_rawtrace.loc[(df_events_extract_rawtrace[roi] == 1) & (df_events_extract_rawtrace['trial'] == trial), 'time'])
             events_trial_shuffled = shuffled_spikes[count_roi][count_trial]
-            paw_diff_trial = paws_rel_trials[trial_idx][0] - paws_rel_trials[trial_idx][2]
+            paw_diff_trial = final_tracks_trials_phase[trial_idx][0][0] - final_tracks_trials_phase[trial_idx][0][2]
             bins = np.arange(0, bcam_trial[-1], window)
             bcam_trial_idx_bins = np.digitize(bcam_trial, bins) #returns the indices of the bins to which each bcam timestamp belongs
             events_trial_idx_bins = np.digitize(events_trial, bins)  # returns the indices of the bins to which each calcium event time belongs
@@ -200,7 +204,7 @@ for s in range(len(session_data)):
     plt.yticks(fontsize=mscope.fsize - 4)
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
-    plt.savefig(os.path.join(path_session_data, 'CS probability at difference between paws',
+    plt.savefig(os.path.join(path_session_data, 'CS probability at phase difference between paws',
                              animal + '_' + ses_info['protocol'].replace(' ', '_') + '_S' + str(session) + '_FR-FL_eventprobability'), dpi=mscope.my_dpi)
 
     fig, ax = plt.subplots(1, 2, tight_layout=True, figsize=(10, 5))
@@ -209,6 +213,6 @@ for s in range(len(session_data)):
     ax[0].set_title('Max of pawdiff values')
     ax[1].hist(np.array(min_pawdiff), bins=10)
     ax[1].set_title('Min of pawdiff values')
-    plt.savefig(os.path.join(path_session_data, 'CS probability at difference between paws',
+    plt.savefig(os.path.join(path_session_data, 'CS probability at phase difference between paws',
                              animal + '_' + ses_info['protocol'].replace(' ', '_') + '_S' + str(session) + '_FR-FL_histmaxmin'), dpi=mscope.my_dpi)
     plt.close('all')

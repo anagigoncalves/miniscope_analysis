@@ -56,13 +56,36 @@ for s in range(len(session_data)):
     for i in distance_neurons_ordered:
         rois_ordered_distance_str.append(roi_list[i])
 
+    # Load behavioral data
     filelist = loco.get_track_files(animal, session)
-    paws_rel_trials = []
+    param_name = 'step_length'
+    p = 'FR'
+    p2 = 'FL'
+    st_strides_trials = []
+    sw_strides_trials = []
+    final_tracks_trials = []
+    param_trials = []
+    param_trials_fr_mean = np.zeros(len(trials))
+    stride_duration_trials = []
+    final_tracks_forwadloco_trials = []
     for count_trial, f in enumerate(filelist):
-        [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f, 0.9, int(frames_loco[count_trial]))
+        [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f, 0.9, int(
+            frames_loco[count_trial]))
         [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
         paws_rel = loco.get_paws_rel(final_tracks, 'X')
-        paws_rel_trials.append(paws_rel)
+        final_tracks_forwadloco = loco.final_tracks_forwardlocomotion(final_tracks, st_strides_mat)
+        final_tracks_forwadloco_trials.append(final_tracks_forwadloco)
+        final_tracks_trials.append(final_tracks)
+        st_strides_trials.append(st_strides_mat)
+        sw_strides_trials.append(sw_pts_mat)
+        param_trials.append(
+            loco.compute_gait_param(bodycenter, final_tracks, paws_rel, st_strides_mat, sw_pts_mat, param_name))
+        param_trials_fr_mean[count_trial] = np.nanmean(param_trials[-1][0]) - np.nanmean(param_trials[-1][2])
+    final_tracks_trials_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials,
+                                                        sw_strides_trials, 'st-st')
+    [sl_idx_all, sl_time_all_array, sl_sym_all_array] = loco.param_continuous_sym(param_trials, st_strides_trials,
+                                                                                  trials, p, p2, sym=1,
+                                                                                  remove_nan=1)  # SL symmetry for each stride
 
     cmap = plt.get_cmap('magma')
     color_animals = [cmap(i) for i in np.linspace(0, 1, 6)]

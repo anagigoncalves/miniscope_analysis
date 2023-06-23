@@ -46,106 +46,6 @@ for s in range(len(session_data)):
     [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
 
-    # import glob
-    # import nptdms as tdms
-    # tdmslist = glob.glob(loco.path + '*.tdms')
-    # h5list = glob.glob(loco.path + '*.h5')
-    # tdms_sr = 10000
-    # h5filename = []
-    # for f in h5list:
-    #     if loco.delim == '/':
-    #         h5filename.append(f.split('/')[-1])
-    #     if loco.delim == '\\':
-    #         h5filename.append(f.split('\\')[-1])
-    # h5_trialorder = []
-    # h5list_animal = []
-    # for f in h5filename:
-    #     if f.split('_')[0] == animal and int(f.split('_')[7]) == session:
-    #         h5_trialorder.append(int(f.split('_')[8][:-3]))
-    #         h5list_animal.append(loco.path + f)
-    # # order tdms list for the animal and session that are going to be computed
-    # tdmslist_animal = []
-    # for f in tdmslist:
-    #     if loco.delim == '/':
-    #         filename = f.split('/')[-1]
-    #     else:
-    #         filename = f.split('\\')[-1]
-    #     filename_split = filename.split('_')
-    #     if filename_split[0] == animal and np.int64(filename_split[7]) == session:
-    #         tdmslist_animal.append(f)
-    # trialorder_tdms = []
-    # for f in tdmslist_animal:
-    #     if loco.delim == '/':
-    #         filename = f.split('/')[-1]
-    #     else:
-    #         filename = f.split('\\')[-1]
-    #     filename_split = filename.split('_')
-    #     trialorder_tdms.append(np.int64(filename_split[8][:-5]))
-    # trial_order_idx = np.argsort(trialorder_tdms)
-    # tdmslist_animal_ordered = list(np.array(tdmslist_animal)[trial_order_idx])
-    # trial = []
-    # triggers = []
-    # strobes = []
-    # frame_rec_start = []
-    # mscope_align_time = []  # if miniscope start is before behavior cam (should never happen)
-    # frame_time_bcam = []
-    # frame_nr = []
-    # for f in tdmslist_animal_ordered:
-    #     tdms_file = tdms.TdmsFile.read(f)
-    #     trial.append(int(f.split('_')[-1][:-5]))
-    #     h5_trial = np.where(np.array(h5_trialorder) == int(f.split('_')[-1][:-5]))[0][0]
-    #     track_df = pd.read_hdf(h5list_animal[h5_trial], 'df_with_missing')
-    #     frame_nr.append(track_df.iloc[:, 0].index[-1]+1)
-    #     tdms_groups = tdms_file.groups()
-    #     tdms_channels = tdms_groups[0].channels()
-    #     ch1 = tdms_channels[0].data  # triggers
-    #     ch2 = tdms_channels[1].data  # miniscope pulse
-    #     ch3 = tdms_channels[2].data  # strobes
-    #     triggers.append(len(np.where(np.diff(ch1) > 1)[0] + 1))
-    #     idx_peaks = np.where(np.diff(ch3) > 1)[0] + 1
-    #     cam_start = idx_peaks[0]
-    #     strobes.append(len(idx_peaks))
-    #     idx_miniscope_start = np.where(ch2)[0][0]  # tdms time point from bcam at which mscope frame started
-    #     frame_behavior_miniscope = len(np.where(idx_peaks < idx_miniscope_start)[
-    #                                        0]) + 1  # frame from bcam at which mscope frame started (tdms starts before trigger)
-    #     if frame_behavior_miniscope == 1:  # if miniscope start is before behavior cam (should never happen)
-    #         mscope_idx_0 = np.where(ch2 == 1)[0][0]
-    #         mscope_start = (cam_start - mscope_idx_0) / tdms_sr
-    #         mscope_align_time.append(mscope_start)
-    #         frame_rec_start.append(0)
-    #         frame_time_bcam.append(((
-    #                                             idx_peaks - cam_start) / tdms_sr) + mscope_start)  # need to add to bcam time the difference of time since mscope started
-    #     else:
-    #         frame_rec_start.append(frame_behavior_miniscope)
-    #         mscope_start = 0
-    #         mscope_align_time.append(mscope_start)
-    #         cam_frames_time = (idx_peaks - idx_peaks[0]) / tdms_sr
-    #         frame_time_bcam.append(cam_frames_time)  # bcam time starts from 0
-    # if len(frames_dFF) == 0:
-    #     frame_rec_start_full = frame_rec_start
-    # else:
-    #     frame_rec_start_full = np.zeros(len(triggers))
-    #     for i in range(len(frame_rec_start)):
-    #         frame_rec_start_full[i] = frame_rec_start[i] + (frames_dFF[i] / 30) * loco.sr
-    # # change frame_time_bcam to account for black frames that were excluded
-    # bcam_time = []
-    # for t in range(len(frame_time_bcam)):
-    #     if frame_rec_start_full[t] / loco.sr > frame_time_bcam[t][
-    #         0]:  # if black frames is larger than the gap between mscope start and bcam start
-    #         bcam_time_lostframes = frame_time_bcam[t][:frame_nr[t]]  # if it lost frames it was at the end
-    #         bcam_time_clean = bcam_time_lostframes[int(frame_rec_start_full[t]):]
-    #         bcam_time.append(
-    #             bcam_time_clean - bcam_time_clean[0])  # because extra frames will be deleted from tracking
-    #     else:
-    #         bcam_time.append(frame_time_bcam[t][:frame_nr[t]])
-    #         frame_rec_start_full[t] = 0
-    #
-    # [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(filelist[3], 0.9, int(
-    #     frames_loco[3]))
-    # print(frame_nr[3])
-    # print(len(final_tracks[0, 0, :]))
-    # print(len(bcam_time[3]))
-
      # Order ROIs mediolateral
     roi_list = mscope.get_roi_list(df_events_extract_rawtrace)
     centroids_mediolateral = []
@@ -205,10 +105,12 @@ for s in range(len(session_data)):
             # ax[count_trial].hist(paw_diff_trial_events, bins=20)
             # ax[count_trial].hist(paw_diff_trial_events_generated, bins=20, alpha=0.5)
             # ax[count_trial].set_title('trial ' + str(trial))
+    cbar_max = np.max([np.max(mean_pawdiff_events), np.max(mean_pawdiff_events_generated)])
+    cbar_min = np.min([np.min(mean_pawdiff_events), np.min(mean_pawdiff_events_generated)])
     fig, ax = plt.subplots(1, 2, tight_layout=True)
     ax = ax.ravel()
-    sns.heatmap(mean_pawdiff_events, ax=ax[0], cmap='viridis')
-    sns.heatmap(mean_pawdiff_events_generated, cmap='viridis')
+    sns.heatmap(mean_pawdiff_events, ax=ax[0], cmap='viridis', vmax=cbar_max, vmin=cbar_min)
+    sns.heatmap(mean_pawdiff_events_generated, ax=ax[1], cmap='viridis', vmax=cbar_max, vmin=cbar_min)
     ax[0].vlines(trials_ses[0, 1], *ax[0].get_ylim(), color='white', linestyle='dashed')
     ax[0].vlines(trials_ses[1, 1], *ax[0].get_ylim(), color='white', linestyle='dashed')
     ax[0].set_yticks(np.arange(0, len(rois_ordered_distance_str), 8))
@@ -218,8 +120,8 @@ for s in range(len(session_data)):
     ax[0].set_xlabel('Trials', fontsize=mscope.fsize - 8)
     ax[0].set_ylabel('ROI', fontsize=mscope.fsize - 8)
     ax[0].set_title('Mean of paw difference\ndistribution for real events', fontsize=mscope.fsize - 8)
-    ax[1].vlines(trials_ses[0, 1], *ax[0].get_ylim(), color='white', linestyle='dashed')
-    ax[1].vlines(trials_ses[1, 1], *ax[0].get_ylim(), color='white', linestyle='dashed')
+    ax[1].vlines(trials_ses[0, 1], *ax[1].get_ylim(), color='white', linestyle='dashed')
+    ax[1].vlines(trials_ses[1, 1], *ax[1].get_ylim(), color='white', linestyle='dashed')
     ax[1].set_yticks(np.arange(0, len(rois_ordered_distance_str), 8))
     ax[1].set_yticklabels(rois_ordered_distance_str[::8])
     ax[1].set_xticks(trials)

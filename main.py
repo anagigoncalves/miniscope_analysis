@@ -169,9 +169,6 @@ sta_allrois, signal_chunks_allrois = nxb.sta(df_events, variable, bcam_time, win
 save_plot = False
 plot_data = True
 var_name = 'Speed'
-blocks = [(1, 3), (3, 13), (13, 23)]
-block_colors = 'black', 'crimson', 'navy'
-split_blocks = [(1, 3), (3, 8), (8, 13), (13, 18), (18, 23)]
 rois_sorted=[]
 for i in range(len(clusters_rois)): # flatten 'clusters_rois'
     rois_sorted = np.hstack((rois_sorted, clusters_rois[i]))
@@ -179,7 +176,7 @@ nxb.plot_sta(sta_allrois,signal_chunks_allrois, window, trials, blocks, block_co
 
 
 # Shuffle CS timestamps
-iter_n = 3
+iter_n = 10
 shuffled_spikes_ts = nxb.shuffle_spikes_ts(df_events_extract_rawtrace, iter_n)
 
 # Compute STA for each iteration of CSs timestamps shuffling
@@ -203,7 +200,7 @@ for n in range(len(sta_allrois)):
     sta_zs[n] = (sta_allrois[n] - sta_chance[n]) / stsd_chance[n]
     
 # Plot observed STA, STA you would expect by chance and standardized STA
-nxb.plot_sta_shuffled(sta_zs, sta_allrois, sta_chance, window, var_name, blocks, rois_sorted)
+nxb.plot_sta_shuffled(sta_zs, sta_allrois, sta_chance, window, var_name, trials_ses, rois_sorted, animal, save_plot)
 
 
 ###### TRANSFORM THIS INTO A METHOD ######

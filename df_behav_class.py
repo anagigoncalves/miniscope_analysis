@@ -343,7 +343,7 @@ class df_behav_analysis:
         return sta_allrois, signal_chunks_allrois
     
     
-    def plot_sta(self, sta_allrois, signal_chunks_allrois, window, trials, trials_ses, colors_session, rois_sorted, var_name, save_plot):
+    def plot_sta(self, sta_allrois, signal_chunks_allrois, window, trials, trials_ses, colors_session, rois_sorted, var_name, mouse_id, save_plot):
         ''' Plot STA for each ROI and for the whole population.
         Inputs:
         - sta_allrois: list of STA for all the trials for each ROI
@@ -353,12 +353,13 @@ class df_behav_analysis:
         - colors_session = colors of experimental blocks
         - rois_sorted: 1D array with all the ROIs sorted by cluster
         - var_name: name of the variable
+        - mouse_id: mouse name (str)
         - save_plot (boolean)
         '''
         # Define font size for plot labels
         font_size = 15
         
-        # Define sub-divided experimental blocks (IMPROVE THIS!)
+        # Sub-divide experimental blocks
         block_halflen = (trials_ses[1][1] - trials_ses[1][0]+1)//2
         split_blocks = np.array(([trials_ses[0][0]-1, trials_ses[0][1]], 
                                  [trials_ses[1][0]-1, trials_ses[1][0]-1 + block_halflen], 
@@ -370,7 +371,7 @@ class df_behav_analysis:
         sta_tr_allrois = [[sta_roi[tr_idx] for sta_roi in sta_allrois] for tr_idx, _ in enumerate(trials)] # List of the STA of all the ROIs for each trial
 
         # Compute STA of all the ROIs for each block
-        sta_blocks_allrois = [np.mean(np.array(sta_tr_allrois[start-1:end]), axis=0) for start, end in split_blocks] # List of the STA of all the ROIs for block
+        sta_blocks_allrois = [np.mean(np.array(sta_tr_allrois[start:end]), axis=0) for start, end in split_blocks] # List of the STA of all the ROIs for block
 
         # Define tick labels for plots
         y_tick_labels = [block[1] for block in trials_ses]
@@ -406,12 +407,10 @@ class df_behav_analysis:
             for tr_idx, _ in enumerate(trials):
                 axs[2].plot(window * 1/self.sr_cam, sta_allrois[n][tr_idx], c = 'lightgray')
             axs[2].axvline(x=0, color='black', linestyle='--')
-            c = 0
             for b in trials_ses:
                 start_idx = b[0]
                 end_idx = b[1]
-                axs[2].plot(window * 1/self.sr_cam, np.mean(sta_allrois[n][start_idx:end_idx], axis=0), c=colors_session[c], linewidth=2.3)
-                c =+ 1
+                axs[2].plot(window * 1/self.sr_cam, np.mean(sta_allrois[n][start_idx:end_idx], axis=0), c=colors_session[start_idx], linewidth=2.3)
             axs[2].set_ylabel(var_name + '(z-score)', fontsize = font_size)
             axs[2].set_xlabel('Time around event (s)', fontsize = font_size)
             axs[2].spines['right'].set_visible(False)
@@ -421,10 +420,11 @@ class df_behav_analysis:
             fig.suptitle('STA ' + var_name + ' ' + str(rois_sorted[n]), fontsize = font_size)
             # Save plots
             if save_plot:
-                if not os.path.exists(os.path.join(self.save_path, 'STA')):
-                    os.mkdir(os.path.join(self.save_path, 'STA'))
-                plt.savefig(os.path.join(self.save_path, 'STA\\', 'STA_' + var_name + '_' + str(rois_sorted) + '.png'), dpi=self.my_dpi) 
-                
+                if not os.path.exists(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id)):
+                    os.mkdir(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id))
+                plt.savefig(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '\\', 'STA_' + var_name + '_' + str(rois_sorted[n]) + '.png'), dpi=self.my_dpi) 
+            plt.close()
+    
         # Plot 2: STA of the population by trial 
         max_val = np.max(np.concatenate(sta_tr_allrois, axis=0))
         min_val = np.min(np.concatenate(sta_tr_allrois, axis=0))
@@ -434,17 +434,18 @@ class df_behav_analysis:
             plt.ylabel('ROIs (sorted by ML dist)', fontsize = font_size)
             plt.xlabel('Time (s)', fontsize=font_size)
             cbar = hm.collections[0].colorbar
-            cbar.set_label(var_name, fontsize=font_size)
+            cbar.set_label(var_name + '(z-score)', fontsize=font_size)
             plt.axvline(x=window[-1], color='white', linestyle='--')
             plt.yticks([])
             plt.tick_params(left=False)
             plt.xticks(x_ticks, [f"{tick}" for tick in x_tick_values])
             plt.title('STA ' + var_name + ' trial ' + str(tr), fontsize=font_size)
             if save_plot:
-                if not os.path.exists(os.path.join(self.save_path, 'STA')):
-                    os.mkdir(os.path.join(self.save_path, 'STA'))
-                plt.savefig(os.path.join(self.save_path, 'STA\\', 'STA_' + var_name + '_trial' + str(tr) + '.png'), dpi=self.my_dpi)
-                
+                if not os.path.exists(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id)):
+                    os.mkdir(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id))
+                plt.savefig(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '\\', 'STA_' + var_name + '_trial' + str(tr) + '.png'), dpi=self.my_dpi)
+            plt.close()
+    
         # Plot 3: STA of the population by block 
         max_val = np.max(np.concatenate(sta_blocks_allrois, axis=0))
         min_val = np.min(np.concatenate(sta_blocks_allrois, axis=0))
@@ -467,9 +468,10 @@ class df_behav_analysis:
             plt.xticks(x_ticks, [f"{tick}" for tick in x_tick_values], fontsize = 12)
             fig.suptitle('STA ' + var_name, fontsize = font_size)
         if save_plot:
-            if not os.path.exists(os.path.join(self.save_path, 'STA')):
-                os.mkdir(os.path.join(self.save_path, 'STA'))
-            plt.savefig(os.path.join(self.save_path, 'STA\\', 'STA_' + var_name + '_blocks' + '.png'), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id)):
+                os.mkdir(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id))
+            plt.savefig(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '\\', 'STA_' + var_name + '_blocks' + '.png'), dpi=self.my_dpi)
+        plt.close()
 
 
     def shuffle_spikes_ts(self, df_events, iter_n):
@@ -548,7 +550,7 @@ class df_behav_analysis:
         return sta_allrois
     
     
-    def plot_sta_shuffled(self, sta_zs, sta_roi, sta_chance, window, var_name, blocks, rois_sorted):
+    def plot_sta_shuffled(self, sta_zs, sta_roi, sta_chance, window, var_name, trials_ses, rois_sorted, mouse_id, save_plot):
         ''' Plot heatmaps and traces of STA for observed data, shuffled data
         and observed data standardized on shuffled data.
         Inputs:
@@ -557,12 +559,14 @@ class df_behav_analysis:
             - stsd_chance: list the standard deviations of the STA computed with shuffled data for each ROI
             - window: peri-event epoch (samples)
             - var_name: name of the variable (str)
-            - blocks: 2D arrays with beginning and end trial for each experimental block
+            - trials_ses: 2D arrays with beginning and end trial for each experimental block
             - rois_sorted: array with all the ROIs sorted by cluster
+            - mouse_id: mouse name (str)
+            - save_plot (boolean)
         '''
         font_size = 15
-        tick_labels = [block[1] for block in blocks]
-        tick_locations = [block[1] - 1 for block in blocks]
+        tick_labels = [block[1] for block in trials_ses]
+        tick_locations = [block[1] - 1 for block in trials_ses]
         # Plot data
         for n in range(len(sta_roi)):
             fig, axs = plt.subplots(2, 3, figsize=(20, 8))
@@ -614,9 +618,10 @@ class df_behav_analysis:
             axs[1, 2].axhline(y=2, color='k', linestyle='--')
             axs[1, 2].axvline(x=0, color='k', linestyle='--')
             # Save plots
-            if not os.path.exists(os.path.join(self.save_path, 'STA_zs')):
-                os.mkdir(os.path.join(self.save_path, 'STA_zs'))
-            plt.savefig(os.path.join(self.save_path, 'STA_zs\\', 'STA_' + var_name + '_' + str(rois_sorted[n]) + '.png'), dpi=self.my_dpi) 
+            if save_plot == True
+                if not os.path.exists(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id)):
+                    os.mkdir(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id))
+                plt.savefig(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '\\', 'STA_' + var_name + '_' + str(rois_sorted[n]) + '.png'), dpi=self.my_dpi) 
     
     
     def peak_detection(self, bodycenter, ampl, TimePntThres, trials):

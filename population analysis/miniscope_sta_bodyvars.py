@@ -83,19 +83,40 @@ for s in range(len(session_data)):
 
     # Compute spike-triggered average (STA) of kinematic variables
     window = np.arange(-330, 330 + 1)  # In samples
-    variable = bodyspeed
+    variable = bodyacc
     df_events, cluster_transition_idx = nxb.sort_rois_clust(df_events_extract_rawtrace,
                                                             clusters_rois)  # Sort ROIs by cluster
     sta_allrois, signal_chunks_allrois = nxb.sta(df_events, variable, bcam_time, window, trials)
     # Plot STA
-    save_plot = False
+    save_plot = True
     plot_data = True
-    var_name = 'Speed'
-    # blocks = [(1, 3), (3, 13), (13, 23)] #USE trials_ses
-    # split_blocks = [(1, 3), (3, 8), (8, 13), (13, 18), (18, 23)] # NOT HARD CODED
-    # block_colors = 'black', 'crimson', 'navy' # USE COLORS_SESSION
+    var_name = 'Acceleration'
     rois_sorted = []
     for i in range(len(clusters_rois)):  # flatten 'clusters_rois'
         rois_sorted = np.hstack((rois_sorted, clusters_rois[i]))
     nxb.plot_sta(sta_allrois, signal_chunks_allrois, window, trials, trials_ses, colors_session, rois_sorted,
-                 var_name, save_plot)
+                 var_name, animal, save_plot)
+    
+    # Shuffle CS timestamps
+    iter_n = 10
+    shuffled_spikes_ts = nxb.shuffle_spikes_ts(df_events_extract_rawtrace, iter_n)
+    # Compute STA for each iteration of CSs timestamps shuffling
+    sta_shuffled_ts_alliter = []
+    for i in range(iter_n):
+        sta_shuffled_ts = nxb.sta_shuffled(shuffled_spikes_ts[i], variable, bcam_time, window, trials)
+        sta_shuffled_ts_alliter.append(sta_shuffled_ts)   
+    # Average the STA traces obtained from the different iterations of random shuffling of CS timestamps
+    sta_chance = np.zeros((df_events.iloc[:, 2:].shape[1], trials[-1], len(window)))
+    stsd_chance = np.zeros((df_events.iloc[:, 2:].shape[1], trials[-1], len(window)))
+    for n in range(df_events.iloc[:, 2:].shape[1]):
+        roi_sta_tr = [sublist[n] for sublist in sta_shuffled_ts_alliter]
+        for tr in range(trials[-1]):
+            sta_chance[n, tr] = np.mean([array[tr] for array in roi_sta_tr], axis=0)
+            stsd_chance[n, tr] = np.std([array[tr] for array in roi_sta_tr], axis=0)
+            
+    # Standardize observed STA on STA computed with shuffled data
+    sta_zs = np.zeros((len(sta_allrois), len(trials), len(window)))
+    for n in range(len(sta_allrois)):
+        sta_zs[n] = (sta_allrois[n] - sta_chance[n]) / stsd_chance[n]
+    # Plot observed STA, STA you would expect by chance and standardized STA
+    nxb.plot_sta_shuffled(sta_zs, sta_allrois, sta_chance, window, var_name, trials_ses, rois_sorted, animal, save_plot)

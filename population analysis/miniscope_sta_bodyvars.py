@@ -3,7 +3,6 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-import seaborn as sns
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -15,16 +14,13 @@ paws = ['FR', 'HR', 'FL', 'HL']
 fsize = 24
 
 # import classes
-os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
+os.chdir('C:\\Users\\User\\Documents\\LocalRepo\\miniscope_analysis')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'E:\\Miniscope processed files\\'
-session_data = pd.read_excel('E:\\Miniscope processed files\\session_data_split_S1.xlsx')
-if not os.path.exists(path_session_data + 'CS probability at phase difference between paws'):
-    os.mkdir(path_session_data + 'CS probability at phase difference between paws')
-if not os.path.exists(path_session_data + 'Phase difference at CS time'):
-    os.mkdir(path_session_data + 'Phase difference at CS time')
+path_session_data = 'C:\\Users\\User\\Carey Lab Dropbox\\Rotation Carey\\Francesco and Ana G\\Miniscope processed files'
+session_data = pd.read_excel('C:\\Users\\User\\Carey Lab Dropbox\\Rotation Carey\\Francesco and Ana G\\Miniscope processed files\\session_data_split_S1.xlsx')
+
 for s in range(len(session_data)):
     ses_info = session_data.iloc[s, :]
     print(ses_info)
@@ -36,7 +32,7 @@ for s in range(len(session_data)):
     mscope = miniscope_session_class.miniscope_session(path)
     loco = locomotion_class.loco_class(path_loco)
     import df_behav_class
-    nxb = df_behav_class.df_behav_analysis('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
+    nxb = df_behav_class.df_behav_analysis('C:\\Users\\User\\Documents\\LocalRepo\\miniscope_analysis')
 
     # Session data and inputs
     animal = mscope.get_animal_id()
@@ -48,15 +44,15 @@ for s in range(len(session_data)):
     [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
 
-     # Order ROIs mediolateral
-    roi_list = mscope.get_roi_list(df_events_extract_rawtrace)
-    centroids_mediolateral = []
-    for c in range(len(centroid_ext)):
-        centroids_mediolateral.append(centroid_ext[c][0])
-    distance_neurons_ordered = np.argsort(centroids_mediolateral)
-    rois_ordered_distance_str = []
-    for i in distance_neurons_ordered:
-        rois_ordered_distance_str.append(roi_list[i])
+    #  # Order ROIs mediolateral
+    # roi_list = mscope.get_roi_list(df_events_extract_rawtrace)
+    # centroids_mediolateral = []
+    # for c in range(len(centroid_ext)):
+    #     centroids_mediolateral.append(centroid_ext[c][0])
+    # distance_neurons_ordered = np.argsort(centroids_mediolateral)
+    # rois_ordered_distance_str = []
+    # for i in distance_neurons_ordered:
+    #     rois_ordered_distance_str.append(roi_list[i])
 
     # Load behavioral data
     filelist = loco.get_track_files(animal, session)
@@ -89,30 +85,26 @@ for s in range(len(session_data)):
                                                                                   trials, p, p2, sym=1,
                                                                                   remove_nan=1)  # SL symmetry for each stride
 
-    cmap = plt.get_cmap('magma')
-    color_animals = [cmap(i) for i in np.linspace(0, 1, 6)]
-    def get_colors_plot(animal_name, color_animals):
-        if animal_name == 'MC8855':
-            color_plot = color_animals[0]
-        if animal_name == 'MC9194':
-            color_plot = color_animals[1]
-        if animal_name == 'MC10221':
-            color_plot = color_animals[2]
-        if animal_name == 'MC9513':
-            color_plot = color_animals[3]
-        if animal_name == 'MC9226':
-            color_plot = color_animals[4]
-        return color_plot
+    # cmap = plt.get_cmap('magma')
+    # color_animals = [cmap(i) for i in np.linspace(0, 1, 6)]
+    # def get_colors_plot(animal_name, color_animals):
+    #     if animal_name == 'MC8855':
+    #         color_plot = color_animals[0]
+    #     if animal_name == 'MC9194':
+    #         color_plot = color_animals[1]
+    #     if animal_name == 'MC10221':
+    #         color_plot = color_animals[2]
+    #     if animal_name == 'MC9513':
+    #         color_plot = color_animals[3]
+    #     if animal_name == 'MC9226':
+    #         color_plot = color_animals[4]
+    #     return color_plot
 
 
     # Get kinematic variables (body position, speed, acceleration)
     win_len = 81  # In samples
     polyorder = 3
     bodycenter, bodyspeed, bodyacc = nxb.kinematic(final_tracks_trials, trials, win_len, polyorder)
-    # Find timestamps of behavioral recording matching the ones of neural activity and compute kinematic variables downsampled and aligned to df/f
-    behav_ts_idx = nxb.find_behav_ts(df_extract_rawtrace_detrended, bcam_time)
-    bodycenter_aligned, bodyspeed_aligned, bodyacc_aligned = nxb.kinematic_aligned(final_tracks_trials, trials,
-                                                                                   behav_ts_idx, win_len, polyorder)
 
     # Compute spike-triggered average (STA) of kinematic variables
     window = np.arange(-330, 330 + 1)  # In samples
@@ -124,9 +116,9 @@ for s in range(len(session_data)):
     save_plot = False
     plot_data = True
     var_name = 'Speed'
-    blocks = [(1, 3), (3, 13), (13, 23)]
-    block_colors = 'black', 'crimson', 'navy'
-    split_blocks = [(1, 3), (3, 8), (8, 13), (13, 18), (18, 23)] #USE trials_ses
+    blocks = [(1, 3), (3, 13), (13, 23)] #USE trials_ses
+    split_blocks = [(1, 3), (3, 8), (8, 13), (13, 18), (18, 23)] # NOT HARD CODED
+    block_colors = 'black', 'crimson', 'navy' # USE COLORS_SESSION
     rois_sorted = []
     for i in range(len(clusters_rois)):  # flatten 'clusters_rois'
         rois_sorted = np.hstack((rois_sorted, clusters_rois[i]))

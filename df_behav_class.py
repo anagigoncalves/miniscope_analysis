@@ -423,7 +423,7 @@ class df_behav_analysis:
                 if not os.path.exists(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id)):
                     os.mkdir(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id))
                 plt.savefig(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '\\', 'STA_' + var_name + '_' + str(rois_sorted[n]) + '.png'), dpi=self.my_dpi) 
-            plt.close()
+                plt.close()
     
         # Plot 2: STA of the population by trial 
         max_val = np.max(np.concatenate(sta_tr_allrois, axis=0))
@@ -444,7 +444,7 @@ class df_behav_analysis:
                 if not os.path.exists(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id)):
                     os.mkdir(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id))
                 plt.savefig(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '\\', 'STA_' + var_name + '_trial' + str(tr) + '.png'), dpi=self.my_dpi)
-            plt.close()
+                plt.close()
     
         # Plot 3: STA of the population by block 
         max_val = np.max(np.concatenate(sta_blocks_allrois, axis=0))
@@ -471,7 +471,7 @@ class df_behav_analysis:
             if not os.path.exists(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id)):
                 os.mkdir(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id))
             plt.savefig(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '\\', 'STA_' + var_name + '_blocks' + '.png'), dpi=self.my_dpi)
-        plt.close()
+            plt.close()
 
 
     def shuffle_spikes_ts(self, df_events, iter_n):
@@ -622,7 +622,7 @@ class df_behav_analysis:
                 if not os.path.exists(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id)):
                     os.mkdir(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id))
                 plt.savefig(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '\\', 'STA_' + var_name + '_' + str(rois_sorted[n]) + '.png'), dpi=self.my_dpi) 
-    
+                plt.close()
     
     def peak_detection(self, bodycenter, ampl, TimePntThres, trials):
         '''Use the derivative method to detect body position peaks, onsets and offsets for each trial and plot them

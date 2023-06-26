@@ -18,6 +18,7 @@ os.chdir('C:\\Users\\User\\Documents\\LocalRepo\\miniscope_analysis')
 import miniscope_session_class
 import locomotion_class
 
+
 path_session_data = 'C:\\Users\\User\\Carey Lab Dropbox\\Rotation Carey\\Francesco and Ana G\\Miniscope processed files'
 session_data = pd.read_excel('C:\\Users\\User\\Carey Lab Dropbox\\Rotation Carey\\Francesco and Ana G\\Miniscope processed files\\session_data_split_S1.xlsx')
 
@@ -43,16 +44,6 @@ for s in range(len(session_data)):
     [trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
     [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
-
-    #  # Order ROIs mediolateral
-    # roi_list = mscope.get_roi_list(df_events_extract_rawtrace)
-    # centroids_mediolateral = []
-    # for c in range(len(centroid_ext)):
-    #     centroids_mediolateral.append(centroid_ext[c][0])
-    # distance_neurons_ordered = np.argsort(centroids_mediolateral)
-    # rois_ordered_distance_str = []
-    # for i in distance_neurons_ordered:
-    #     rois_ordered_distance_str.append(roi_list[i])
 
     # Load behavioral data
     filelist = loco.get_track_files(animal, session)
@@ -85,22 +76,6 @@ for s in range(len(session_data)):
                                                                                   trials, p, p2, sym=1,
                                                                                   remove_nan=1)  # SL symmetry for each stride
 
-    # cmap = plt.get_cmap('magma')
-    # color_animals = [cmap(i) for i in np.linspace(0, 1, 6)]
-    # def get_colors_plot(animal_name, color_animals):
-    #     if animal_name == 'MC8855':
-    #         color_plot = color_animals[0]
-    #     if animal_name == 'MC9194':
-    #         color_plot = color_animals[1]
-    #     if animal_name == 'MC10221':
-    #         color_plot = color_animals[2]
-    #     if animal_name == 'MC9513':
-    #         color_plot = color_animals[3]
-    #     if animal_name == 'MC9226':
-    #         color_plot = color_animals[4]
-    #     return color_plot
-
-
     # Get kinematic variables (body position, speed, acceleration)
     win_len = 81  # In samples
     polyorder = 3
@@ -116,11 +91,11 @@ for s in range(len(session_data)):
     save_plot = False
     plot_data = True
     var_name = 'Speed'
-    blocks = [(1, 3), (3, 13), (13, 23)] #USE trials_ses
-    split_blocks = [(1, 3), (3, 8), (8, 13), (13, 18), (18, 23)] # NOT HARD CODED
-    block_colors = 'black', 'crimson', 'navy' # USE COLORS_SESSION
+    # blocks = [(1, 3), (3, 13), (13, 23)] #USE trials_ses
+    # split_blocks = [(1, 3), (3, 8), (8, 13), (13, 18), (18, 23)] # NOT HARD CODED
+    # block_colors = 'black', 'crimson', 'navy' # USE COLORS_SESSION
     rois_sorted = []
     for i in range(len(clusters_rois)):  # flatten 'clusters_rois'
         rois_sorted = np.hstack((rois_sorted, clusters_rois[i]))
-    nxb.plot_sta(sta_allrois, signal_chunks_allrois, window, trials, blocks, block_colors, split_blocks, rois_sorted,
+    nxb.plot_sta(sta_allrois, signal_chunks_allrois, window, trials, trials_ses, colors_session, rois_sorted,
                  var_name, save_plot)

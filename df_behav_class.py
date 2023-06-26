@@ -314,7 +314,6 @@ class df_behav_analysis:
             - bcam_time: timestamps of behavior
             - window: peri-event epoch (samples)
             - trials: 1D array of trial numbers
-            - blocks: 2D array with beginning and end of each experimental block
         '''
         signal_chunks_allrois = []
         sta_allrois = []
@@ -344,30 +343,38 @@ class df_behav_analysis:
         return sta_allrois, signal_chunks_allrois
     
     
-    def plot_sta(self, sta_allrois, signal_chunks_allrois, window, trials, blocks, block_colors, split_blocks, rois_sorted, var_name, save_plot):
+    def plot_sta(self, sta_allrois, signal_chunks_allrois, window, trials, trials_ses, colors_session, rois_sorted, var_name, save_plot):
         ''' Plot STA for each ROI and for the whole population.
         Inputs:
         - sta_allrois: list of STA for all the trials for each ROI
         - signal_chunks_allrois: raw traces of signal around events for each ROI
         - trials: array with all the trial numbers
-        - blocks: 2D array or list with the first and last trial of each experimental block
-        - block_colors = colors of experimental blocks
-        - split_blocks: same as 'blocks' but with experimental blocks further subdivided
+        - trials_ses: 2D array or list with the first and last trial of each experimental block
+        - colors_session = colors of experimental blocks
         - rois_sorted: 1D array with all the ROIs sorted by cluster
         - var_name: name of the variable
         - save_plot (boolean)
         '''
+        # Define font size for plot labels
         font_size = 15
         
+        # Define sub-divided experimental blocks (IMPROVE THIS!)
+        block_halflen = (trials_ses[1][1] - trials_ses[1][0]+1)//2
+        split_blocks = np.array(([trials_ses[0][0]-1, trials_ses[0][1]], 
+                                 [trials_ses[1][0]-1, trials_ses[1][0]-1 + block_halflen], 
+                                 [trials_ses[1][0]-1 + block_halflen, trials_ses[1][1]], 
+                                 [trials_ses[2][0]-1, trials_ses[2][0]-1 + block_halflen], 
+                                 [trials_ses[2][0]-1 + block_halflen, trials_ses[2][1]]))
+                
         # Re-sort data to have a list of the STA of all the ROIs for each trial
         sta_tr_allrois = [[sta_roi[tr_idx] for sta_roi in sta_allrois] for tr_idx, _ in enumerate(trials)] # List of the STA of all the ROIs for each trial
 
         # Compute STA of all the ROIs for each block
-        sta_blocks_allrois = [np.mean(np.array(sta_tr_allrois[start:end]), axis=0) for start, end in split_blocks] # List of the STA of all the ROIs for block
+        sta_blocks_allrois = [np.mean(np.array(sta_tr_allrois[start-1:end]), axis=0) for start, end in split_blocks] # List of the STA of all the ROIs for block
 
-        # Tick labels for plots
-        y_tick_labels = [block[1] for block in blocks]
-        y_tick_locations = [block[1] - 1 for block in blocks]
+        # Define tick labels for plots
+        y_tick_labels = [block[1] for block in trials_ses]
+        y_tick_locations = [block[1] - 1 for block in trials_ses]
         x_tick_values = [round(window[0]/self.sr_cam,1), round((1/2)*window[0]/self.sr_cam,1), 0, round((1/2)*window[-1]/self.sr_cam,1), round(window[-1]/self.sr_cam,1)]
         x_ticks = np.linspace(0, len(sta_tr_allrois[0][0]), len(x_tick_values)).astype(int)
         
@@ -400,10 +407,10 @@ class df_behav_analysis:
                 axs[2].plot(window * 1/self.sr_cam, sta_allrois[n][tr_idx], c = 'lightgray')
             axs[2].axvline(x=0, color='black', linestyle='--')
             c = 0
-            for b in blocks:
+            for b in trials_ses:
                 start_idx = b[0]
                 end_idx = b[1]
-                axs[2].plot(window * 1/self.sr_cam, np.mean(sta_allrois[n][start_idx:end_idx], axis=0), c=block_colors[c], linewidth=2.3)
+                axs[2].plot(window * 1/self.sr_cam, np.mean(sta_allrois[n][start_idx:end_idx], axis=0), c=colors_session[c], linewidth=2.3)
                 c =+ 1
             axs[2].set_ylabel(var_name + '(z-score)', fontsize = font_size)
             axs[2].set_xlabel('Time around event (s)', fontsize = font_size)

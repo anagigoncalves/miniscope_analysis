@@ -618,11 +618,93 @@ class df_behav_analysis:
             axs[1, 2].axhline(y=2, color='k', linestyle='--')
             axs[1, 2].axvline(x=0, color='k', linestyle='--')
             # Save plots
-            if save_plot == True
+            if save_plot:
                 if not os.path.exists(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id)):
                     os.mkdir(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id))
                 plt.savefig(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '\\', 'STA_' + var_name + '_' + str(rois_sorted[n]) + '.png'), dpi=self.my_dpi) 
                 plt.close()
+
+
+    def maxzs_distr(self, sta_zs, interval, signif_thresh, save_plot):
+        ''' Find the absolute max z-score (so either the positive maximum or the negative maximum) of STA and the latency 
+        of the peak from the event.
+        Inputs:
+            - sta_zs: array of z-scored STA for each ROI
+            - interval = interval before and after the event to compute max abs z-score
+            - signif_thresh: threshold of significance of the peak
+            - save_plot (boolean)
+        '''
+        # Detect min and max z-score for every peak
+        start = self.sr_cam+interval[0] #-0.25 to +0.25
+        end = self.sr_cam+interval[1]
+        max_abs_zs = np.zeros((sta_zs.shape[0], sta_zs.shape[1]))
+        max_abs_zs[:] = np.nan
+        latency = np.zeros((sta_zs.shape[0], sta_zs.shape[1]))
+        latency[:] = np.nan
+        for n in range(sta_zs.shape[0]):
+            for tr in range(sta_zs.shape[1]):
+                max_zs = max(sta_zs[n, tr, start:end]) 
+                min_zs = min(sta_zs[n, tr, start:end])
+                if max_zs > abs(min_zs): 
+                    max_abs_zs[n, tr] = max_zs
+                    latency[n, tr] = (np.argmax(sta_zs[n, tr, start:end])/self.sr_cam)+round(interval[1]/self.sr_cam, 2)
+                elif abs(min_zs) > max_zs: 
+                    max_abs_zs[n, tr] = min_zs
+                    latency[n, tr] = (np.argmin(sta_zs[n, tr, start:end])/self.sr_cam)+round(interval[1]/self.sr_cam, 2)
+        
+        # Plot distribution of max z-score for the whole session
+        median_max_zs = np.nanmedian(max_abs_zs, axis=1)
+        min_val = min(median_max_zs)
+        max_val = max(median_max_zs)
+        bin_size = 0.5
+        bin_edges = np.arange(int(min_val), int(max_val) + bin_size, bin_size)
+        hist, _ = np.histogram(median_max_zs, bins=bin_edges)
+        plt.bar(bin_edges[:-1], hist, bin_size, color='white')
+        for i in range(len(bin_edges)-1):
+            if bin_edges[i+1] < signif_thresh +1: # -2
+                plt.bar(bin_edges[i], hist[i], bin_size, color='blue', edgecolor='black', linewidth=1.2)
+            elif bin_edges[i] > signif_thresh - 0.5: # 2
+                plt.bar(bin_edges[i], hist[i], bin_size, color='yellow', edgecolor='black', linewidth=1.2)
+            else:
+                plt.bar(bin_edges[i], hist[i], bin_size, color='black', edgecolor='black', linewidth=1.2)
+        plt.xlabel('Max z-score', fontsize = 15)
+        plt.ylabel('Count', fontsize = 15)
+        plt.title('Max z-score', fontsize = 15)
+        if save_plot:
+            if not os.path.exists(os.path.join(self.save_path, 'Max_zs' + var_name + '_' + mouse_id)):
+                os.mkdir(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id))
+            plt.savefig(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '\\', 'Max_zs_distr.png'), dpi=self.my_dpi) 
+            plt.close()
+        
+        # Boxplot latency of max z-score for the whole session
+        latency_negzs = latency[np.where(max_abs_zs < signif_thresh)]
+        latency_poszs = latency[np.where(max_abs_zs > signif_thresh)]
+        fig, ax = plt.subplots()
+        boxplot = ax.boxplot([latency_negzs, latency_poszs], showfliers=False, patch_artist=True)
+        ax.set_xticklabels([]) 
+        ax.tick_params(bottom=False)
+        colors = ['blue', 'yellow']
+        for patch, color in zip(boxplot['boxes'], colors):
+            patch.set_facecolor(color)
+            patch.set_edgecolor('black')
+            patch.set_linewidth(2)
+        for median in boxplot['medians']:
+            median.set(color='black', linewidth=1.7)
+        for whisker in boxplot['whiskers']:
+            whisker.set(color='black', linewidth=1.7)
+        for cap in boxplot['caps']:
+            cap.set(color='black', linewidth=1.7)
+        ax.set_ylabel('Latency (s)', fontsize = 15)
+        plt.show()
+        plt.title('Latency of max z-score')
+        if save_plot:
+            if not os.path.exists(os.path.join(self.save_path, 'Max_zs' + var_name + '_' + mouse_id)):
+                os.mkdir(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id))
+            plt.savefig(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '\\', 'Latency.png'), dpi=self.my_dpi) 
+            plt.close()
+        
+        return max_abs_zs, latency   
+
     
     def peak_detection(self, bodycenter, ampl, TimePntThres, trials):
         '''Use the derivative method to detect body position peaks, onsets and offsets for each trial and plot them

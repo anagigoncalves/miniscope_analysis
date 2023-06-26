@@ -120,3 +120,8 @@ for s in range(len(session_data)):
         sta_zs[n] = (sta_allrois[n] - sta_chance[n]) / stsd_chance[n]
     # Plot observed STA, STA you would expect by chance and standardized STA
     nxb.plot_sta_shuffled(sta_zs, sta_allrois, sta_chance, window, var_name, trials_ses, rois_sorted, animal, save_plot)
+
+    # Plot distribution of STA peaks amplitude (absolute max z-scores) and their latency with respect to the event
+    signif_thresh = 2
+    interval = [-82, 82] # In samples
+    max_abs_zs, latency = nxb.maxzs_distr(sta_zs, interval, signif_thresh)

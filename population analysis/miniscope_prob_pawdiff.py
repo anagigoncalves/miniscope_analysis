@@ -19,8 +19,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'E:\\Miniscope processed files\\'
-session_data = pd.read_excel('E:\\Miniscope processed files\\session_data_split_S1.xlsx')
+path_session_data = 'J:\\Miniscope processed files\\'
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
 if not os.path.exists(path_session_data + 'CS probability at difference between paws'):
     os.mkdir(path_session_data + 'CS probability at difference between paws')
 if not os.path.exists(path_session_data + 'Paw difference at CS time - shuffled'):
@@ -93,6 +93,15 @@ for s in range(len(session_data)):
             paw_diff_trial = paws_rel_trials[trial_idx][0] - paws_rel_trials[trial_idx][2]
             events_trial_idx = [np.argmin(np.abs(e - bcam_trial)) for e in events_trial]
             paw_diff_trial_events = paw_diff_trial[events_trial_idx]
+            # events_window_before = np.array(events_trial_idx)-1
+            # events_window_after = np.array(events_trial_idx)+1
+            # idx_to_delete = np.concatenate((np.where(events_window_before < 0)[0], np.where(events_window_after > len(paw_diff_trial))[0]))
+            # idx_to_keep = np.setdiff1d(np.arange(0, len(events_window_before)), idx_to_delete)
+            # events_window_before = events_window_before[idx_to_keep]
+            # events_window_after = events_window_after[idx_to_keep] #if it deletes in one it has to delete in the other
+            # paw_diff_trial_events = []
+            # for i in range(len(events_window_before)):
+            #     paw_diff_trial_events.extend(paw_diff_trial[events_window_before[i]:events_window_after[i]])
             mean_pawdiff_events[count_roi, count_trial] = np.nanmean(paw_diff_trial_events)
             isi = np.diff(events_trial)
             #generate the ISI from a random exponential distribution
@@ -104,6 +113,15 @@ for s in range(len(session_data)):
             spikes_generated = np.insert(np.cumsum(isi), 0, 0)
             events_trial_idx_generated = [np.argmin(np.abs(e - bcam_trial)) for e in spikes_generated]
             paw_diff_trial_events_generated = paw_diff_trial[events_trial_idx_generated]
+            # events_window_before_generated = np.array(events_trial_idx_generated)-1
+            # events_window_after_generated = np.array(events_trial_idx_generated)+1
+            # idx_to_delete_generated = np.concatenate((np.where(events_window_before_generated < 0)[0], np.where(events_window_after_generated > len(paw_diff_trial))[0]))
+            # idx_to_keep_generated = np.setdiff1d(np.arange(0, len(events_window_before)), idx_to_delete)
+            # events_window_before_generated = events_window_before_generated[idx_to_keep_generated]
+            # events_window_after_generated = events_window_after_generated[idx_to_keep_generated]
+            # paw_diff_trial_events_generated = []
+            # for i in range(len(events_window_before_generated)):
+            #     paw_diff_trial_events_generated.extend(paw_diff_trial[events_window_before[i]:events_window_after[i]])
             mean_pawdiff_events_generated[count_roi, count_trial] = np.nanmean(paw_diff_trial_events_generated)
             # ax[count_trial].hist(paw_diff_trial_events, bins=20)
             # ax[count_trial].hist(paw_diff_trial_events_generated, bins=20, alpha=0.5)

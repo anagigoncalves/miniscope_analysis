@@ -89,8 +89,10 @@ for s in range(len(session_data)):
     
     window = 0.2
     event_prob = []
+    event_time = []
     for count_roi, roi in enumerate(df_events_extract_rawtrace.columns[2:]): 
         event_trial_prob = []
+        event_trial_time = []
         for count_trial, trial in enumerate(trials):
             trial_idx = np.where(trials == trial)[0][0]
             bcam_trial = bcam_time[trial_idx]
@@ -98,12 +100,15 @@ for s in range(len(session_data)):
             bins = np.arange(0, bcam_trial[-1], window)
             bcam_trial_idx_bins = np.digitize(bcam_trial, bins) #returns the indices of the bins to which each bcam timestamp belongs
             events_trial_idx_bins = np.digitize(events_trial, bins)  # returns the indices of the bins to which each calcium event time belongs
-            event_trial_prob.append(np.array([np.divide(len(events_trial[events_trial_idx_bins[:len(events_trial)] == i]), len(events_trial)) for i in range(len(bins))]))
+            event_trial_prob.extend(np.array([np.divide(len(events_trial[events_trial_idx_bins[:len(events_trial)] == i]), len(events_trial)) for i in range(len(bins))]))
+            event_trial_time.extend(bins+(count_trial*60))
         event_prob.append(event_trial_prob)
-        
+        event_time.append(event_trial_time)
+    
+    
     plt.figure()
-    plt.scatter(np.arange(0, bcam_time[0][-1], window), event_prob[0][0], color='black')
-    plt.plot(sl_trials[0])
+    plt.scatter(event_time, event_prob, color='black')
+    plt.plot(param_all_time, (param_all-np.min(param_all))/(np.max(param_all)-np.min(param_all)), color='blue')
         
         
         

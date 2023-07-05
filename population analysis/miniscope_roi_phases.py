@@ -18,8 +18,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'C:\\Users\\Ana\\Desktop\\Miniscope processed files\\'
-session_data = pd.read_excel('C:\\Users\\Ana\\Desktop\\Miniscope processed files\\session_data_split_S1.xlsx')
+path_session_data = 'E:\\Miniscope processed files\\'
+session_data = pd.read_excel('E:\\Miniscope processed files\\session_data_split_S1.xlsx')
 event_count_loco_split_all = []
 event_count_loco_ie_all = []
 event_count_loco_ae_all = []
@@ -115,6 +115,32 @@ ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 6)
 plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_phases_S1'), dpi=mscope.my_dpi)
+
+fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True, sharey=True)
+for count_a, a in enumerate(animals):
+    animal_idx = np.where(np.isin(event_count_loco_animals, a))[0]
+    split_values = []
+    washout_values = []
+    bs_values = []
+    for i in animal_idx:
+        split_values.append(event_count_loco_split_all[i])
+        washout_values.append(event_count_loco_washout_all[i])
+        bs_values.append(event_count_loco_baseline_all[i])
+    animal_values = [bs_values, split_values, washout_values]
+    violin_parts = plt.violinplot(animal_values, positions=[0 + count_a, 6 + count_a, 12 + count_a])
+    for pc in violin_parts['bodies']:
+        pc.set_color(color_animals[count_a])
+    violin_parts['cbars'].set_color(color_animals[count_a])
+    violin_parts['cmins'].set_color(color_animals[count_a])
+    violin_parts['cmaxes'].set_color(color_animals[count_a])
+ax.set_xticks([3, 9, 15])
+ax.set_xticklabels(['baseline', 'split', 'washout'])
+ax.set_xlabel('Trial type', fontsize=mscope.fsize - 4)
+ax.set_ylabel('FR forward locomotion', fontsize=mscope.fsize - 4)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 6)
+plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_phases_S1_violin'), dpi=mscope.my_dpi)
 
 fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True, sharey=True)
 for i in range(len(event_count_loco_split_all)):

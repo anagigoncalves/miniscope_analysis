@@ -470,8 +470,8 @@ class df_behav_analysis:
                 plt.close()
 
 
-    def plot_sta_popul(self, sta_allrois, window, cluster_transition_idx, colors_cluster, colors_session, trials, split_blocks, var_name, interval, mouse_id, session, save_plot):
-        ''' Plot STA for the whole population.
+    def plot_sta_popul(self, sta_allrois, window, cluster_transition_idx, colors_cluster, colors_session, trials, trials_ses, split_blocks, var_name, interval, mouse_id, session, save_plot):
+        ''' Plot STA heatmap and traces for the whole population (trials and blocks).
         Inputs:
         - sta_allrois: list of STA for all the trials for each ROI
         - window: epoch of interest around CS
@@ -479,6 +479,7 @@ class df_behav_analysis:
         - colors_cluster: array with clusters colorcode
         - colors_session: dictionary with colorcode for each trial
         - trials: array with all the trial numbers
+        - trials_ses = 2D array of experimental blocks
         - split_blocks = 2D array of sub-divided experimental blocks
         - var_name: name of the variable
         - interval: start and end of window around event for peak detection
@@ -520,12 +521,55 @@ class df_behav_analysis:
             plt.xticks(x_ticks, [f"{tick}" for tick in x_tick_values])
             plt.title('STA ' + var_name + ' trial ' + str(tr), fontsize=font_size)
             if save_plot:
-                if not os.path.exists(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id  + '_' + session)):
-                    os.mkdir(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id  + '_' + session))
-                plt.savefig(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id   + '_' + session + '\\', 'STA_' + var_name + '_trial' + str(tr) + '.png'), dpi=self.my_dpi)
+                if not os.path.exists(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id  + '_' + session)):
+                    os.mkdir(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id  + '_' + session))
+                plt.savefig(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id   + '_' + session + '\\', 'STA_' + var_name + '_trial' + str(tr) + '.png'), dpi=self.my_dpi)
                 plt.close()
+                
+        # Plot 2: STA traces of one cluster across trials   
+        max_val = np.max(np.concatenate(sta_tr_allrois, axis=0))
+        min_val = np.min(np.concatenate(sta_tr_allrois, axis=0))
+        clust_sta_tr = np.zeros((len(sta_tr_allrois), len(cluster_transition_idx), len(window))) # STA of clusters by block
+        for tr_idx, trial in enumerate(sta_tr_allrois):
+            start = 0
+            for clust_idx, clust_end in enumerate(cluster_transition_idx):
+                if len(cluster_transition_idx)-1 == clust_idx:
+                    end = len(sta_tr_allrois[0])
+                else:
+                    end = clust_end
+                clust_sta_tr[tr_idx, clust_idx] = np.mean(trial[start:end], axis = 0)
+                start = clust_end
+        fig, axs = plt.subplots(nrows=1, ncols=len(cluster_transition_idx), figsize = (15, 5))
+        if len(cluster_transition_idx) == 1:
+            axs = [axs]  # Convert single axis to a list for indexing consistency
+        for clust_idx, _ in enumerate(cluster_transition_idx):
+            for tr in trials_ses.flatten():
+                current_ax = axs[clust_idx]  # Get the current axis
+                current_ax.plot(window * 1/self.sr_cam, clust_sta_tr[tr-1, clust_idx], c=colors_session[tr], linewidth=2)
+            current_ax.axvline(x=0, color='black', linestyle='--')
+            current_ax.spines['right'].set_visible(False)
+            current_ax.spines['top'].set_visible(False)
+            current_ax.set_ylim([min_val, max_val])
+            current_ax.set_xlim(window[0] * 1/self.sr_cam, window[-1] * 1/self.sr_cam)
+            current_ax.set_xlim(window[0] * 1/self.sr_cam, window[-1] * 1/self.sr_cam)
+            current_ax.set_xlabel('Time around event (s)', fontsize=font_size)
+            if clust_idx == 0:
+                current_ax.set_ylabel(var_name + ' (z-score)', fontsize=font_size)
+            if clust_idx > 0:
+                current_ax.set(yticklabels=[])
+                current_ax.tick_params(left=False)
+                current_ax.spines['left'].set_visible(False)
+            current_ax.set_title('Cluster ' + str(clust_idx+1), fontsize=font_size, c=colors_cluster[clust_idx])       
+        if save_plot:
+            save_dir = os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session)
+            if not os.path.exists(save_dir):
+                os.mkdir(save_dir)            
+            filename = 'STA_zs_' + var_name + '_clusters_trials.png'
+            save_path = os.path.join(save_dir, filename)            
+            plt.savefig(save_path, dpi=self.my_dpi)
+            plt.close()
     
-        # Plot 2: Heatmap STA of the population by block 
+        # Plot 3: Heatmap STA of the population by block 
         max_val = np.max(np.concatenate(sta_blocks_allrois, axis=0))
         min_val = np.min(np.concatenate(sta_blocks_allrois, axis=0))
         fig, axs = plt.subplots(len(sta_blocks_allrois),1, figsize = (12, 12))
@@ -549,12 +593,12 @@ class df_behav_analysis:
             for c in cluster_transition_idx: # Mark clusters in the heatmap
                 axs[b].hlines(c + 1, *axs[b].get_xlim(), color='white', linestyle='dashed', linewidth = 0.5)
         if save_plot:
-            if not os.path.exists(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '_' + session)):
-                os.mkdir(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '_' + session))
-            plt.savefig(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '_' + session + '\\', 'STA_' + var_name + '_blocks' + '.png'), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session)):
+                os.mkdir(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session))
+            plt.savefig(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session + '\\', 'STA_zs_' + var_name + '_blocks' + '.png'), dpi=self.my_dpi)
             plt.close()
         
-        # Plot 3: STA traces of one cluster across blocks     
+        # Plot 4: STA traces of one cluster across blocks     
         clust_sta = np.zeros((len(sta_blocks_allrois), len(cluster_transition_idx), len(window))) # STA of clusters by block
         for block_idx, block in enumerate(sta_blocks_allrois):
             start = 0
@@ -587,10 +631,10 @@ class df_behav_analysis:
                 current_ax.spines['left'].set_visible(False)
             current_ax.set_title('Cluster ' + str(clust_idx+1), fontsize=font_size, c=colors_cluster[clust_idx])       
         if save_plot:
-            save_dir = os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '_' + session)
+            save_dir = os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session)
             if not os.path.exists(save_dir):
                 os.mkdir(save_dir)            
-            filename = 'STA_' + var_name + '_clusters_blocks.png'
+            filename = 'STA_zs_' + var_name + '_clusters_blocks.png'
             save_path = os.path.join(save_dir, filename)            
             plt.savefig(save_path, dpi=self.my_dpi)
             plt.close()
@@ -718,7 +762,7 @@ class df_behav_analysis:
         return sta_allrois
     
     
-    def plot_sta_shuffled(self, sta_zs, sta_roi, sta_chance, window, var_name, trials_ses, rois_sorted, mouse_id, session, colors_session, save_plot):
+    def plot_sta_zs_rois(self, sta_zs, sta_roi, sta_chance, window, var_name, trials_ses, rois_sorted, mouse_id, session, colors_session, save_plot):
         ''' Plot heatmaps and traces of STA for observed data, shuffled data
         and observed data standardized on shuffled data.
         Inputs:

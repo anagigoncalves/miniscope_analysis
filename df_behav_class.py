@@ -41,11 +41,15 @@ class df_behav_analysis:
     
     
     def sort_rois_clust(self, df_events, clusters_rois):
-        clusters_rois_flat = np.transpose(sum(clusters_rois, []))
-        clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
-        clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
-        cluster_transition_idx = np.cumsum([len(clusters_rois[c]) for c in range(len(clusters_rois))]) - 1
-        df_events_sorted = df_events[clusters_rois_flat]
+        if len(clusters_rois) > 1:
+            clusters_rois_flat = np.transpose(sum(clusters_rois, []))
+            clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
+            clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
+            cluster_transition_idx = np.cumsum([len(clusters_rois[c]) for c in range(len(clusters_rois))]) - 1
+            df_events_sorted = df_events[clusters_rois_flat]
+        else:
+            df_events_sorted = df_events
+            cluster_transition_idx = np.array([0])
         return df_events_sorted, cluster_transition_idx
     
     
@@ -57,6 +61,17 @@ class df_behav_analysis:
         tr_trans_idx = np.where(np.diff(np.asarray(df['trial'].values)) != 0)[0] + 1
         tr_trans_idx = np.concatenate(([0], tr_trans_idx, [len(df)]))
         return tr_trans_idx
+
+
+    def split_expblocks(self, trials_ses):
+        '''Sub-divide experimental blocks'''
+        block_halflen = (trials_ses[1][1] - trials_ses[1][0]+1)//2
+        split_blocks = np.array(([trials_ses[0][0]-1, trials_ses[0][1]], 
+                                 [trials_ses[1][0]-1, trials_ses[1][0]-1 + block_halflen], 
+                                 [trials_ses[1][0]-1 + block_halflen, trials_ses[1][1]], 
+                                 [trials_ses[2][0]-1, trials_ses[2][0]-1 + block_halflen], 
+                                 [trials_ses[2][0]-1 + block_halflen, trials_ses[2][1]]))
+        return split_blocks
 
 
     def find_behav_ts(self, df, bcam_time):
@@ -76,7 +91,7 @@ class df_behav_analysis:
         return behav_ts_idx
 
 
-    def kinematic_aligned(self, final_tracks_trials, trials, behav_ts_idx, win_len, polyorder):
+    def body_kinematic_aligned(self, final_tracks_trials, trials, behav_ts_idx, win_len, polyorder):
         ''' Compute body location (mean of the x position of the four paws), body speed (1st derivative of position)
         body acceleration (2nd derivative of position). All the kinematic variables are downsampled to the same
         frame rate of neural activity.
@@ -136,7 +151,7 @@ class df_behav_analysis:
         return bodycenter_aligned, bodyspeed_aligned, bodyacc_aligned
 
 
-    def kinematic(self, final_tracks_trials, trials, win_len, polyorder):  
+    def body_kinematic(self, final_tracks_trials, trials, win_len, polyorder):  
         ''' Compute body location (mean of the x position of the four paws), body speed (1st derivative of position)
         body acceleration (2nd derivative of position). 
         Inputs:
@@ -156,6 +171,49 @@ class df_behav_analysis:
             bodyacc_trial = savgol_filter(self.inpaint_nans(bodycenter_trial),win_len,polyorder,deriv=2) # Get body acceleration
             bodyacc.append(bodyacc_trial)
         return bodycenter, bodyspeed, bodyacc
+    
+    
+    def paw_kinematic(self, tracks, p, ax, win_len, polyorder):
+        '''Compute paw location, speed and acceleration for the preferred paw and axis.
+        Inputs:
+            - tracks: list of paws coordinates by trial
+            - p: paw (FR = 0, HR = 1, FL = 2, HL = 3)
+            - ax: axis (x = 0 or 2, y = 1, z = 3)
+            - win_len = length of savgol_filter kernel
+            - polyorder = polynomial order for savgol_filter       
+        '''
+        paw_pos = []
+        paw_speed = []
+        paw_acc = []
+        for tr in range(len(tracks)):
+            paw_pos_tr = (tracks[tr][ax, p, :] * self.pixel_to_mm).astype(int)
+            paw_pos.append(paw_pos_tr)
+            paw_speed.append(savgol_filter(self.inpaint_nans(paw_pos_tr),win_len,polyorder,deriv=1))
+            paw_acc.append(savgol_filter(self.inpaint_nans(paw_pos_tr),win_len,polyorder,deriv=2))
+        fig, axs = plt.subplots(3,1)
+        axs[0].plot(paw_pos[1][self.sr_cam*5:self.sr_cam*15], c = 'grey')
+        axs[0].set_ylabel('Paw position (mm)')
+        axs[1].plot(paw_speed[1][self.sr_cam*5:self.sr_cam*15], c = 'navy')
+        axs[1].set_ylabel('Speed (m/s)')
+        axs[2].plot(paw_acc[1][self.sr_cam*5:self.sr_cam*15], c = 'hotpink')
+        axs[2].set_ylabel('Acceleration (m/s^2)')
+        axs[2].set_xlabel('Samples')
+        return paw_pos, paw_speed, paw_acc
+    
+    
+    def paw_diff(self, tracks, p1, p2):
+        ''' Compute displacement or phase difference between two paws.
+        Inputs:
+            - tracks: list of limbs coordinates for each trial
+            - p1: reference paw (FR=0, HR=1, FL=2, HL=3)
+            - P2: secondary paw
+        '''
+        paw_difference = []
+        for tr in range(len(tracks)):
+            ref = tracks[tr][0,p1,:] - np.nanmean(tracks[tr][0,p1,:])
+            sec = tracks[tr][0,p2,:] - np.nanmean(tracks[tr][0,p2,:])
+            paw_difference.append(ref - sec) 
+        return paw_difference
         
     
     def df_behav_align(self, df, clusters_rois, frame_time, final_tracks_trials, sl_time_all_array, sl_sym_all_array, trials, plot_type, window, save_plot):
@@ -321,63 +379,49 @@ class df_behav_analysis:
             sta = np.empty((0, len(window)))
             signal_chunks_tr = []
             for tr_idx, tr in enumerate(trials):
-                signal_chunks = np.empty((0, len(window))) # might remove, not needed
+                signal_chunks = np.empty((0, len(window))) 
                 df_tr = df_events[df_events['trial']==tr]
-                events_idx = np.array(df_tr.index[df_tr.iloc[:, n] == 1])  # or events_idx = np.where(df_tr.iloc[:, n] == 1)[0]
+                events_idx = np.array(df_tr.index[df_tr.iloc[:, n] == 1])  
                 events_ts = df_tr['time'].loc[events_idx].values
                 matching_ts_idx = [np.abs(bcam_time[tr_idx] - ts).argmin() for ts in events_ts]
                 # Extract traces around each event for one ROI
                 for i in matching_ts_idx:
                     if i + window[0] >= 0 and i + window[-1] < len(variable[tr_idx]):
                         extracted_signal = variable[tr_idx][i + window[0]:i + window[-1] + 1]
-                        extracted_signal = (extracted_signal - np.mean(extracted_signal))/np.std(extracted_signal)
+                        extracted_signal = (extracted_signal - np.nanmean(extracted_signal))/np.std(extracted_signal)
                         # List of raw traces for one ROI 'n' and trial 'tr'
                         signal_chunks = np.vstack((signal_chunks, extracted_signal))
                 signal_chunks_tr.append(signal_chunks) # Array of traces for one ROI all trials
             # Compute STA by trial for one ROI
-            sta = np.vstack([np.mean(signal_chunks_tr[tr_idx], axis=0) for tr_idx, _ in enumerate(trials)])
+            sta = np.vstack([np.nanmean(signal_chunks_tr[tr_idx], axis=0) for tr_idx, _ in enumerate(trials)])
             # List of raw traces for each ROI whole session
             signal_chunks_allrois.append(np.concatenate(signal_chunks_tr, axis = 0))
             # STA by trial for all ROIs
             sta_allrois.append(sta)
         return sta_allrois, signal_chunks_allrois
-    
-    
-    def plot_sta(self, sta_allrois, signal_chunks_allrois, window, trials, trials_ses, colors_session, rois_sorted, var_name, mouse_id, save_plot):
-        ''' Plot STA for each ROI and for the whole population.
+
+
+    def plot_sta_rois(self, sta_allrois, signal_chunks_allrois, window, trials, trials_ses, colors_session, rois_sorted, var_name, mouse_id, session, save_plot):
+        ''' Plot STA for each ROI.
         Inputs:
         - sta_allrois: list of STA for all the trials for each ROI
         - signal_chunks_allrois: raw traces of signal around events for each ROI
+        - window: epoch of interest around CS
         - trials: array with all the trial numbers
         - trials_ses: 2D array or list with the first and last trial of each experimental block
         - colors_session = colors of experimental blocks
         - rois_sorted: 1D array with all the ROIs sorted by cluster
         - var_name: name of the variable
         - mouse_id: mouse name (str)
+        - session: ipsi (S1) or contra (S2) (str)
         - save_plot (boolean)
         '''
         # Define font size for plot labels
         font_size = 15
-        
-        # Sub-divide experimental blocks
-        block_halflen = (trials_ses[1][1] - trials_ses[1][0]+1)//2
-        split_blocks = np.array(([trials_ses[0][0]-1, trials_ses[0][1]], 
-                                 [trials_ses[1][0]-1, trials_ses[1][0]-1 + block_halflen], 
-                                 [trials_ses[1][0]-1 + block_halflen, trials_ses[1][1]], 
-                                 [trials_ses[2][0]-1, trials_ses[2][0]-1 + block_halflen], 
-                                 [trials_ses[2][0]-1 + block_halflen, trials_ses[2][1]]))
                 
-        # Re-sort data to have a list of the STA of all the ROIs for each trial
-        sta_tr_allrois = [[sta_roi[tr_idx] for sta_roi in sta_allrois] for tr_idx, _ in enumerate(trials)] # List of the STA of all the ROIs for each trial
-
-        # Compute STA of all the ROIs for each block
-        sta_blocks_allrois = [np.mean(np.array(sta_tr_allrois[start:end]), axis=0) for start, end in split_blocks] # List of the STA of all the ROIs for block
-
         # Define tick labels for plots
         y_tick_labels = [block[1] for block in trials_ses]
         y_tick_locations = [block[1] - 1 for block in trials_ses]
-        x_tick_values = [round(window[0]/self.sr_cam,1), round((1/2)*window[0]/self.sr_cam,1), 0, round((1/2)*window[-1]/self.sr_cam,1), round(window[-1]/self.sr_cam,1)]
-        x_ticks = np.linspace(0, len(sta_tr_allrois[0][0]), len(x_tick_values)).astype(int)
         
         # Find min and max to set limits of the axis
         max_val = np.max(np.concatenate(signal_chunks_allrois, axis=0))
@@ -385,18 +429,18 @@ class df_behav_analysis:
         max_val_sta = np.max(np.concatenate(sta_allrois, axis=0))
         min_val_sta = np.min(np.concatenate(sta_allrois, axis=0))
         
-        # Plot 1: STA for each ROI
+        # STA for each ROI
         for n in range(len(sta_allrois)):
             fig, axs = plt.subplots(3, 1, figsize=(8, 12))
             # Subplot 1: heatmap of all the raw traces for each ROI    
-            hm = sns.heatmap(signal_chunks_allrois[n], cbar = False, cmap='viridis', ax=axs[0], vmin = min_val, vmax = max_val) # heatmap of traces for one neuron whole session
+            sns.heatmap(signal_chunks_allrois[n], cbar = False, cmap='viridis', ax=axs[0], vmin = min_val, vmax = max_val) # heatmap of traces for one neuron whole session
             axs[0].axvline(x=window[-1], color='white', linestyle='--')
             axs[0].set_ylabel('Events', fontsize = font_size)
             axs[0].set(xticklabels=[])
             axs[0].set(yticklabels=[])
             axs[0].tick_params(left=False, bottom=False)
             # Subplot 2: heatmap of STA for each trial for each ROI   
-            hm = sns.heatmap(sta_allrois[n], cbar = False, cmap='viridis', ax=axs[1], vmin = min_val_sta, vmax = max_val_sta) # heatmap of STA for one neuron by trial
+            sns.heatmap(sta_allrois[n], cbar = False, cmap='viridis', ax=axs[1], vmin = min_val_sta, vmax = max_val_sta) # heatmap of STA for one neuron by trial
             axs[1].set_ylabel('Trials', fontsize = font_size)
             axs[1].set_yticks(y_tick_locations)
             axs[1].set_yticklabels(y_tick_labels)
@@ -411,7 +455,7 @@ class df_behav_analysis:
                 start_idx = b[0]
                 end_idx = b[1]
                 axs[2].plot(window * 1/self.sr_cam, np.mean(sta_allrois[n][start_idx:end_idx], axis=0), c=colors_session[start_idx], linewidth=2.3)
-            axs[2].set_ylabel(var_name + '(z-score)', fontsize = font_size)
+            axs[2].set_ylabel(var_name + ' (z-score)', fontsize = font_size)
             axs[2].set_xlabel('Time around event (s)', fontsize = font_size)
             axs[2].spines['right'].set_visible(False)
             axs[2].spines['top'].set_visible(False)
@@ -420,57 +464,194 @@ class df_behav_analysis:
             fig.suptitle('STA ' + var_name + ' ' + str(rois_sorted[n]), fontsize = font_size)
             # Save plots
             if save_plot:
-                if not os.path.exists(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id)):
-                    os.mkdir(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id))
-                plt.savefig(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '\\', 'STA_' + var_name + '_' + str(rois_sorted[n]) + '.png'), dpi=self.my_dpi) 
+                if not os.path.exists(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '_' + session)):
+                    os.mkdir(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '_' + session))
+                plt.savefig(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id  + '_' + session + '\\', 'STA_' + var_name + '_' + str(rois_sorted[n]) + '.png'), dpi=self.my_dpi) 
                 plt.close()
-    
-        # Plot 2: STA of the population by trial 
+
+
+    def plot_sta_popul(self, sta_allrois, window, cluster_transition_idx, colors_cluster, colors_session, trials, split_blocks, var_name, interval, mouse_id, session, save_plot):
+        ''' Plot STA for the whole population.
+        Inputs:
+        - sta_allrois: list of STA for all the trials for each ROI
+        - window: epoch of interest around CS
+        - cluster_transition_idx: array of indexes of cluster ends
+        - colors_cluster: array with clusters colorcode
+        - colors_session: dictionary with colorcode for each trial
+        - trials: array with all the trial numbers
+        - split_blocks = 2D array of sub-divided experimental blocks
+        - var_name: name of the variable
+        - interval: start and end of window around event for peak detection
+        - mouse_id: mouse name (str)
+        - session: ipsi (S1) or contra (S2) (str)
+        - save_plot (boolean)
+        '''
+        # Define font size for plot labels
+        font_size = 15
+        
+        # Define colorcode for experimental blocks
+        color_blocks = []
+        for b in split_blocks:
+            color_blocks.append(colors_session[b[0]+1])
+                     
+        # Re-sort data to have a list of the STA of all the ROIs for each trial
+        sta_tr_allrois = [[sta_roi[tr_idx] for sta_roi in sta_allrois] for tr_idx, _ in enumerate(trials)] # List of the STA of all the ROIs for each trial
+
+        # Compute STA of all the ROIs for each block
+        sta_blocks_allrois = [np.mean(np.array(sta_tr_allrois[start:end]), axis=0) for start, end in split_blocks] # List of the STA of all the ROIs for block
+
+        # Define tick labels for plots
+        x_tick_values = [round(window[0]/self.sr_cam,1), round((1/2)*window[0]/self.sr_cam,1), 0, round((1/2)*window[-1]/self.sr_cam,1), round(window[-1]/self.sr_cam,1)]
+        x_ticks = np.linspace(0, len(sta_tr_allrois[0][0]), len(x_tick_values)).astype(int)
+
+        # Plot 1: Heatmap STA of the population by trial 
         max_val = np.max(np.concatenate(sta_tr_allrois, axis=0))
         min_val = np.min(np.concatenate(sta_tr_allrois, axis=0))
         for tr_idx, tr in enumerate(trials): #WARNING: for tr in range(len(trial_changes)-1):
             plt.figure()
             hm = sns.heatmap(sta_tr_allrois[tr_idx], cmap='viridis', vmin = min_val, vmax = max_val)  # heatmap STA whole population by trial 
-            plt.ylabel('ROIs (sorted by ML dist)', fontsize = font_size)
+            plt.ylabel('ROIs', fontsize = font_size)
             plt.xlabel('Time (s)', fontsize=font_size)
             cbar = hm.collections[0].colorbar
-            cbar.set_label(var_name + '(z-score)', fontsize=font_size)
+            cbar.set_label(var_name + ' (z-score)', fontsize=font_size)
             plt.axvline(x=window[-1], color='white', linestyle='--')
             plt.yticks([])
             plt.tick_params(left=False)
             plt.xticks(x_ticks, [f"{tick}" for tick in x_tick_values])
             plt.title('STA ' + var_name + ' trial ' + str(tr), fontsize=font_size)
             if save_plot:
-                if not os.path.exists(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id)):
-                    os.mkdir(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id))
-                plt.savefig(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '\\', 'STA_' + var_name + '_trial' + str(tr) + '.png'), dpi=self.my_dpi)
+                if not os.path.exists(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id  + '_' + session)):
+                    os.mkdir(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id  + '_' + session))
+                plt.savefig(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id   + '_' + session + '\\', 'STA_' + var_name + '_trial' + str(tr) + '.png'), dpi=self.my_dpi)
                 plt.close()
     
-        # Plot 3: STA of the population by block 
+        # Plot 2: Heatmap STA of the population by block 
         max_val = np.max(np.concatenate(sta_blocks_allrois, axis=0))
         min_val = np.min(np.concatenate(sta_blocks_allrois, axis=0))
-        fig, axs = plt.subplots(5,1, figsize = (12, 12))
-        for b in range(len(split_blocks)):
+        fig, axs = plt.subplots(len(sta_blocks_allrois),1, figsize = (12, 12))
+        for b in range(len(sta_blocks_allrois)):
             hm = sns.heatmap(sta_blocks_allrois[b], cmap='viridis', ax = axs[b], vmin = min_val, vmax = max_val)  # heatmap STA whole population by block 
             axs[b].axvline(x=window[-1], color='white', linestyle='--')
             axs[b].set_ylabel('ROIs', fontsize = font_size)
             axs[b].set(xticklabels=[])
             axs[b].set(yticklabels=[])
-            if b < 4:
+            if b < len(sta_blocks_allrois)-1:
                 axs[b].tick_params(left=False, bottom=False)
-            if b == 2:
+            if b == int((len(sta_blocks_allrois)-1)/2):
                 cbar = hm.collections[0].colorbar
-                cbar.set_label(var_name + '(z-score)', fontsize=font_size)
+                cbar.set_label(var_name + ' (z-score)', fontsize=font_size)
             plt.xlabel('Time (s)', fontsize=font_size)
             plt.axvline(x=window[-1], color='white', linestyle='--')
             plt.yticks([])
             plt.tick_params(left=False)
             plt.xticks(x_ticks, [f"{tick}" for tick in x_tick_values], fontsize = 12)
             fig.suptitle('STA ' + var_name, fontsize = font_size)
+            for c in cluster_transition_idx: # Mark clusters in the heatmap
+                axs[b].hlines(c + 1, *axs[b].get_xlim(), color='white', linestyle='dashed', linewidth = 0.5)
         if save_plot:
-            if not os.path.exists(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id)):
-                os.mkdir(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id))
-            plt.savefig(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '\\', 'STA_' + var_name + '_blocks' + '.png'), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '_' + session)):
+                os.mkdir(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '_' + session))
+            plt.savefig(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '_' + session + '\\', 'STA_' + var_name + '_blocks' + '.png'), dpi=self.my_dpi)
+            plt.close()
+        
+        # Plot 3: STA traces of one cluster across blocks     
+        clust_sta = np.zeros((len(sta_blocks_allrois), len(cluster_transition_idx), len(window))) # STA of clusters by block
+        for block_idx, block in enumerate(sta_blocks_allrois):
+            start = 0
+            for clust_idx, clust_end in enumerate(cluster_transition_idx):
+                if len(cluster_transition_idx)-1 == clust_idx:
+                    end = len(sta_blocks_allrois[0])
+                else:
+                    end = clust_end
+                clust_sta[block_idx, clust_idx] = np.mean(block[start:end], axis = 0)
+                start = clust_end
+        fig, axs = plt.subplots(nrows=1, ncols=len(cluster_transition_idx), figsize = (15, 5))
+        if len(cluster_transition_idx) == 1:
+            axs = [axs]  # Convert single axis to a list for indexing consistency
+        for clust_idx, _ in enumerate(cluster_transition_idx):
+            for block_idx, _ in enumerate(sta_blocks_allrois):
+                current_ax = axs[clust_idx]  # Get the current axis
+                current_ax.plot(window * 1/self.sr_cam, clust_sta[block_idx, clust_idx], c=color_blocks[block_idx], linewidth=2)
+            current_ax.axvline(x=0, color='black', linestyle='--')
+            current_ax.spines['right'].set_visible(False)
+            current_ax.spines['top'].set_visible(False)
+            current_ax.set_ylim([min_val, max_val])
+            current_ax.set_xlim(window[0] * 1/self.sr_cam, window[-1] * 1/self.sr_cam)
+            current_ax.set_xlim(window[0] * 1/self.sr_cam, window[-1] * 1/self.sr_cam)
+            current_ax.set_xlabel('Time around event (s)', fontsize=font_size)
+            if clust_idx == 0:
+                current_ax.set_ylabel(var_name + ' (z-score)', fontsize=font_size)
+            if clust_idx > 0:
+                current_ax.set(yticklabels=[])
+                current_ax.tick_params(left=False)
+                current_ax.spines['left'].set_visible(False)
+            current_ax.set_title('Cluster ' + str(clust_idx+1), fontsize=font_size, c=colors_cluster[clust_idx])       
+        if save_plot:
+            save_dir = os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '_' + session)
+            if not os.path.exists(save_dir):
+                os.mkdir(save_dir)            
+            filename = 'STA_' + var_name + '_clusters_blocks.png'
+            save_path = os.path.join(save_dir, filename)            
+            plt.savefig(save_path, dpi=self.my_dpi)
+            plt.close()
+
+
+    def tuning_learn(self, interval, sta, cluster_transition_idx, trials, colors_cluster, var_name, mouse_id, session, save_plot):
+        font_size = 15
+        start = self.sr_cam+interval[0]
+        end = self.sr_cam+interval[1]
+        sta_max = np.zeros((len(cluster_transition_idx), len(trials)))
+        latency_max = np.zeros((len(cluster_transition_idx), len(trials)))
+        sta_min = np.zeros((len(cluster_transition_idx), len(trials)))
+        latency_min = np.zeros((len(cluster_transition_idx), len(trials)))
+        for tr in range(len(trials)):
+            clust_start = 0
+            for clust_idx, clust_end in enumerate(cluster_transition_idx):
+                if clust_idx == len(cluster_transition_idx) - 1:
+                    clust_end = len(sta)
+                sta_clust = sta[clust_start:clust_end, tr]
+                sta_max[clust_idx, tr] = np.mean(np.max(sta_clust[:, start:end], axis=1))
+                latency_max[clust_idx, tr] = np.mean(((np.argmax(sta_clust[:, start:end], axis=1)/self.sr_cam)+round(interval[0]/self.sr_cam, 2)))
+                sta_min[clust_idx, tr] = np.mean(np.min(sta_clust[:, start:end], axis=1))
+                latency_min[clust_idx, tr] = np.mean(((np.argmin(sta_clust[:, start:end], axis=1)/self.sr_cam)+round(interval[0]/self.sr_cam, 2)))                
+                clust_start = clust_end
+    
+        fig, axs = plt.subplots(2,2, figsize = (12, 8))
+        for c in range(len(cluster_transition_idx)):
+            axs[0,0].plot(trials, sta_max[c,:], c=colors_cluster[c], linewidth = 2.5)
+            axs[0,1].plot(trials, latency_max[c,:], c=colors_cluster[c], linewidth = 2.5)
+            axs[1,0].plot(trials, sta_min[c,:], c=colors_cluster[c], linewidth = 2.5)
+            axs[1,1].plot(trials, latency_min[c,:], c=colors_cluster[c], linewidth = 2.5)
+        axs[0,0].set_xlim(1, trials[-1])
+        axs[0,1].set_xlim(1, trials[-1])
+        axs[1,0].set_xlim(1, trials[-1])
+        axs[1,1].set_xlim(1, trials[-1])
+        axs[1,0].set_xlabel('Trial', fontsize = font_size)
+        axs[1,1].set_xlabel('Trial', fontsize = font_size)
+        axs[0,0].set_ylabel('Max z-score ', fontsize = font_size)
+        axs[1,0].set_ylabel('Min z-score ', fontsize = font_size)
+        axs[0,1].set_ylabel('Latency (s)', fontsize = font_size)
+        axs[1,1].set_ylabel('Latency (s)', fontsize = font_size)
+        axs[0,0].set(xticklabels=[])
+        axs[0,1].set(xticklabels=[])
+        axs[0,0].tick_params(bottom=False)
+        axs[0,1].tick_params(bottom=False)
+        axs[0,0].spines['right'].set_visible(False)
+        axs[0,0].spines['top'].set_visible(False)
+        axs[0,0].spines['bottom'].set_visible(False)
+        axs[0,1].spines['right'].set_visible(False)
+        axs[0,1].spines['top'].set_visible(False)
+        axs[0,1].spines['bottom'].set_visible(False)
+        axs[1,1].spines['right'].set_visible(False)
+        axs[1,1].spines['top'].set_visible(False)
+        axs[1,0].spines['right'].set_visible(False)
+        axs[1,0].spines['top'].set_visible(False)
+        fig.subplots_adjust(wspace=0.3)
+        plt.suptitle(var_name, fontsize = font_size)
+        if save_plot:
+            if not os.path.exists(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '_' + session)):
+                os.mkdir(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '_' + session))
+            plt.savefig(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '_' + session + '\\', 'STA_' + var_name + 'peaks_latency' + '.png'), dpi=self.my_dpi)
             plt.close()
 
 
@@ -493,27 +674,14 @@ class df_behav_analysis:
                 spikes_ts = np.array(df_events_tr.time[events_idx]) + trial_len*(tr-1) # Find timestamps of events for ROI 'n' and trial 'tr'
                 all_spikes_ts = np.concatenate((all_spikes_ts, spikes_ts)) # Concatenate timestamps of events of each trial for ROI 'n'
             isi = np.diff(all_spikes_ts) # Compute ISI 
-            # Shuffle isi and find new timestamps for multiple iterations
-            shuffled_spikes_ts_iter = []
             for _ in range(iter_n):
                 shuffled_spikes_ts_tr = []
                 np.random.shuffle(isi) # Shuffle ISI
                 shuffled_spikes_ts = np.insert(np.cumsum(isi), 0, 0) # Find new timestamps (whole session)
                 for tr in trials:
                     shuffled_spikes_ts_tr.append(shuffled_spikes_ts[(cumul_tr_len[tr-1] < shuffled_spikes_ts) & (shuffled_spikes_ts <= cumul_tr_len[tr])] - (trial_len*(tr-1))) # List of shuffled timestamps for each trial for ROI 'n'
-                shuffled_spikes_ts_iter.append(shuffled_spikes_ts_tr) # List of timestamps for each trial for each iteration of ROI 'n'
-            shuffled_spikes_ts_allrois.append(shuffled_spikes_ts_iter) # List of timestamps for each trial for each iteration for all the ROIs
-        # Rearrange lists to be: iterations --> ROIs --> trials
-        shuffled_spikes_ts_alliter = [[] for _ in range(iter_n)]
-        # Iterate over each sublist in the main list
-        for sublist in shuffled_spikes_ts_allrois:
-            # Iterate over each of the three sublists within the sublist
-            for i in range(iter_n):
-                # Extract the ith sublist from the current sublist
-                sub_sublist = sublist[i]
-                # Append the sub_sublist to the corresponding sublist in the rearranged list
-                shuffled_spikes_ts_alliter[i].append(sub_sublist)
-        return shuffled_spikes_ts_alliter
+            shuffled_spikes_ts_allrois.append(shuffled_spikes_ts_tr) 
+        return shuffled_spikes_ts_allrois
 
 
     def sta_shuffled(self, spikes_ts, variable, bcam_time, window, trials):
@@ -550,7 +718,7 @@ class df_behav_analysis:
         return sta_allrois
     
     
-    def plot_sta_shuffled(self, sta_zs, sta_roi, sta_chance, window, var_name, trials_ses, rois_sorted, mouse_id, save_plot):
+    def plot_sta_shuffled(self, sta_zs, sta_roi, sta_chance, window, var_name, trials_ses, rois_sorted, mouse_id, session, colors_session, save_plot):
         ''' Plot heatmaps and traces of STA for observed data, shuffled data
         and observed data standardized on shuffled data.
         Inputs:
@@ -562,6 +730,8 @@ class df_behav_analysis:
             - trials_ses: 2D arrays with beginning and end trial for each experimental block
             - rois_sorted: array with all the ROIs sorted by cluster
             - mouse_id: mouse name (str)
+            - session: ipsi (S1) or contra (S2) (str)
+            - colors_session: dict with trials colorcode
             - save_plot (boolean)
         '''
         font_size = 15
@@ -592,9 +762,9 @@ class df_behav_analysis:
             axs[0, 2].tick_params(bottom=False, left=False)
             # Subplots 2: traces
             for tr in range(sta_zs.shape[1]):
-                axs[1, 0].plot(window * 1/self.sr_cam, sta_roi[n][tr]) # Observed STA
-                axs[1, 1].plot(window * 1/self.sr_cam, sta_chance[n][tr]) # Chance STA
-                axs[1, 2].plot(window * 1/self.sr_cam, sta_zs[n][tr]) # Z-scored STA
+                axs[1, 0].plot(window * 1/self.sr_cam, sta_roi[n][tr], c = colors_session[tr+1]) # Observed STA
+                axs[1, 1].plot(window * 1/self.sr_cam, sta_chance[n][tr], c = colors_session[tr+1]) # Chance STA
+                axs[1, 2].plot(window * 1/self.sr_cam, sta_zs[n][tr], c = colors_session[tr+1]) # Z-scored STA
             ymin = min(axs[1, 0].get_ylim()[0], axs[1, 1].get_ylim()[0])
             ymax = max(axs[1, 0].get_ylim()[1], axs[1, 1].get_ylim()[1])
             axs[1, 0].set_ylim(ymin, ymax)
@@ -619,66 +789,76 @@ class df_behav_analysis:
             axs[1, 2].axvline(x=0, color='k', linestyle='--')
             # Save plots
             if save_plot:
-                if not os.path.exists(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id)):
-                    os.mkdir(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id))
-                plt.savefig(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '\\', 'STA_' + var_name + '_' + str(rois_sorted[n]) + '.png'), dpi=self.my_dpi) 
+                if not os.path.exists(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session)):
+                    os.mkdir(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session))
+                plt.savefig(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session + '\\', 'STA_' + var_name + '_' + str(rois_sorted[n]) + '.png'), dpi=self.my_dpi) 
                 plt.close()
 
 
-    def maxzs_distr(self, sta_zs, interval, signif_thresh, save_plot):
+    def maxzs_distr(self, sta_zs, interval, signif_thresh, var_name, mouse_id, session, save_plot):
         ''' Find the absolute max z-score (so either the positive maximum or the negative maximum) of STA and the latency 
         of the peak from the event.
         Inputs:
             - sta_zs: array of z-scored STA for each ROI
             - interval = interval before and after the event to compute max abs z-score
             - signif_thresh: threshold of significance of the peak
+            - var_name: name of the behavioral variable (str)
+            - mouse_id: mouse name (str)
+            - session: ipsi=1, contra = 2 (int)
             - save_plot (boolean)
         '''
         # Detect min and max z-score for every peak
-        start = self.sr_cam+interval[0] #-0.25 to +0.25
+        start = self.sr_cam+interval[0]
         end = self.sr_cam+interval[1]
-        max_abs_zs = np.zeros((sta_zs.shape[0], sta_zs.shape[1]))
-        max_abs_zs[:] = np.nan
+        max_zs = np.zeros((sta_zs.shape[0], sta_zs.shape[1]))
+        max_zs[:] = np.nan
+        min_zs = np.zeros((sta_zs.shape[0], sta_zs.shape[1]))
+        min_zs[:] = np.nan
         latency = np.zeros((sta_zs.shape[0], sta_zs.shape[1]))
         latency[:] = np.nan
         for n in range(sta_zs.shape[0]):
             for tr in range(sta_zs.shape[1]):
-                max_zs = max(sta_zs[n, tr, start:end]) 
-                min_zs = min(sta_zs[n, tr, start:end])
-                if max_zs > abs(min_zs): 
-                    max_abs_zs[n, tr] = max_zs
-                    latency[n, tr] = (np.argmax(sta_zs[n, tr, start:end])/self.sr_cam)+round(interval[1]/self.sr_cam, 2)
-                elif abs(min_zs) > max_zs: 
-                    max_abs_zs[n, tr] = min_zs
-                    latency[n, tr] = (np.argmin(sta_zs[n, tr, start:end])/self.sr_cam)+round(interval[1]/self.sr_cam, 2)
-        
+                max_zs[n, tr] = max(sta_zs[n, tr, start:end])
+                min_zs[n, tr] = min(sta_zs[n, tr, start:end]) 
+                latency[n, tr] = (np.argmax(sta_zs[n, tr, start:end])/self.sr_cam)+round(interval[0]/self.sr_cam, 2)
+
         # Plot distribution of max z-score for the whole session
-        median_max_zs = np.nanmedian(max_abs_zs, axis=1)
+        fig, axs = plt.subplots(2,1, figsize=(8,12))
+        median_max_zs = np.nanmean(max_zs, axis=1)
+        median_min_zs = np.nanmean(min_zs, axis=1)
         min_val = min(median_max_zs)
         max_val = max(median_max_zs)
         bin_size = 0.5
         bin_edges = np.arange(int(min_val), int(max_val) + bin_size, bin_size)
         hist, _ = np.histogram(median_max_zs, bins=bin_edges)
-        plt.bar(bin_edges[:-1], hist, bin_size, color='white')
+        axs[0].bar(bin_edges[:-1], hist, bin_size, color='white')
         for i in range(len(bin_edges)-1):
-            if bin_edges[i+1] < signif_thresh +1: # -2
-                plt.bar(bin_edges[i], hist[i], bin_size, color='blue', edgecolor='black', linewidth=1.2)
-            elif bin_edges[i] > signif_thresh - 0.5: # 2
-                plt.bar(bin_edges[i], hist[i], bin_size, color='yellow', edgecolor='black', linewidth=1.2)
+            if bin_edges[i] >= signif_thresh:
+                axs[0].bar(bin_edges[i], hist[i], bin_size, color='yellow', edgecolor='black', linewidth=1.2)
             else:
-                plt.bar(bin_edges[i], hist[i], bin_size, color='black', edgecolor='black', linewidth=1.2)
-        plt.xlabel('Max z-score', fontsize = 15)
-        plt.ylabel('Count', fontsize = 15)
-        plt.title('Max z-score', fontsize = 15)
+                axs[0].bar(bin_edges[i], hist[i], bin_size, color='black', edgecolor='black', linewidth=1.2)
+        axs[0].set_xlabel('Max z-score', fontsize = 15)
+        axs[0].set_ylabel('Count', fontsize = 15)
+        min_val = min(median_min_zs)
+        max_val = max(median_min_zs)
+        bin_edges = np.arange(int(min_val), int(max_val) + bin_size, bin_size)
+        hist, _ = np.histogram(median_min_zs, bins=bin_edges)
+        axs[1].bar(bin_edges[:-1], hist, bin_size, color='white')
+        for i in range(len(bin_edges)-1):
+            if bin_edges[i+1] <= -signif_thresh:
+                axs[1].bar(bin_edges[i], hist[i], bin_size, color='blue', edgecolor='black', linewidth=1.2)
+            else:
+                axs[1].bar(bin_edges[i], hist[i], bin_size, color='black', edgecolor='black', linewidth=1.2)
+        axs[1].set_xlabel('Min z-score', fontsize = 15)
+        axs[1].set_ylabel('Count', fontsize = 15)
         if save_plot:
-            if not os.path.exists(os.path.join(self.save_path, 'Max_zs' + var_name + '_' + mouse_id)):
-                os.mkdir(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id))
-            plt.savefig(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '\\', 'Max_zs_distr.png'), dpi=self.my_dpi) 
-            plt.close()
+            if not os.path.exists(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session)):
+                os.mkdir(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session))
+            plt.savefig(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session + '\\', 'Zs_distr.png'), dpi=self.my_dpi) 
         
         # Boxplot latency of max z-score for the whole session
-        latency_negzs = latency[np.where(max_abs_zs < signif_thresh)]
-        latency_poszs = latency[np.where(max_abs_zs > signif_thresh)]
+        latency_negzs = latency[np.where(min_zs < signif_thresh)]
+        latency_poszs = latency[np.where(max_zs > signif_thresh)]
         fig, ax = plt.subplots()
         boxplot = ax.boxplot([latency_negzs, latency_poszs], showfliers=False, patch_artist=True)
         ax.set_xticklabels([]) 
@@ -696,14 +876,12 @@ class df_behav_analysis:
             cap.set(color='black', linewidth=1.7)
         ax.set_ylabel('Latency (s)', fontsize = 15)
         plt.show()
-        plt.title('Latency of max z-score')
         if save_plot:
-            if not os.path.exists(os.path.join(self.save_path, 'Max_zs' + var_name + '_' + mouse_id)):
-                os.mkdir(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id))
-            plt.savefig(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '\\', 'Latency.png'), dpi=self.my_dpi) 
-            plt.close()
+            if not os.path.exists(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session)):
+                os.mkdir(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session))
+            plt.savefig(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session + '\\', 'Latency.png'), dpi=self.my_dpi) 
         
-        return max_abs_zs, latency   
+        return max_zs, min_zs, latency   
 
     
     def peak_detection(self, bodycenter, ampl, TimePntThres, trials):

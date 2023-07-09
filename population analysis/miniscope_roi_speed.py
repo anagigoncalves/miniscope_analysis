@@ -18,8 +18,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'E:\\Miniscope processed files\\'
-session_data = pd.read_excel('E:\\Miniscope processed files\\session_data_tied_S1.xlsx')
+path_session_data = 'J:\\Miniscope processed files\\'
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_tied_S1.xlsx')
 event_count_loco_slow_all = []
 event_count_loco_fast_all = []
 event_count_loco_baseline_all = []
@@ -116,7 +116,7 @@ for count_a, a in enumerate(animals):
 ax.set_xticks([1.5, 3.5, 5.5])
 ax.set_xticklabels(['slow', 'baseline', 'fast'])
 ax.set_xlabel('Speed', fontsize=mscope.fsize - 4)
-ax.set_ylabel('FR forward locomotion', fontsize=mscope.fsize - 4)
+ax.set_ylabel('Firing rate during\nforward locomotion', fontsize=mscope.fsize - 4)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 6)
@@ -142,7 +142,7 @@ for count_a, a in enumerate(animals):
 ax.set_xticks([3, 9, 15])
 ax.set_xticklabels(['slow', 'baseline', 'fast'])
 ax.set_xlabel('Speed', fontsize=mscope.fsize - 4)
-ax.set_ylabel('FR forward locomotion', fontsize=mscope.fsize - 4)
+ax.set_ylabel('Firing rate during\nforward locomotion', fontsize=mscope.fsize - 4)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 4)

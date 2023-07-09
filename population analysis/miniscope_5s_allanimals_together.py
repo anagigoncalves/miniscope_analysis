@@ -78,7 +78,6 @@ def get_colors_plot(animal_name, color_animals):
     if animal_name=='MC9226':
         color_plot = color_animals[4]
     return color_plot
-
 fig, ax = plt.subplots(figsize=(7, 15), tight_layout=True)
 rectangle = plt.Rectangle((6.5, -1), 10, 9, fc='dimgrey', alpha=0.3)
 plt.gca().add_patch(rectangle)

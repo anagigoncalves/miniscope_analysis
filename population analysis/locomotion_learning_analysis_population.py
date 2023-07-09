@@ -47,7 +47,7 @@ for s in range(len(session_data)):
     session = loco.get_session_id()
     traces_type = 'raw'
     [df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames, trials,
-     clusters_rois, colors_cluster, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
+     clusters_rois, colors_cluster, colors_session, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
     [trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
     path_save = path_session_data+'\\split-belt locomotion analysis\\' + animal + ' session ' + str(session) + '\\'
     if not os.path.exists(path_save):
@@ -157,15 +157,14 @@ for p in range(np.shape(param_split)[0]):
                               fc='dimgrey', alpha=0.3)
     plt.gca().add_patch(rectangle)
     plt.hlines(0, 1, len(param_split_miniscope_values_mean), colors='grey', linestyles='--')
-    param_split_control_values
     plt.plot(np.linspace(1, len(param_split_control_values[p, 0, :]), len(param_split_control_values[p, 0, :])), np.nanmean(param_split_control_values[p, :, :], axis=0), linewidth=2, color='black')
     plt.fill_between(np.linspace(1, len(param_split_miniscope_values_mean), len(param_split_miniscope_values_mean)),
              np.nanmean(param_split_control_values[p, :, :], axis=0)-(np.nanstd(param_split_control_values[p, :, :], axis=0)/np.sqrt(np.shape(param_split_control_values)[1])),
                      np.nanmean(param_split_control_values[p, :, :], axis=0)+(np.nanstd(param_split_control_values[p, :, :], axis=0)/np.sqrt(np.shape(param_split_control_values)[1])), alpha=0.3, color='black')
-    plt.plot(np.linspace(1, len(param_split_miniscope_values_mean), len(param_split_miniscope_values_mean)), param_split_miniscope_values_mean, linewidth=2, color='teal')
+    plt.plot(np.linspace(1, len(param_split_miniscope_values_mean), len(param_split_miniscope_values_mean)), param_split_miniscope_values_mean, linewidth=2, color='darkviolet')
     plt.fill_between(np.linspace(1, len(param_split_miniscope_values_mean), len(param_split_miniscope_values_mean)),
              param_split_miniscope_values_mean-param_split_miniscope_values_std,
-                     param_split_miniscope_values_mean+param_split_miniscope_values_std, alpha=0.3, color='teal')
+                     param_split_miniscope_values_mean+param_split_miniscope_values_std, alpha=0.3, color='darkviolet')
     ax.set_xlabel('Trial', fontsize=20)
     ax.set_ylabel(param_split[p].replace('_', ' '), fontsize=20)
     if p == 2:

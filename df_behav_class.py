@@ -424,10 +424,10 @@ class df_behav_analysis:
         y_tick_locations = [block[1] - 1 for block in trials_ses]
         
         # Find min and max to set limits of the axis
-        max_val = np.max(np.concatenate(signal_chunks_allrois, axis=0))
-        min_val = np.min(np.concatenate(signal_chunks_allrois, axis=0))
-        max_val_sta = np.max(np.concatenate(sta_allrois, axis=0))
-        min_val_sta = np.min(np.concatenate(sta_allrois, axis=0))
+        max_val = np.nanmax(np.concatenate(signal_chunks_allrois, axis=0))
+        min_val = np.nanmin(np.concatenate(signal_chunks_allrois, axis=0))
+        max_val_sta = np.nanmax(np.concatenate(sta_allrois, axis=0))
+        min_val_sta = np.nanmin(np.concatenate(sta_allrois, axis=0))
         
         # STA for each ROI
         for n in range(len(sta_allrois)):
@@ -506,8 +506,8 @@ class df_behav_analysis:
         x_ticks = np.linspace(0, len(sta_tr_allrois[0][0]), len(x_tick_values)).astype(int)
 
         # Plot 1: Heatmap STA of the population by trial 
-        max_val = np.max(np.concatenate(sta_tr_allrois, axis=0))
-        min_val = np.min(np.concatenate(sta_tr_allrois, axis=0))
+        max_val = np.nanmax(np.concatenate(sta_tr_allrois, axis=0))
+        min_val = np.nanmin(np.concatenate(sta_tr_allrois, axis=0))
         for tr_idx, tr in enumerate(trials): #WARNING: for tr in range(len(trial_changes)-1):
             plt.figure()
             hm = sns.heatmap(sta_tr_allrois[tr_idx], cmap='viridis', vmin = min_val, vmax = max_val)  # heatmap STA whole population by trial 
@@ -527,8 +527,8 @@ class df_behav_analysis:
                 plt.close()
                 
         # Plot 2: STA traces of one cluster across trials   
-        max_val = np.max(np.concatenate(sta_tr_allrois, axis=0))
-        min_val = np.min(np.concatenate(sta_tr_allrois, axis=0))
+        max_val = np.nanmax(np.concatenate(sta_tr_allrois, axis=0))
+        min_val = np.nanmin(np.concatenate(sta_tr_allrois, axis=0))
         clust_sta_tr = np.zeros((len(sta_tr_allrois), len(cluster_transition_idx), len(window))) # STA of clusters by block
         for tr_idx, trial in enumerate(sta_tr_allrois):
             start = 0
@@ -537,7 +537,7 @@ class df_behav_analysis:
                     end = len(sta_tr_allrois[0])
                 else:
                     end = clust_end
-                clust_sta_tr[tr_idx, clust_idx] = np.mean(trial[start:end], axis = 0)
+                clust_sta_tr[tr_idx, clust_idx] = np.nanmean(trial[start:end], axis = 0)
                 start = clust_end
         fig, axs = plt.subplots(nrows=1, ncols=len(cluster_transition_idx), figsize = (15, 5))
         if len(cluster_transition_idx) == 1:
@@ -570,8 +570,8 @@ class df_behav_analysis:
             plt.close()
     
         # Plot 3: Heatmap STA of the population by block 
-        max_val = np.max(np.concatenate(sta_blocks_allrois, axis=0))
-        min_val = np.min(np.concatenate(sta_blocks_allrois, axis=0))
+        max_val = np.nanmax(np.concatenate(sta_blocks_allrois, axis=0))
+        min_val = np.nanmin(np.concatenate(sta_blocks_allrois, axis=0))
         fig, axs = plt.subplots(len(sta_blocks_allrois),1, figsize = (12, 12))
         for b in range(len(sta_blocks_allrois)):
             hm = sns.heatmap(sta_blocks_allrois[b], cmap='viridis', ax = axs[b], vmin = min_val, vmax = max_val)  # heatmap STA whole population by block 
@@ -607,7 +607,7 @@ class df_behav_analysis:
                     end = len(sta_blocks_allrois[0])
                 else:
                     end = clust_end
-                clust_sta[block_idx, clust_idx] = np.mean(block[start:end], axis = 0)
+                clust_sta[block_idx, clust_idx] = np.nanmean(block[start:end], axis = 0)
                 start = clust_end
         fig, axs = plt.subplots(nrows=1, ncols=len(cluster_transition_idx), figsize = (15, 5))
         if len(cluster_transition_idx) == 1:
@@ -712,18 +712,18 @@ class df_behav_analysis:
         for n in range(2, df_events.shape[1]):
             all_spikes_ts = np.array([])
             # Find all timestamps of events for all trials for ROI 'n'
-            for tr in trials:
+            for count_t, tr in enumerate(trials):
                 df_events_tr = df_events[df_events.trial == tr] # Extract trial 'tr'
                 events_idx = np.array(df_events_tr.index[df_events_tr.iloc[:, n] == 1]) # Find indexes of events for ROI 'n' and trial 'tr'
-                spikes_ts = np.array(df_events_tr.time[events_idx]) + trial_len*(tr-1) # Find timestamps of events for ROI 'n' and trial 'tr'
+                spikes_ts = np.array(df_events_tr.time[events_idx]) + trial_len*(count_t) # Find timestamps of events for ROI 'n' and trial 'tr'
                 all_spikes_ts = np.concatenate((all_spikes_ts, spikes_ts)) # Concatenate timestamps of events of each trial for ROI 'n'
             isi = np.diff(all_spikes_ts) # Compute ISI 
             for _ in range(iter_n):
                 shuffled_spikes_ts_tr = []
                 np.random.shuffle(isi) # Shuffle ISI
                 shuffled_spikes_ts = np.insert(np.cumsum(isi), 0, 0) # Find new timestamps (whole session)
-                for tr in trials:
-                    shuffled_spikes_ts_tr.append(shuffled_spikes_ts[(cumul_tr_len[tr-1] < shuffled_spikes_ts) & (shuffled_spikes_ts <= cumul_tr_len[tr])] - (trial_len*(tr-1))) # List of shuffled timestamps for each trial for ROI 'n'
+                for count_t, tr in enumerate(trials):
+                    shuffled_spikes_ts_tr.append(shuffled_spikes_ts[(cumul_tr_len[count_t] < shuffled_spikes_ts) & (shuffled_spikes_ts <= cumul_tr_len[count_t+1])] - (trial_len*(count_t))) # List of shuffled timestamps for each trial for ROI 'n'
             shuffled_spikes_ts_allrois.append(shuffled_spikes_ts_tr) 
         return shuffled_spikes_ts_allrois
 
@@ -784,8 +784,8 @@ class df_behav_analysis:
         # Plot data
         for n in range(len(sta_roi)):
             fig, axs = plt.subplots(2, 3, figsize=(20, 8))
-            vmin = min(sta_roi[n].min(), sta_chance[n].min())
-            vmax = max(sta_roi[n].max(), sta_chance[n].max())
+            vmin = np.nanmin(np.nanmin(sta_roi[n]), np.nanmin(sta_chance[n]))
+            vmax = np.nanmax(np.nanmax(sta_roi[n]), np.nanmax(sta_chance[n]))
             # Subplots 1: heatmaps
             sns.heatmap(sta_roi[n], cmap='viridis', cbar = False, ax=axs[0, 0], vmin=vmin, vmax=vmax) # Observed STA
             sns.heatmap(sta_chance[n], cmap='viridis', cbar = False, ax=axs[0, 1], vmin=vmin, vmax=vmax) # Chance STA

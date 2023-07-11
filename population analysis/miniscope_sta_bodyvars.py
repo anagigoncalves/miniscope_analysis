@@ -119,8 +119,8 @@ for s in range(1, len(session_data)):
             # Compute STA for shuffled data
             sta_shuffled_ts = np.array(nxb.sta_shuffled(shuffled_spikes_ts, variable, bcam_time, window, trials))
             # Standardize STA 
-            mean_chance = np.mean(sta_shuffled_ts, axis=2)
-            sd_chance = np.std(sta_shuffled_ts, axis=2)
+            mean_chance = np.nanmean(sta_shuffled_ts, axis=2)
+            sd_chance = np.nanstd(sta_shuffled_ts, axis=2)
             sta_zs = np.zeros((len(sta_allrois), len(trials), len(window)))
             for n in range(len(sta_allrois)):
                 for tr in range(len(trials)):

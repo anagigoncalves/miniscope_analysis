@@ -166,4 +166,37 @@ ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 6)
 plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_initial_error_after_effect_S1'), dpi=mscope.my_dpi)
 
+split_all = []
+washout_all = []
+bs_all = []
+for count_a, a in enumerate(animals):
+    animal_idx = np.where(np.isin(event_count_loco_animals, a))[0]
+    for i in animal_idx:
+        split_all.append(event_count_loco_split_all[i])
+        washout_all.append(event_count_loco_washout_all[i])
+        bs_all.append(event_count_loco_baseline_all[i])
+split_all_arr = np.array(split_all)
+washout_all_arr = np.array(washout_all)
+bs_all_arr = np.array(bs_all)
+split_notnan = split_all_arr[~np.isnan(split_all_arr)]
+washout_notnan = washout_all_arr[~np.isnan(washout_all_arr)]
+bs_notnan = bs_all_arr[~np.isnan(bs_all_arr)]
+plot_values = [bs_notnan, split_notnan, washout_notnan]
+color_plots = ['black', 'red', 'blue']
+fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True, sharey=True)
+violin_parts = plt.violinplot(plot_values, positions=[1, 2 ,3])
+for count_pc, pc in enumerate(violin_parts['bodies']):
+    pc.set_color(color_plots[count_pc])
+violin_parts['cbars'].set_color(color_plots)
+violin_parts['cmins'].set_color(color_plots)
+violin_parts['cmaxes'].set_color(color_plots)
+ax.set_xticks([1, 2, 3])
+ax.set_xticklabels(['baseline', 'split', 'washout'])
+ax.set_xlabel('Speed', fontsize=mscope.fsize - 4)
+ax.set_ylabel('Firing rate during\nforward locomotion', fontsize=mscope.fsize - 4)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 4)
+plt.savefig(os.path.join(path_session_data, 'rois_fr_forwardloco_split_phases_S1_violin_pooled'), dpi=mscope.my_dpi)
+
 

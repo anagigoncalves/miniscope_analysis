@@ -72,6 +72,23 @@ for s in range(len(session_data)):
             else:
                 param_sym[count_p, count_trial] = np.nanmean(param_mat[0]) - np.nanmean(param_mat[2])
 
+    param_sym_all = np.zeros((len(param_sym_name), 26))
+    param_sym_all[:] = np.nan
+    filelist = loco.get_track_files(animal, session)
+    for count_trial, f in enumerate(filelist):
+        [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f, 0.9, frames_dFF[count_trial])
+        [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
+        paws_rel = loco.get_paws_rel(final_tracks, 'X')
+        for count_p, param in enumerate(param_sym_name):
+            param_mat = loco.compute_gait_param(bodycenter, final_tracks, paws_rel, st_strides_mat, sw_pts_mat,
+                                                param)
+            if animal=='MC8855':
+                param_sym_all[count_p, count_trial+3] = np.nanmean(param_mat[0]) - np.nanmean(param_mat[2])
+            else:
+                param_sym_all[count_p, count_trial] = np.nanmean(param_mat[0]) - np.nanmean(param_mat[2])
+    param_sym_bs_all = param_sym_all[1] - np.nanmean(param_sym_all[1, :6])
+    np.save(path_save + param_sym_name[1]+'_all', param_sym_bs_all)
+
     # # # Plot
     # baseline subtracion of parameters
     param_sym_bs = np.zeros(np.shape(param_sym))
@@ -144,6 +161,12 @@ for count_p, g in enumerate(param_split):
     param_tied_control_file = np.load(control_path + '\\' + param_split[count_p] + '.npy')
     param_split_control_values[count_p, :, :] = param_tied_control_file
 stance_speed_control_values = np.load(control_path + '\\' + 'stance_speed.npy')
+
+sl_all_miniscope_values = np.zeros((len(folders_animals), 26))
+for count_a, a in enumerate(folders_animals):
+    miniscope_path = main_miniscope_path + a
+    param_tied_miniscope_file = np.load(miniscope_path + '\\' + 'step_length_all.npy')
+    sl_all_miniscope_values[count_a, :] = param_tied_miniscope_file
 
 max_rect = np.array([2, 4, 8, 6, 12.5])
 min_rect = np.array([-6, -10, -5, -2, -1])
@@ -222,3 +245,28 @@ if print_plots:
     if not os.path.exists(path_save):
         os.mkdir(path_save)
     plt.savefig(path_session_data+'\\split-belt locomotion analysis\\' + 'stance_speed_control', dpi=96)
+
+param_split_miniscope_values_mean = np.nanmean(sl_all_miniscope_values, axis=0)
+param_split_miniscope_values_std = np.nanstd(sl_all_miniscope_values, axis=0)/np.sqrt(np.shape(sl_all_miniscope_values)[1])
+fig, ax = plt.subplots(figsize=(5, 10), tight_layout=True)
+rectangle = plt.Rectangle((6 + 0.5, -8), 10,
+                          10.5,
+                          fc='dimgrey', alpha=0.3)
+plt.gca().add_patch(rectangle)
+plt.hlines(0, 1, len(param_split_miniscope_values_mean), colors='grey', linestyles='--')
+plt.plot(np.linspace(1, len(param_split_miniscope_values_mean), len(param_split_miniscope_values_mean)), param_split_miniscope_values_mean, linewidth=2, color='black')
+plt.fill_between(np.linspace(1, len(param_split_miniscope_values_mean), len(param_split_miniscope_values_mean)), param_split_miniscope_values_mean-param_split_miniscope_values_std,
+            param_split_miniscope_values_mean+param_split_miniscope_values_std, alpha=0.3, color='black')
+plt.plot(np.arange(7, 17), param_split_miniscope_values_mean[6:16], linewidth=2, color='red')
+plt.fill_between(np.arange(7, 17), param_split_miniscope_values_mean[6:16]-param_split_miniscope_values_std[6:16],
+            param_split_miniscope_values_mean[6:16]+param_split_miniscope_values_std[6:16], alpha=0.3, color='red')
+plt.plot(np.arange(17, 27), param_split_miniscope_values_mean[16:], linewidth=2, color='blue')
+plt.fill_between(np.arange(17, 27), param_split_miniscope_values_mean[16:]-param_split_miniscope_values_std[16:],
+            param_split_miniscope_values_mean[16:]+param_split_miniscope_values_std[16:], alpha=0.3, color='blue')
+ax.set_xlabel('Trial', fontsize=20)
+ax.set_ylabel(param_split[p].replace('_', ' '), fontsize=20)
+plt.xticks(fontsize=16)
+plt.yticks(fontsize=16)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+plt.savefig('J:\\Miniscope processed files\\split-belt locomotion analysis\\learning_animals_miniscopes', dpi=128)

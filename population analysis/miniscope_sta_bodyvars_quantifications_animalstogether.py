@@ -10,8 +10,6 @@ warnings.filterwarnings('ignore')
 # import classes
 path_code = 'C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\'
 os.chdir(path_code)
-import miniscope_session_class
-import locomotion_class
 import df_behav_class
 nxb = df_behav_class.df_behav_analysis(path_code)
 
@@ -23,7 +21,7 @@ session_type = save_path.split('\\')[-2].split(' ')[0]
 window = np.arange(-330, 330 + 1)  # Samples
 xaxis = window/330
 xaxis_start = np.where(xaxis >= -0.5)[0][0]
-xaxis_end = np.where(xaxis >= 0)[0][0]
+xaxis_end = np.where(xaxis >= 0.25)[0][0]
 # Loop through independent variables to compute and plot STAs of each one
 vars = ['Body_position', 'Body_speed', 'Body_acceleration']
 animals = ['MC8855', 'MC9194', 'MC10221', 'MC9513', 'MC9226']
@@ -68,12 +66,13 @@ for var in range(len(vars)):
                 ax[count_a].plot(xaxis[xaxis_start:xaxis_end], np.nanmean(sta_zs_rois_fast[:, :, c], axis=0), color='orange')
                 ax[count_a].fill_between(xaxis[xaxis_start:xaxis_end], np.nanmean(sta_zs_rois_fast[:, :, c], axis=0)-np.nanstd(sta_zs_rois_fast[:, :, c], axis=0),
                                     np.nanmean(sta_zs_rois_fast[:, :, c], axis=0)+np.nanstd(sta_zs_rois_fast[:, :, c], axis=0), color='orange', alpha=0.3)
+            ax[count_a].axvline(x=0, linewidth=2, linestyle='dashed', color='black')
             ax[count_a].set_xlabel('Time (s)', fontsize=20)
             ax[count_a].set_ylabel(var_name.replace('_',' '), fontsize=20)
-            ax[count_a].set_title(animal, fontsize=24)
+            ax[count_a].set_title(animal_name_plots[count_a], fontsize=24)
             ax[count_a].spines['right'].set_visible(False)
             ax[count_a].spines['top'].set_visible(False)
             ax[count_a].tick_params(axis='both', which='major', labelsize=18)
-        plt.savefig(os.path.join(save_path, 'sta_bodyvars_' + var_name.replace(' ', '_') + '_' + protocol), dpi=128)
+        plt.savefig(os.path.join(save_path, 'sta_bodyvars_' + var_name.replace(' ', '_') + '_' + protocol+'_grc'), dpi=128)
 
 

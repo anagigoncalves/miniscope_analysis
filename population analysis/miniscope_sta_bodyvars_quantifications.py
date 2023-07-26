@@ -16,7 +16,7 @@ import df_behav_class
 nxb = df_behav_class.df_behav_analysis(path_code)
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_tied_S1.xlsx')
 save_path = 'J:\\Miniscope processed files\\STA bodyvars\\'
 
 save_plot = True
@@ -25,7 +25,9 @@ window = np.arange(-330, 330 + 1)  # Samples
 interval = [-165, 0]  # Samples (-0.5s to 0.25s)
 zs_data = True  # True if you want to standardize observed data on shuffled data
 iter_n = 100  # Number of iterations of CS timestamps random shuffling
-
+xaxis = window / 330
+xaxis_start = np.where(xaxis >= -0.5)[0][0]
+xaxis_end = np.where(xaxis >= 0.25)[0][0]
 for s in range(len(session_data)):
     ses_info = session_data.iloc[s, :]
     print(ses_info)
@@ -127,9 +129,6 @@ for s in range(len(session_data)):
             for tr in range(len(trials)):
                 sta_zs[n, tr] = (sta_allrois[n][tr] - mean_chance[n][tr]) / sd_chance[n][tr]
 
-        xaxis = window/loco.sr
-        xaxis_start = np.where(xaxis >= -0.5)[0][0]
-        xaxis_end = np.where(xaxis >= 0)[0][0]
         if session_type == 'split':
             sta_zs_rois_bs = np.zeros((len(trials_baseline), xaxis_end-xaxis_start, len(clusters_rois)))
             for c in range(len(clusters_rois)):

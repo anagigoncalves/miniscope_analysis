@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import matplotlib as mpl
 
+dotsize = 200
 project_path = 'C:\\Users\\Ana\\Documents\\PhD\\Projects\\DeepLocoTM_MdV_Miniscopes_ClosedLoop\\tmLOCO-dd-2019-08-29\\labeled-data\\'
 animal_folder = 'MC16946_60_25_0.15_0.15_tied_1_2'
 img_name = 'img13229.png'
@@ -25,7 +26,7 @@ norm = mpl.colors.BoundaryNorm(bounds, cmap_cbar.N)
 fig1, ax1 = plt.subplots(figsize=(25, 15), tight_layout=True)
 im_plot = plt.imshow(im)
 for count_i, i in enumerate(np.arange(0, len(coords), 2)):
-    plt.scatter(coords[i], coords[i+1], s=60, color=colors_features_full[count_i])
+    plt.scatter(coords[i], coords[i+1], s=dotsize, color=colors_features_full[count_i])
 plt.savefig('J:\\Miniscope figures\\for methods\\cl_tm_full.svg', format='svg', dpi=256)
 fig2, ax2 = plt.subplots(figsize=(5,1))
 cb2 = mpl.colorbar.ColorbarBase(ax2, cmap=cmap_cbar, norm=norm,
@@ -53,8 +54,13 @@ norm = mpl.colors.BoundaryNorm(bounds, cmap_cbar.N)
 fig1, ax1 = plt.subplots(figsize=(25, 15), tight_layout=True)
 im_plot = plt.imshow(im)
 for count_i, i in enumerate(np.arange(0, len(coords), 2)):
-    plt.scatter(coords[i], coords[i+1], s=60, color=colors_features_full[count_i])
+    plt.scatter(coords[i], coords[i+1], s=dotsize, color=colors_features_full[count_i])
 plt.savefig('J:\\Miniscope figures\\for methods\\miniscope_tm_full.svg', format='svg', dpi=256)
+fig1, ax1 = plt.subplots(figsize=(25, 15), tight_layout=True)
+im_plot = plt.imshow(im)
+for count_i, i in enumerate(np.arange(0, len(coords), 2)):
+    plt.scatter(coords[i], coords[i+1], s=dotsize, color=colors_features_full[count_i])
+plt.savefig('J:\\Miniscope figures\\for methods\\miniscope_tm_full.png', format='png', dpi=256)
 fig2, ax2 = plt.subplots(figsize=(5,1))
 cb2 = mpl.colorbar.ColorbarBase(ax2, cmap=cmap_cbar, norm=norm,
             ticks=bounds, spacing='proportional', orientation='horizontal')
@@ -78,7 +84,7 @@ norm = mpl.colors.BoundaryNorm(bounds, cmap_cbar.N)
 fig1, ax1 = plt.subplots(figsize=(25, 15), tight_layout=True)
 im_plot = plt.imshow(im)
 for count_i, i in enumerate(np.arange(0, len(coords), 2)):
-    plt.scatter(coords[i], coords[i+1], s=60, color=colors_features[count_i])
+    plt.scatter(coords[i], coords[i+1], s=dotsize, color=colors_features[count_i])
 plt.savefig('J:\\Miniscope figures\\for methods\\cltm_crop.svg', format='svg', dpi=256)
 fig2, ax2 = plt.subplots(figsize=(5,1))
 cb2 = mpl.colorbar.ColorbarBase(ax2, cmap=cmap_cbar, norm=norm,
@@ -103,7 +109,7 @@ norm = mpl.colors.BoundaryNorm(bounds, cmap_cbar.N)
 fig1, ax1 = plt.subplots(figsize=(25, 15), tight_layout=True)
 im_plot = plt.imshow(im)
 for count_i, i in enumerate(np.arange(0, len(coords), 2)):
-    plt.scatter(coords[i], coords[i+1], s=60, color=colors_features[count_i])
+    plt.scatter(coords[i], coords[i+1], s=dotsize, color=colors_features[count_i])
 plt.savefig('J:\\Miniscope figures\\for methods\\cltm_crop_tailbase.svg', format='svg', dpi=256)
 fig2, ax2 = plt.subplots(figsize=(5,1))
 cb2 = mpl.colorbar.ColorbarBase(ax2, cmap=cmap_cbar, norm=norm,

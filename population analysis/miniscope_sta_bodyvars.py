@@ -22,7 +22,7 @@ interval = [-165, 0] # Samples (-0.5s to 0.25s)
 zs_data = True # True if you want to standardize observed data on shuffled data
 iter_n = 100 # Number of iterations of CS timestamps random shuffling
 
-for s in range(1, len(session_data)):
+for s in range(len(session_data)):
     ses_info = session_data.iloc[s, :]
     print(ses_info)
     date = ses_info[3]

@@ -7,13 +7,13 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # import classes
-os.chdir('C:\\Users\\User\\Documents\\LocalRepo\\miniscope_analysis')
+os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'C:\\Users\\User\\Carey Lab Dropbox\\Rotation Carey\\Francesco and Ana G\\Miniscope processed files'
-session_data = pd.read_excel('C:\\Users\\User\\Carey Lab Dropbox\\Rotation Carey\\Francesco and Ana G\\Miniscope processed files\\session_data_split_S1.xlsx')
-save_path = 'C:\\Users\\User\\Carey Lab Dropbox\\Rotation Carey\\Francesco and Ana G\\Figures\\'
+path_session_data = 'J:\\Miniscope processed files'
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
+save_path = 'J:\\Miniscope processed files\\STA bodyvars\\split ipsi fast S1\\'
 
 save_plot = True
 plot_data = True
@@ -34,7 +34,7 @@ for s in range(len(session_data)):
     mscope = miniscope_session_class.miniscope_session(path)
     loco = locomotion_class.loco_class(path_loco)
     import df_behav_class
-    nxb = df_behav_class.df_behav_analysis('C:\\Users\\User\\Documents\\LocalRepo\\miniscope_analysis')
+    nxb = df_behav_class.df_behav_analysis('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 
     # Session data and inputs
     animal = mscope.get_animal_id()

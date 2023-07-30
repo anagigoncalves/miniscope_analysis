@@ -43,7 +43,7 @@ def get_colors_plot(animal_name, color_animals):
 
 if session_type == 'split':
     protocol = 'split_ipsi_fast'
-    fig, ax = plt.subplots(2, 3, figsize=(10, 10), tight_layout=True, sharey=True)
+    fig, ax = plt.subplots(1, 5, figsize=(25, 5), tight_layout=True, sharey=True)
     ax = ax.ravel()
     for count_a, animal in enumerate(animals):
         sta_zs_rois_bs = np.load(os.path.join(save_path, animal + '_' + protocol, 'sta_bodyvars_FR-FL_displacement_difference_bs.npy'))[[0, -1], :, :]
@@ -54,9 +54,9 @@ if session_type == 'split':
         sta_zs_rois_concat = np.concatenate((sta_zs_rois_bs, sta_zs_rois_split, sta_zs_rois_washout), axis=0)
         for count_c in range(np.shape(sta_zs_rois_bs)[2]):
             if animal != 'MC8855':
-                ax[count_a].scatter(np.array([1, 6]), xaxis[np.argmax(sta_zs_rois_bs[:, xaxis_start:xaxis_end, count_c], axis=1)+xaxis_start], s=dotsize, color=colors_cluster[count_c])
+                ax[count_a].scatter(6, xaxis[np.argmax(sta_zs_rois_bs[1, xaxis_start:xaxis_end, count_c], axis=0)+xaxis_start], s=dotsize, color=colors_cluster[count_c])
             if animal == 'MC8855':
-                ax[count_a].scatter(np.array([4, 6]), xaxis[np.argmax(sta_zs_rois_bs[:, xaxis_start:xaxis_end, count_c], axis=1)+xaxis_start], s=dotsize, color=colors_cluster[count_c])
+                ax[count_a].scatter(6, xaxis[np.argmax(sta_zs_rois_bs[1, xaxis_start:xaxis_end, count_c], axis=0)+xaxis_start], s=dotsize, color=colors_cluster[count_c])
             ax[count_a].scatter(np.array([7, 16]), xaxis[np.argmax(sta_zs_rois_split[:, xaxis_start:xaxis_end, count_c], axis=1)+xaxis_start], s=dotsize, color=colors_cluster[count_c])
             if animal != 'MC9226':
                 ax[count_a].scatter(np.array([17, 26]), xaxis[np.argmax(sta_zs_rois_washout[:, xaxis_start:xaxis_end, count_c], axis=1)+xaxis_start], s=dotsize, color=colors_cluster[count_c])
@@ -65,19 +65,20 @@ if session_type == 'split':
                            color=colors_cluster[count_c])
         for count_c in range(np.shape(sta_zs_rois_bs)[2]):
             if animal == 'MC8855':
-                ax[count_a].plot(np.array([4, 6, 7, 16, 17, 26]), xaxis[np.argmax(sta_zs_rois_concat[:, xaxis_start:xaxis_end, count_c], axis=1)+xaxis_start], color=colors_cluster[count_c])
+                ax[count_a].plot(np.array([6, 7, 16, 17, 26]), xaxis[np.argmax(sta_zs_rois_concat[1:, xaxis_start:xaxis_end, count_c], axis=1)+xaxis_start], color=colors_cluster[count_c])
             elif animal == 'MC9226':
-                ax[count_a].plot(np.array([1, 6, 7, 16, 17, 23]), xaxis[np.argmax(sta_zs_rois_concat[:, xaxis_start:xaxis_end, count_c], axis=1)+xaxis_start], color=colors_cluster[count_c])
+                ax[count_a].plot(np.array([6, 7, 16, 17, 23]), xaxis[np.argmax(sta_zs_rois_concat[1:, xaxis_start:xaxis_end, count_c], axis=1)+xaxis_start], color=colors_cluster[count_c])
             else:
-                ax[count_a].plot(np.array([1, 6, 7, 16, 17, 26]), xaxis[np.argmax(sta_zs_rois_concat[:, xaxis_start:xaxis_end, count_c], axis=1)+xaxis_start], color=colors_cluster[count_c])
+                ax[count_a].plot(np.array([6, 7, 16, 17, 26]), xaxis[np.argmax(sta_zs_rois_concat[1:, xaxis_start:xaxis_end, count_c], axis=1)+xaxis_start], color=colors_cluster[count_c])
         ax[count_a].axvline(x=6.5, linewidth=2, linestyle='dashed', color='black')
         ax[count_a].axvline(x=16.5, linewidth=2, linestyle='dashed', color='black')
-        ax[count_a].set_xlabel('Trials', fontsize=12)
-        ax[count_a].set_ylabel('FR-FL latency(s)', fontsize=12)
-        ax[count_a].set_title('FR-FL latency before CS ', fontsize=12)
+        ax[count_a].set_xlabel('Trials', fontsize=20)
+        ax[count_a].set_ylabel('FR-FL latency (s)', fontsize=20)
+        # ax[count_a].set_title('FR-FL latency before CS ', fontsize=12)
+        # ax[count_a].legend(['Cluster 1', 'Cluster 2', 'Cluster 3', 'Cluster 4'], frameon=False, fontsize=20)
         ax[count_a].spines['right'].set_visible(False)
         ax[count_a].spines['top'].set_visible(False)
-        ax[count_a].tick_params(axis='both', which='major', labelsize=10)
+        ax[count_a].tick_params(axis='both', which='major', labelsize=16)
     plt.savefig(os.path.join(save_path, 'sta_bodyvars_FR-FL_displacement_difference_latency_split_ipsi_S1'), dpi=128)
 
 if session_type == 'tied':

@@ -16,7 +16,7 @@ import df_behav_class
 nxb = df_behav_class.df_behav_analysis(path_code)
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_tied_S1.xlsx')
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
 save_path = 'J:\\Miniscope processed files\\STA bodyvars\\'
 
 save_plot = True

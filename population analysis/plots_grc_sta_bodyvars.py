@@ -106,87 +106,93 @@ displ_diff_ipsi = nxb.paw_diff(final_tracks_trials, 0, 1)
 ind_vars = {'Body position': bodycenter, 'Body speed': bodyspeed, 'Body acceleration': bodyacc}
 keys = list(ind_vars.keys())
 
-# Loop through independent variables to compute and plot STAs of each one
-fig, ax = plt.subplots(1, 3, figsize=(20, 7), sharey=True)
-# fig.tight_layout(rect=[0, 0, 0.9, 1])
-# cbar_ax = fig.add_axes([0.91, 0.3, 0.03, 0.4])
-ax = ax.ravel()
-for var in range(len(ind_vars)):
-    var_name = keys[var]
-    variable = ind_vars[var_name]
+# # Loop through independent variables to compute and plot STAs of each one
+# fig, ax = plt.subplots(1, 3, figsize=(20, 7), sharey=True)
+# # fig.tight_layout(rect=[0, 0, 0.9, 1])
+# # cbar_ax = fig.add_axes([0.91, 0.3, 0.03, 0.4])
+# ax = ax.ravel()
+# for var in range(len(ind_vars)):
+#     var_name = keys[var]
+#     variable = ind_vars[var_name]
+#
+#     # Compute spike-triggered average (STA) of kinematic variables
+#     df_events, cluster_transition_idx = nxb.sort_rois_clust(df_events_extract_rawtrace,
+#                                                             clusters_rois)  # Sort ROIs by cluster
+#     sta_allrois, signal_chunks_allrois = nxb.sta(df_events, variable, bcam_time, window, trials)
+#
+#     # Standardize observed STA on STA computed with shuffled data
+#     # Shuffle CS timestamps
+#     shuffled_spikes_ts = nxb.shuffle_spikes_ts(df_events_extract_rawtrace, iter_n)
+#     # Compute STA for shuffled data
+#     sta_shuffled_ts = np.array(nxb.sta_shuffled(shuffled_spikes_ts, variable, bcam_time, window, trials))
+#     # Standardize STA
+#     mean_chance = np.nanmean(sta_shuffled_ts, axis=2)
+#     sd_chance = np.nanstd(sta_shuffled_ts, axis=2)
+#     sta_zs = np.zeros((len(sta_allrois), len(trials), len(window)))
+#     for n in range(len(sta_allrois)):
+#         for tr in range(len(trials)):
+#             sta_zs[n, tr] = (sta_allrois[n][tr] - mean_chance[n][tr]) / sd_chance[n][tr]
+#     roi_plot = np.where(df_events.columns[2:]=='ROI29')[0][0]
+#     #sns.heatmap(sta_zs[roi_plot, :], cmap='viridis', ax=ax[var], vmin=-5, vmax=7, cbar=None)
+#     sns.heatmap(sta_zs[roi_plot, :], cmap='viridis', ax=ax[var], vmin=-5, vmax=7, cbar=var == 0, cbar_ax=None if var else cbar_ax)
+#     ax[var].axvline(x=window[-1], color='white', linestyle='--', linewidth=2)
+#     ax[var].set_yticklabels(list(map(str, trials)))
+#     ax[var].set_xticks(np.array([0, 330, 660]))
+#     ax[var].set_xticklabels([-1, 0, 1])
+#     ax[var].set_xlabel('Time (s)', fontsize=20)
+#     ax[var].set_ylabel('Trials', fontsize=20)
+#     ax[var].spines['right'].set_visible(False)
+#     ax[var].spines['top'].set_visible(False)
+#     ax[var].tick_params(axis='both', which='major', labelsize=14)
+# plt.savefig(os.path.join('J:\\Miniscope processed files\\STA bodyvars\\', 'sta_bodyvars_MC9194_splitipsifastS1_ROI1_zscored_shuffled_grc'), dpi=128)
 
-    # Compute spike-triggered average (STA) of kinematic variables
-    df_events, cluster_transition_idx = nxb.sort_rois_clust(df_events_extract_rawtrace,
-                                                            clusters_rois)  # Sort ROIs by cluster
-    sta_allrois, signal_chunks_allrois = nxb.sta(df_events, variable, bcam_time, window, trials)
-
-    # Standardize observed STA on STA computed with shuffled data
-    # Shuffle CS timestamps
-    shuffled_spikes_ts = nxb.shuffle_spikes_ts(df_events_extract_rawtrace, iter_n)
-    # Compute STA for shuffled data
-    sta_shuffled_ts = np.array(nxb.sta_shuffled(shuffled_spikes_ts, variable, bcam_time, window, trials))
-    # Standardize STA
-    mean_chance = np.nanmean(sta_shuffled_ts, axis=2)
-    sd_chance = np.nanstd(sta_shuffled_ts, axis=2)
-    sta_zs = np.zeros((len(sta_allrois), len(trials), len(window)))
-    for n in range(len(sta_allrois)):
-        for tr in range(len(trials)):
-            sta_zs[n, tr] = (sta_allrois[n][tr] - mean_chance[n][tr]) / sd_chance[n][tr]
-    roi_plot = np.where(df_events.columns[2:]=='ROI29')[0][0]
-    sns.heatmap(sta_zs[roi_plot, :], cmap='viridis', ax=ax[var], vmin=-5, vmax=7, cbar=None)
-    # sns.heatmap(sta_zs[roi_plot, :], cmap='viridis', ax=ax[var], vmin=-5, vmax=7, cbar=var == 0, cbar_ax=None if var else cbar_ax)
-    ax[var].axvline(x=window[-1], color='white', linestyle='--', linewidth=2)
-    ax[var].set_yticklabels(list(map(str, trials)))
-    ax[var].set_xticks(np.array([0, 330, 660]))
-    ax[var].set_xticklabels([-1, 0, 1])
-    ax[var].set_xlabel('Time (s)', fontsize=20)
-    ax[var].set_ylabel('Trials', fontsize=20)
-    ax[var].spines['right'].set_visible(False)
-    ax[var].spines['top'].set_visible(False)
-    ax[var].tick_params(axis='both', which='major', labelsize=14)
-plt.savefig(os.path.join('J:\\Miniscope processed files\\STA bodyvars\\', 'sta_bodyvars_MC9194_splitipsifastS1_ROI1_zscored_shuffled_grc'), dpi=128)
-
-# # Align dF/F and behavior (body position, speed, acceleration) for each trial and desired epoch
-# # Order ROIs by cluster
-# if len(clusters_rois) == 1:
-#     clusters_rois_flat = clusters_rois[0]
-# else:
-#     clusters_rois_flat = np.transpose(sum(clusters_rois, []))
-# clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
-# clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
-# df = mscope.norm_traces(df_extract_rawtrace_detrended[clusters_rois_flat], norm_name='zscore', axis='session') # Normalized dF/F traces for 'popul_heatmap'
-# trial = 2
-# beg = 20
-# end = 45
-# fig, axs = plt.subplots(4, 1, figsize=(15, 15))
-# df_trial = df.loc[(df['trial'] == trial)&(df['time']>beg)&(df['time']<end)].iloc[:, 2:]  # Get df/f for the desired trial and interval
-# sns.heatmap(df_trial.T, cmap='plasma', ax=axs[0])
-# axs[0].set(xticklabels=[])
-# axs[0].set_ylabel('ROIs', fontsize=20)
-# axs[0].spines['right'].set_visible(False)
-# axs[0].spines['top'].set_visible(False)
-# axs[0].spines['bottom'].set_visible(False)
-# for c in cluster_transition_idx:  # Lines to mark clusters in the heatmap
-#     axs[0].hlines(c + 1, *axs[0].get_xlim(), color='white', linestyle='dashed', linewidth=1)
-# # Behavior
-# t = np.linspace(beg, end, (end-beg)*loco.sr)  # Create x-axis time values
-# sns.lineplot(x=t, y=bodycenter[trial-1][beg*loco.sr:end*loco.sr], ax=axs[1], color='black', linewidth=2)
-# axs[1].set(xticklabels=[])
-# axs[1].set_ylabel('Body\nCenter (mm)', fontsize=20)
-# axs[1].tick_params(axis='both', which='major', labelsize=18)
-# axs[1].spines['right'].set_visible(False)
-# axs[1].spines['top'].set_visible(False)
-# axs[1].tick_params(left=False, bottom=False)
-# sns.lineplot(x=t, y=bodyspeed[trial-1][beg*loco.sr:end*loco.sr], ax=axs[2], color='black', linewidth=2)
-# axs[2].set(xticklabels=[])
-# axs[2].set_ylabel('Body\nSpeed (m/s)', fontsize=20)
-# axs[2].tick_params(axis='both', which='major', labelsize=18)
-# axs[2].spines['right'].set_visible(False)
-# axs[2].spines['top'].set_visible(False)
-# sns.lineplot(x=t, y=bodyacc[trial-1][beg*loco.sr:end*loco.sr], ax=axs[3], color='black', linewidth=2)
-# axs[3].set_ylabel('Body\nAcceleration\n(m/s\u00b2)', fontsize=16)
-# axs[3].set_xlabel('Time (s)', fontsize=20)
-# axs[3].tick_params(axis='both', which='major', labelsize=18)
-# axs[3].spines['right'].set_visible(False)
-# axs[3].spines['top'].set_visible(False)
-# plt.savefig(os.path.join('J:\\Miniscope processed files\\STA bodyvars\\', 'example_bodyvars_MC9194_splitipsifast_S1_grc2'), dpi=128)
+# Align dF/F and behavior (body position, speed, acceleration) for each trial and desired epoch
+# Order ROIs by cluster
+if len(clusters_rois) == 1:
+    clusters_rois_flat = clusters_rois[0]
+else:
+    clusters_rois_flat = np.transpose(sum(clusters_rois, []))
+clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
+clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
+df = mscope.norm_traces(df_extract_rawtrace_detrended[clusters_rois_flat], norm_name='zscore', axis='session') # Normalized dF/F traces for 'popul_heatmap'
+trial = 2
+beg = 20
+end = 45
+fig, axs = plt.subplots(4, 1, figsize=(15, 15))
+df_trial = df.loc[(df['trial'] == trial)&(df['time']>beg)&(df['time']<end)].iloc[:, 2:]  # Get df/f for the desired trial and interval
+hm = sns.heatmap(df_trial.T, cmap='plasma', ax=axs[0], cbar=None)
+# cbar = hm.collections[0].colorbar
+# cbar.set_label('\u0394F/F', fontsize=16)
+axs[0].set_xticks([])
+axs[0].set(xticklabels=[])
+axs[0].set_ylabel('ROIs', fontsize=20)
+axs[0].spines['right'].set_visible(False)
+axs[0].spines['top'].set_visible(False)
+axs[0].spines['bottom'].set_visible(False)
+for c in cluster_transition_idx:  # Lines to mark clusters in the heatmap
+    axs[0].hlines(c + 1, *axs[0].get_xlim(), color='white', linestyle='dashed', linewidth=1)
+# Behavior
+t = np.linspace(beg, end, (end-beg)*loco.sr)  # Create x-axis time values
+sns.lineplot(x=t, y=bodycenter[trial-1][beg*loco.sr:end*loco.sr], ax=axs[1], color='black', linewidth=2)
+axs[1].set(xticklabels=[])
+axs[1].set_xlim([t[0], t[-1]])
+axs[1].set_ylabel('Body\nCenter (mm)', fontsize=20)
+axs[1].tick_params(axis='both', which='major', labelsize=18)
+axs[1].spines['right'].set_visible(False)
+axs[1].spines['top'].set_visible(False)
+axs[1].tick_params(left=False, bottom=False)
+sns.lineplot(x=t, y=bodyspeed[trial-1][beg*loco.sr:end*loco.sr], ax=axs[2], color='black', linewidth=2)
+axs[2].set(xticklabels=[])
+axs[2].set_xlim([t[0], t[-1]])
+axs[2].set_ylabel('Body\nSpeed (m/s)', fontsize=20)
+axs[2].tick_params(axis='both', which='major', labelsize=18)
+axs[2].spines['right'].set_visible(False)
+axs[2].spines['top'].set_visible(False)
+sns.lineplot(x=t, y=bodyacc[trial-1][beg*loco.sr:end*loco.sr], ax=axs[3], color='black', linewidth=2)
+axs[3].set_xlim([t[0], t[-1]])
+axs[3].set_ylabel('Body\nAcceleration\n(m/s\u00b2)', fontsize=16)
+axs[3].set_xlabel('Time (s)', fontsize=20)
+axs[3].tick_params(axis='both', which='major', labelsize=18)
+axs[3].spines['right'].set_visible(False)
+axs[3].spines['top'].set_visible(False)
+plt.savefig(os.path.join('J:\\Miniscope processed files\\STA bodyvars\\', 'example_bodyvars_MC9194_splitipsifast_S1_grc'), dpi=128)

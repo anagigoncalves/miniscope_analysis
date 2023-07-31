@@ -194,20 +194,20 @@ for s in range(len(session_data)):
         np.save(os.path.join(save_path, animal + '_' + ses_info[0].replace(' ', '_'), 'sta_bodyvars_' + var_name.replace(' ', '_') + '_fast.npy'), sta_zs_rois_fast)
         np.save(os.path.join(save_path, animal + '_' + ses_info[0].replace(' ', '_'), 'colors_cluster.npy'), colors_cluster)
 
-    # xaxis_start = np.where(xaxis >= -0.5)[0][0]
-    # xaxis_end = np.where(xaxis >= 0.25)[0][0]
-    # fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True)
-    # ax.plot(xaxis[xaxis_start:xaxis_end], sta_zs_rois_bs[-1, xaxis_start:xaxis_end, 0], color='black', linewidth=7)
-    # ax.plot(xaxis[xaxis_start:xaxis_end], sta_zs_rois_split[0, xaxis_start:xaxis_end, 0], color=colors_session[7], linewidth=7)
-    # ax.plot(xaxis[xaxis_start:xaxis_end], sta_zs_rois_split[-1, xaxis_start:xaxis_end, 0], color=colors_session[16], linewidth=7)
-    # ax.plot(xaxis[xaxis_start:xaxis_end], sta_zs_rois_washout[0, xaxis_start:xaxis_end, 0], color=colors_session[17], linewidth=7)
-    # ax.plot(xaxis[xaxis_start:xaxis_end], sta_zs_rois_washout[-1, xaxis_start:xaxis_end, 0], color=colors_session[26], linewidth=7)
-    # ax.axvline(x=0, linestyle='dashed', linewidth=2, color='black')
-    # ax.set_xlabel('Time (s)', fontsize=22)
-    # ax.set_ylabel('FR-FL displacement', fontsize=22)
-    # ax.spines['right'].set_visible(False)
-    # ax.spines['top'].set_visible(False)
-    # ax.tick_params(axis='both', which='major', labelsize=22)
-    # plt.savefig('J:\\Miniscope processed files\\STA FR-FL\\split ipsi fast S1\\MC9194_splitipsifastS1_cluster1_FR-FL', dpi=mscope.my_dpi)
+    xaxis_start = np.where(xaxis >= -0.5)[0][0]
+    xaxis_end = np.where(xaxis >= 0.25)[0][0]
+    fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True)
+    ax.plot(xaxis[xaxis_start:xaxis_end], sta_zs_rois_bs[-1, xaxis_start:xaxis_end, 0], color='black', linewidth=7)
+    ax.plot(xaxis[xaxis_start:xaxis_end], sta_zs_rois_split[0, xaxis_start:xaxis_end, 0], color=colors_session[7], linewidth=7)
+    ax.plot(xaxis[xaxis_start:xaxis_end], sta_zs_rois_split[-1, xaxis_start:xaxis_end, 0], color=colors_session[16], linewidth=7)
+    ax.plot(xaxis[xaxis_start:xaxis_end], sta_zs_rois_washout[0, xaxis_start:xaxis_end, 0], color=colors_session[17], linewidth=7)
+    ax.plot(xaxis[xaxis_start:xaxis_end], sta_zs_rois_washout[-1, xaxis_start:xaxis_end, 0], color=colors_session[26], linewidth=7)
+    ax.axvline(x=0, linestyle='dashed', linewidth=2, color='black')
+    ax.set_xlabel('Time (s)', fontsize=22)
+    ax.set_ylabel('FR-FL displacement', fontsize=22)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.tick_params(axis='both', which='major', labelsize=22)
+    plt.savefig('J:\\Miniscope processed files\\STA FR-FL\\split ipsi fast S1\\MC9194_splitipsifastS1_cluster1_FR-FL', dpi=mscope.my_dpi)
 
 

@@ -131,20 +131,6 @@ for s in range(len(session_data)):
         # Define font size for plot labels
         font_size = 30
         split_blocks = trials_ses
-        # Define colorcode for experimental blocks
-        # if animal == 'MC9226' and protocol=='tied_baseline' and session==2:
-        #     import matplotlib as mp
-        #     greys = mp.cm.get_cmap('Greys', 14)
-        #     oranges = mp.cm.get_cmap('Oranges', 23)
-        #     purples = mp.cm.get_cmap('Purples', 23)
-        #     colors_session = {1: greys(23), 2: greys(21), 3: greys(19), 4: greys(17), 5: greys(15), 6: greys(13),
-        #     7: greys(12), 8: greys(10), 9: greys(8), 10: greys(6), 11: greys(4), 12: greys(2),
-        #     13: purples(23), 14: purples(21), 15: purples(19), 16: purples(17), 17: purples(15), 18: purples(13),
-        #     19: purples(11), 20: purples(9),
-        #     21: oranges(23), 22: oranges(19), 23: oranges(16), 24: oranges(13), 25: oranges(10), 26: oranges(6)}
-        # color_blocks = []
-        # for b in split_blocks:
-        #     color_blocks.append(colors_session[b[0] + 1])
 
             # Re-sort data to have a list of the STA of all the ROIs for each trial
         sta_tr_allrois = [[sta_roi[tr_idx] for sta_roi in sta_allrois] for tr_idx, _ in

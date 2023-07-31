@@ -113,41 +113,41 @@ class df_behav_analysis:
                 bodyacc_trial = savgol_filter(self.inpaint_nans(bodycenter_trial),win_len,polyorder,deriv=2) # Get body acceleration
                 bodyacc.append(bodyacc_trial)
         bodycenter_aligned = [[bodycenter[i][j] for j in behav_ts_idx[i]] for i in range(len(bodycenter))]
-        bodycenter_aligned = np.concatenate(bodycenter_aligned).flatten()
+        # bodycenter_aligned = np.concatenate(bodycenter_aligned).flatten()
         bodyspeed_aligned = [[bodyspeed[i][j] for j in behav_ts_idx[i]] for i in range(len(bodyspeed))]
-        bodyspeed_aligned = np.concatenate(bodyspeed_aligned).flatten()
+        # bodyspeed_aligned = np.concatenate(bodyspeed_aligned).flatten()
         bodyacc_aligned = [[bodyacc[i][j] for j in behav_ts_idx[i]] for i in range(len(bodyacc))]
-        bodyacc_aligned = np.concatenate(bodyacc_aligned).flatten()
+        # bodyacc_aligned = np.concatenate(bodyacc_aligned).flatten()
         # Visualize the effect of different savgol filter's window lengths
-        win_list = [win_len-30, win_len, win_len+30]
-        bodycenter_check = np.nanmean(final_tracks_trials[trials[2]][0,:4, :15*self.sr_cam],axis=0)*self.pixel_to_mm # Get bodycenter position (x-axis) for the first 15 seconds of the last baseline trial
-        for i in range(1,3):
-            plt.figure()
-            for size in win_list:
-                kin_var = savgol_filter(self.inpaint_nans(bodycenter_check),size,polyorder,deriv=i)
-                plt.plot(kin_var)
-                plt.xlabel('Samples', fontsize=18)
-                if i == 1:
-                    plt.ylabel('Speed (m/s)', fontsize=18)
-                else:
-                    plt.ylabel('Acceleration (m/s^2)', fontsize=18)
-            plt.legend(win_list, title='''Savgol win size (samples)''')
-        # Visualize kinematic variables for sanity check
-        plt.figure(figsize=(10, 8))
-        # Plot 1: Body Position
-        plt.subplot(2, 1, 1)
-        plt.plot(bodycenter_check, color='gray')
-        plt.ylabel('Body position (mm)', fontsize=18)
-        # Plot 2: Speed and Acceleration
-        plt.subplot(2, 1, 2)
-        bodyspeed_check = savgol_filter(self.inpaint_nans(bodycenter_check), win_len, polyorder, deriv=1)
-        bodyacc_check = savgol_filter(self.inpaint_nans(bodycenter_check), win_len, polyorder, deriv=2)
-        plt.plot(bodyspeed_check, color='navy')
-        plt.xlabel('Samples', fontsize=18)
-        plt.ylabel('Speed (m/s)', color='navy', fontsize=18)
-        plt.twinx()
-        plt.plot(bodyacc_check, color='hotpink')
-        plt.ylabel('Acceleration (m/s^2)', color='hotpink', fontsize=18)
+        # win_list = [win_len-30, win_len, win_len+30]
+        # bodycenter_check = np.nanmean(final_tracks_trials[trials[2]][0,:4, :15*self.sr_cam],axis=0)*self.pixel_to_mm # Get bodycenter position (x-axis) for the first 15 seconds of the last baseline trial
+        # for i in range(1,3):
+        #     plt.figure()
+        #     for size in win_list:
+        #         kin_var = savgol_filter(self.inpaint_nans(bodycenter_check),size,polyorder,deriv=i)
+        #         plt.plot(kin_var)
+        #         plt.xlabel('Samples', fontsize=18)
+        #         if i == 1:
+        #             plt.ylabel('Speed (m/s)', fontsize=18)
+        #         else:
+        #             plt.ylabel('Acceleration (m/s^2)', fontsize=18)
+        #     plt.legend(win_list, title='''Savgol win size (samples)''')
+        # # Visualize kinematic variables for sanity check
+        # plt.figure(figsize=(10, 8))
+        # # Plot 1: Body Position
+        # plt.subplot(2, 1, 1)
+        # plt.plot(bodycenter_check, color='gray')
+        # plt.ylabel('Body position (mm)', fontsize=18)
+        # # Plot 2: Speed and Acceleration
+        # plt.subplot(2, 1, 2)
+        # bodyspeed_check = savgol_filter(self.inpaint_nans(bodycenter_check), win_len, polyorder, deriv=1)
+        # bodyacc_check = savgol_filter(self.inpaint_nans(bodycenter_check), win_len, polyorder, deriv=2)
+        # plt.plot(bodyspeed_check, color='navy')
+        # plt.xlabel('Samples', fontsize=18)
+        # plt.ylabel('Speed (m/s)', color='navy', fontsize=18)
+        # plt.twinx()
+        # plt.plot(bodyacc_check, color='hotpink')
+        # plt.ylabel('Acceleration (m/s^2)', color='hotpink', fontsize=18)
         return bodycenter_aligned, bodyspeed_aligned, bodyacc_aligned
 
 
@@ -171,7 +171,7 @@ class df_behav_analysis:
             bodyacc_trial = savgol_filter(self.inpaint_nans(bodycenter_trial),win_len,polyorder,deriv=2) # Get body acceleration
             bodyacc.append(bodyacc_trial)
         return bodycenter, bodyspeed, bodyacc
-    
+
     
     def paw_kinematic(self, tracks, p, ax, win_len, polyorder):
         '''Compute paw location, speed and acceleration for the preferred paw and axis.
@@ -216,42 +216,39 @@ class df_behav_analysis:
         return paw_difference
         
     
-    def df_behav_align(self, df, clusters_rois, frame_time, final_tracks_trials, sl_time_all_array, sl_sym_all_array, trials, plot_type, window, save_plot):
+    def df_behav_align(self, df_neural_activity, clusters_rois, kinematic, plot_type, window, save_plot):
         '''Align dF/F (population heatmap or clusters traces) to behavior and plot the result for desired trials and windows. 
         Behaviors computed by the function are: body position (x-axis), speed, acceleration, step-length symmetry.
         Inputs:
-            - df = DataFrame of fluorescence or events for each ROI or cluster
+            - df_neural_activity = DataFrame of fluorescence or events for each ROI or cluster
             - clusters_rois = list of ROIs belonging to each cluster
-            - frame_time = list of miniscope timestamps for each trial
-            - final_tracks_trials = list of final tracks for each trial, each item of the list is (4x5xframes)
-            - sl_time_all_array = array of step-length symmetry timestamps
-            - sl_sym_all_array = array of step-length symmetry values
-            - trials = list of trials
+            - kinematic = list with body position, body speed and body acceleration by trial
             - plot_type = 'popul_heatmap', 'cluster_traces' or 'popul_raster'
             - window = list with beginning and end of your desired time window
             - save_plot = boolean (1 = save figures)
         '''
-        # Initialize variables
         beg = window[0]
         end = window[1]
+    
+        trials = np.unique(df_neural_activity['trial'])
+        
+        bodycenter = kinematic[0]
+        bodyspeed = kinematic[1]
+        bodyacc = kinematic[2]
         
         # Sort ROIs by cluster
         if plot_type == 'popul_heatmap' or plot_type == 'popul_raster':
-            clusters_rois_flat = np.transpose(sum(clusters_rois, []))
-            clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
-            clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
-            cluster_transition_idx = np.cumsum([len(clusters_rois[c]) for c in range(len(clusters_rois))]) - 1
-            df = df[clusters_rois_flat]
+            df, cluster_transition_idx = self.sort_rois_clust(df_neural_activity, clusters_rois)
         
         # Loop through trials
-        for trial in range(trials[0], len(trials)+1):
-            height_ratios = [2, 1, 1, 1, 1]
+        for trial_idx, trial in enumerate(trials):
+            height_ratios = [2, 1, 1, 1]
             gs_kw = dict(height_ratios=height_ratios)
-            fig, axs = plt.subplots(5, 1, figsize=(12, 8), gridspec_kw=gs_kw)
+            fig, axs = plt.subplots(4, 1, figsize=(12, 10), gridspec_kw=gs_kw)
         # Neural activity
             if plot_type == 'popul_heatmap': # Population dF/F heatmap
                 df_trial = df.loc[df['trial'] == trial].iloc[beg*self.sr:end*self.sr, 2:] # Get df/f for the desired trial and interval
-                sns.heatmap(df_trial.T, cbar=False, cmap='viridis', ax=axs[0])
+                sns.heatmap(df_trial.T, cbar=False, cmap='rocket', ax=axs[0])
                 axs[0].set(xticklabels=[])
                 axs[0].set(yticklabels=[])
                 axs[0].set_ylabel('ROIs')
@@ -261,20 +258,20 @@ class df_behav_analysis:
                 axs[0].tick_params(left=False, bottom=False)
                 for c in cluster_transition_idx: # Lines to mark clusters in the heatmap
                     axs[0].hlines(c + 1, *axs[0].get_xlim(), color='white', linestyle='dashed')
-            elif plot_type == 'clust_traces': # Clusters dF/F traces
-                    idx_trial = np.where(trials==trial)[0][0]
-                    df_trial = df.loc[df['trial'] == trial].iloc[beg*self.sr:end*self.sr, 2:]  # Get df/f for the desired trial and interval
-                    count_r = 0
-                    for r in df.columns[2:]: # To plot stacked traces
-                        axs[0].plot(frame_time[idx_trial][beg*self.sr:end*self.sr], df_trial[r] + (count_r / 2))
-                        count_r += 1
-                        axs[0].set_xlim([beg, end])
-                        axs[0].set_ylabel('Clusters')
-                        axs[0].spines['right'].set_visible(False)
-                        axs[0].spines['top'].set_visible(False)
-                        axs[0].spines['bottom'].set_visible(False)
-                        axs[0].tick_params(left=False, bottom=False)
-                        axs[0].set(xticklabels=[])
+            # elif plot_type == 'clust_traces': # Clusters dF/F traces
+            #         idx_trial = np.where(trials==trial)[0][0]
+            #         df_trial = df.loc[df['trial'] == trial].iloc[beg*self.sr:end*self.sr, 2:]  # Get df/f for the desired trial and interval
+            #         idx = 0
+            #         for r in df.columns[2:]: # To plot stacked traces
+            #             axs[0].plot(frame_time[idx_trial][beg*self.sr:end*self.sr], df_trial[r] + (idx / 2))
+            #             idx += 1
+            #             axs[0].set_xlim([beg, end])
+            #             axs[0].set_ylabel('Clusters')
+            #             axs[0].spines['right'].set_visible(False)
+            #             axs[0].spines['top'].set_visible(False)
+            #             axs[0].spines['bottom'].set_visible(False)
+            #             axs[0].tick_params(left=False, bottom=False)
+            #             axs[0].set(xticklabels=[])
             elif plot_type == 'popul_raster': # Population raster plot
                     spikes = df.loc[df['trial'] == trial].iloc[beg*self.sr:end*self.sr, 2:].values
                     ts = df.loc[df['trial'] == trial].iloc[beg*self.sr:end*self.sr, 1].values
@@ -294,9 +291,8 @@ class df_behav_analysis:
                     plt.show()
                             
         # Behavior
-            bodycenter_trial = np.nanmean(final_tracks_trials[trial-1][0,:4, beg*self.sr_cam:end*self.sr_cam],axis=0)*self.pixel_to_mm # Get bodycenter position (x-axis) for the desired trial and interval
-            t = np.linspace(beg, end, len(bodycenter_trial)) # Create x-axis time values
-            sns.lineplot(x=t, y=bodycenter_trial, ax=axs[1])
+            t = np.linspace(beg, end, len(bodycenter[trial_idx][beg*self.sr_cam:end*self.sr_cam])) # Create x-axis time values
+            sns.lineplot(x=t, y=bodycenter[trial_idx][beg*self.sr_cam:end*self.sr_cam], ax=axs[1], linewidth = 2)
             axs[1].set_xlim([beg, end])
             axs[1].set_ylim([0, 300])
             axs[1].set(xticklabels=[])
@@ -305,8 +301,7 @@ class df_behav_analysis:
             axs[1].spines['top'].set_visible(False)
             axs[1].spines['bottom'].set_visible(False)
             axs[1].tick_params(left=False, bottom=False)
-            bodyspeed_trial = savgol_filter(self.inpaint_nans(bodycenter_trial),51,3,deriv=1) # Get body speed
-            sns.lineplot(x=t, y=bodyspeed_trial, ax=axs[2])
+            sns.lineplot(x=t, y=bodyspeed[trial_idx][beg*self.sr_cam:end*self.sr_cam], ax=axs[2], linewidth = 2)
             axs[2].set_xlim([beg, end])
             axs[2].set_ylim([-1, 2])            
             axs[2].set(xticklabels=[])
@@ -315,37 +310,15 @@ class df_behav_analysis:
             axs[2].spines['top'].set_visible(False)
             axs[2].spines['bottom'].set_visible(False)
             axs[2].tick_params(left=False, bottom=False)
-            bodyacc_trial = savgol_filter(self.inpaint_nans(bodycenter_trial),51,3,deriv=2) # Get body acceleration
-            sns.lineplot(x=t, y=bodyacc_trial, ax=axs[3])
+            sns.lineplot(x=t, y=bodyacc[trial_idx][beg*self.sr_cam:end*self.sr_cam], ax=axs[3])
             axs[3].set_xlim([beg, end])
-            axs[3].set_ylim([-0.1, 0.1])                       
+            axs[3].set_ylim([-0.06, 0.06])                       
             axs[3].set_ylabel('Body Acceleration (m/s^2)')
             axs[3].spines['right'].set_visible(False)
             axs[3].spines['top'].set_visible(False)
             axs[3].spines['bottom'].set_visible(False)
             axs[3].tick_params(left=False, bottom=False)
             axs[3].set(xticklabels=[])    
-            
-        # Errors
-            if trial == 1:
-                beg_of_trial = beg # First timestamp of the desired interval
-            else:
-                beg_of_trial = ((trial - 1) * self.trial_length) + beg
-            end_of_trial = beg_of_trial + (end-beg) # Last timestamp of the desired interval
-            end_idx = np.abs(sl_time_all_array - end_of_trial).argmin() # Find index of the first timestamp of the desired trial and interval
-            beg_idx = np.abs(sl_time_all_array - beg_of_trial).argmin() # Find index of the last timestamp of the desired trial and interval
-            if trial == 1:
-                sl_trial_time = sl_time_all_array[beg_idx:end_idx] # Find timestamps of step-length values for the desired interval (note: timestamps are not equally spaced because sl sym is computed for each stride)
-            else:
-                sl_trial_time = sl_time_all_array[beg_idx:end_idx] - self.trial_length*(trial-1)
-            sl_trial_values = sl_sym_all_array[beg_idx:end_idx] # Find step-length values for the desired interval
-            axs[4].plot(sl_trial_time, sl_trial_values)
-            axs[4].set_xlabel('Time (s)') # Change with strides
-            axs[4].set_ylabel('SL symmetry (mm)')
-            axs[4].spines['right'].set_visible(False)
-            axs[4].spines['top'].set_visible(False)
-            axs[4].set_xlim([beg, end])
-            axs[4].set_ylim([-40, 40])     
             
         # Show figure
             fig.suptitle('Trial ' + str(trial))
@@ -355,13 +328,54 @@ class df_behav_analysis:
         # Save
             if save_plot:
                 if plot_type == 'popul_heatmap':
-                    if not os.path.exists(os.path.join(self.save_path, 'dF_heatmap_behav_aligned_beg')):
-                        os.mkdir(os.path.join(self.save_path, 'dF_heatmap_behav_aligned_beg'))
-                    plt.savefig(os.path.join(self.save_path, 'dF_heatmap_behav_aligned_beg\\','dF_heatmap_behav_trial' + str(trial) + 'beg.png'), dpi=self.my_dpi)
-                elif plot_type == 'clust_traces':
-                    if not os.path.exists(os.path.join(self.save_path, 'dF_traces_behav_aligned_beg')):
-                        os.mkdir(os.path.join(self.save_path, 'dF_traces_behav_aligned_beg'))
-                    plt.savefig(os.path.join(self.save_path, 'dF_traces_behav_aligned_beg\\','dF_traces_behav_trial' + str(trial) + 'beg.png'), dpi=self.my_dpi)
+                    if not os.path.exists(os.path.join(self.save_path, 'dF_heatmap_behav_aligned')):
+                        os.mkdir(os.path.join(self.save_path, 'dFF_heatmap_behav_aligned'))
+                    plt.savefig(os.path.join(self.save_path, 'dFF_heatmap_behav_aligned\\','dFF_heatmap_behav_trial' + str(trial) + '.png'), dpi=self.my_dpi)
+                # elif plot_type == 'clust_traces':
+                #     if not os.path.exists(os.path.join(self.save_path, 'dFF_traces_behav_aligned')):
+                #         os.mkdir(os.path.join(self.save_path, 'dFF_traces_behav_aligned'))
+                #     plt.savefig(os.path.join(self.save_path, 'dFF_traces_behav_aligned\\','dFF_traces_behav_trial' + str(trial) + '.png'), dpi=self.my_dpi)
+                elif plot_type == 'popul_raster':
+                    if not os.path.exists(os.path.join(self.save_path, 'raster_behav_aligned')):
+                        os.mkdir(os.path.join(self.save_path, 'raster_behav_aligned'))
+                    plt.savefig(os.path.join(self.save_path, 'raster_behav_aligned\\','raster_behav_trial' + str(trial) + '.png'), dpi=self.my_dpi)
+
+
+    def norm_spike_count_behav(self, df_events, roi, behavior, bcam_time, var_name, bin_size, trials):
+        font_size = 15
+        behavior_flat = np.concatenate(behavior)
+        nan_mask = np.isnan(behavior_flat)
+        behavior_flat = behavior_flat[~nan_mask]
+        behav_ts_idx = []
+        matching_behav = []
+        for tr_idx, tr in enumerate(trials):
+            df_events_tr = df_events[df_events['trial'] == tr]
+            df_events_roi = df_events_tr[roi]
+            event_idx = np.where(df_events_roi == 1)[0]
+            event_ts = np.array(df_events_tr.iloc[event_idx]['time'])
+            ts_idx = np.array([np.where(bcam_time[tr_idx] == bcam_time[tr_idx][np.abs(bcam_time[tr_idx] - t).argmin()])[0][0] for t in event_ts])
+            behav_ts_idx.append(ts_idx)
+            matching_behav.append(behavior[tr_idx][ts_idx])
+        matching_behav_flat = np.concatenate(matching_behav)
+        
+        bins = np.arange(np.nanmin(matching_behav_flat), np.nanmax(matching_behav_flat), bin_size)
+        bin_counts = np.zeros((len(bins)-1))
+        for behav_val in behavior_flat:
+            for bin_idx, bin_ in enumerate(bins[0:-1]):
+                if bin_ <= behav_val < bin_ + bin_size:
+                    bin_counts[bin_idx] += 1
+        total_data_points = len(behavior_flat)
+        bin_freq = bin_counts/total_data_points
+        
+        spikes_count, _ = np.histogram(matching_behav_flat, bins)
+        norm_spikes_count = spikes_count/bin_freq
+        plt.figure()
+        plt.hist(bins[:-1], bins, weights=norm_spikes_count, color = 'hotpink')
+        plt.ylabel('Normalized spike count', fontsize = font_size)
+        plt.xlabel(var_name, fontsize = font_size)
+        plt.xlim(bins[0], bins[-1])
+        plt.title(roi)
+        return bins, spikes_count, norm_spikes_count
 
 
     def sta(self, df_events, variable, bcam_time, window, trials):
@@ -388,7 +402,7 @@ class df_behav_analysis:
                 for i in matching_ts_idx:
                     if i + window[0] >= 0 and i + window[-1] < len(variable[tr_idx]):
                         extracted_signal = variable[tr_idx][i + window[0]:i + window[-1] + 1]
-                        extracted_signal = (extracted_signal - np.nanmean(extracted_signal))/np.std(extracted_signal)
+                        # extracted_signal = (extracted_signal - np.nanmean(extracted_signal))/np.std(extracted_signal)
                         # List of raw traces for one ROI 'n' and trial 'tr'
                         signal_chunks = np.vstack((signal_chunks, extracted_signal))
                 signal_chunks_tr.append(signal_chunks) # Array of traces for one ROI all trials
@@ -424,10 +438,10 @@ class df_behav_analysis:
         y_tick_locations = [block[1] - 1 for block in trials_ses]
         
         # Find min and max to set limits of the axis
-        max_val = np.max(np.concatenate(signal_chunks_allrois, axis=0))
-        min_val = np.min(np.concatenate(signal_chunks_allrois, axis=0))
-        max_val_sta = np.max(np.concatenate(sta_allrois, axis=0))
-        min_val_sta = np.min(np.concatenate(sta_allrois, axis=0))
+        max_val = np.nanmax(np.concatenate(signal_chunks_allrois, axis=0))
+        min_val = np.nanmin(np.concatenate(signal_chunks_allrois, axis=0))
+        max_val_sta = np.nanmax(np.concatenate(sta_allrois, axis=0))
+        min_val_sta = np.nanmin(np.concatenate(sta_allrois, axis=0))
         
         # STA for each ROI
         for n in range(len(sta_allrois)):
@@ -470,7 +484,7 @@ class df_behav_analysis:
                 plt.close()
 
 
-    def plot_sta_popul(self, sta_allrois, window, cluster_transition_idx, colors_cluster, colors_session, trials, trials_ses, split_blocks, var_name, interval, mouse_id, session, save_plot):
+    def plot_sta_popul(self, sta_allrois, window, cluster_transition_idx, colors_cluster, colors_session, trials, trials_ses, split_blocks, var_name, mouse_id, session, save_plot):
         ''' Plot STA heatmap and traces for the whole population (trials and blocks).
         Inputs:
         - sta_allrois: list of STA for all the trials for each ROI
@@ -482,7 +496,6 @@ class df_behav_analysis:
         - trials_ses = 2D array of experimental blocks
         - split_blocks = 2D array of sub-divided experimental blocks
         - var_name: name of the variable
-        - interval: start and end of window around event for peak detection
         - mouse_id: mouse name (str)
         - session: ipsi (S1) or contra (S2) (str)
         - save_plot (boolean)
@@ -506,8 +519,8 @@ class df_behav_analysis:
         x_ticks = np.linspace(0, len(sta_tr_allrois[0][0]), len(x_tick_values)).astype(int)
 
         # Plot 1: Heatmap STA of the population by trial 
-        max_val = np.max(np.concatenate(sta_tr_allrois, axis=0))
-        min_val = np.min(np.concatenate(sta_tr_allrois, axis=0))
+        max_val = np.nanmax(np.concatenate(sta_tr_allrois, axis=0))
+        min_val = np.nanmin(np.concatenate(sta_tr_allrois, axis=0))
         for tr_idx, tr in enumerate(trials): #WARNING: for tr in range(len(trial_changes)-1):
             plt.figure()
             hm = sns.heatmap(sta_tr_allrois[tr_idx], cmap='viridis', vmin = min_val, vmax = max_val)  # heatmap STA whole population by trial 
@@ -526,9 +539,11 @@ class df_behav_analysis:
                 plt.savefig(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id   + '_' + session + '\\', 'STA_' + var_name + '_trial' + str(tr) + '.png'), dpi=self.my_dpi)
                 plt.close()
                 
-        # Plot 2: STA traces of one cluster across trials   
-        max_val = np.max(np.concatenate(sta_tr_allrois, axis=0))
-        min_val = np.min(np.concatenate(sta_tr_allrois, axis=0))
+        # Plot 2: STA traces of one cluster for first and last trial of each block   
+        max_val = np.nanmax(np.concatenate(sta_tr_allrois, axis=0))
+        min_val = np.nanmin(np.concatenate(sta_tr_allrois, axis=0))
+        # max_val = 6
+        # min_val = -6
         clust_sta_tr = np.zeros((len(sta_tr_allrois), len(cluster_transition_idx), len(window))) # STA of clusters by block
         for tr_idx, trial in enumerate(sta_tr_allrois):
             start = 0
@@ -568,10 +583,48 @@ class df_behav_analysis:
             save_path = os.path.join(save_dir, filename)            
             plt.savefig(save_path, dpi=self.my_dpi)
             plt.close()
+            
+        # Plot 3: STA traces of one cluster for each trial   
+        fig, axs = plt.subplots(nrows=len(cluster_transition_idx), ncols = len(trials_ses), figsize = (15, 15))
+        if len(cluster_transition_idx) == 1:
+            axs = [axs]  # Convert single axis to a list for indexing consistency
+        for clust_idx, _ in enumerate(cluster_transition_idx):
+            for b in range(len(trials_ses)):
+                current_ax = axs[clust_idx, b]  # Get the current axis
+                for tr in np.arange(trials_ses[b, 0]-1, trials_ses[b, 1]):
+                    current_ax.plot(window * 1/self.sr_cam, clust_sta_tr[tr, clust_idx], c=colors_session[tr+1], linewidth=1)
+                current_ax.axvline(x=0, color='black', linestyle='--')
+                current_ax.spines['right'].set_visible(False)
+                current_ax.spines['top'].set_visible(False)
+                current_ax.set_ylim([min_val, max_val])
+                current_ax.set_xlim(window[0] * 1/self.sr_cam, window[-1] * 1/self.sr_cam)
+                current_ax.set_xlim(window[0] * 1/self.sr_cam, window[-1] * 1/self.sr_cam)
+                if clust_idx == len(cluster_transition_idx)-1:
+                    current_ax.set_xlabel('Time around event (s)', fontsize=font_size)
+                elif clust_idx < len(cluster_transition_idx):
+                    current_ax.set(xticklabels=[])
+                    current_ax.tick_params(bottom=False)
+                if b == 0:
+                    current_ax.set_ylabel(var_name + ' (z-score)', fontsize=font_size)
+                    current_ax.set_title('Cluster ' + str(clust_idx+1), fontsize=font_size, c=colors_cluster[clust_idx])       
+                else:
+                    current_ax.set(yticklabels=[])
+                    current_ax.tick_params(left=False)
+                    current_ax.spines['left'].set_visible(False)
+        if save_plot:
+            save_dir = os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session)
+            if not os.path.exists(save_dir):
+                os.mkdir(save_dir)            
+            filename = 'STA_zs_' + var_name + '_clusters_alltrials.png'
+            save_path = os.path.join(save_dir, filename)            
+            plt.savefig(save_path, dpi=self.my_dpi)
+            plt.close()
     
-        # Plot 3: Heatmap STA of the population by block 
-        max_val = np.max(np.concatenate(sta_blocks_allrois, axis=0))
-        min_val = np.min(np.concatenate(sta_blocks_allrois, axis=0))
+        # Plot 4: Heatmap STA of the population by block 
+        max_val = np.nanmax(np.concatenate(sta_blocks_allrois, axis=0))
+        min_val = np.nanmin(np.concatenate(sta_blocks_allrois, axis=0))
+        # max_val = 6
+        # min_val = -6
         fig, axs = plt.subplots(len(sta_blocks_allrois),1, figsize = (12, 12))
         for b in range(len(sta_blocks_allrois)):
             hm = sns.heatmap(sta_blocks_allrois[b], cmap='viridis', ax = axs[b], vmin = min_val, vmax = max_val)  # heatmap STA whole population by block 
@@ -598,7 +651,7 @@ class df_behav_analysis:
             plt.savefig(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session + '\\', 'STA_zs_' + var_name + '_blocks' + '.png'), dpi=self.my_dpi)
             plt.close()
         
-        # Plot 4: STA traces of one cluster across blocks     
+        # Plot 5: STA traces of one cluster across blocks     
         clust_sta = np.zeros((len(sta_blocks_allrois), len(cluster_transition_idx), len(window))) # STA of clusters by block
         for block_idx, block in enumerate(sta_blocks_allrois):
             start = 0
@@ -640,92 +693,58 @@ class df_behav_analysis:
             plt.close()
 
 
-    def tuning_learn(self, interval, sta, cluster_transition_idx, trials, colors_cluster, var_name, mouse_id, session, save_plot):
-        font_size = 15
-        start = self.sr_cam+interval[0]
-        end = self.sr_cam+interval[1]
-        sta_max = np.zeros((len(cluster_transition_idx), len(trials)))
-        latency_max = np.zeros((len(cluster_transition_idx), len(trials)))
-        sta_min = np.zeros((len(cluster_transition_idx), len(trials)))
-        latency_min = np.zeros((len(cluster_transition_idx), len(trials)))
-        for tr in range(len(trials)):
-            clust_start = 0
-            for clust_idx, clust_end in enumerate(cluster_transition_idx):
-                if clust_idx == len(cluster_transition_idx) - 1:
-                    clust_end = len(sta)
-                sta_clust = sta[clust_start:clust_end, tr]
-                sta_max[clust_idx, tr] = np.mean(np.max(sta_clust[:, start:end], axis=1))
-                latency_max[clust_idx, tr] = np.mean(((np.argmax(sta_clust[:, start:end], axis=1)/self.sr_cam)+round(interval[0]/self.sr_cam, 2)))
-                sta_min[clust_idx, tr] = np.mean(np.min(sta_clust[:, start:end], axis=1))
-                latency_min[clust_idx, tr] = np.mean(((np.argmin(sta_clust[:, start:end], axis=1)/self.sr_cam)+round(interval[0]/self.sr_cam, 2)))                
-                clust_start = clust_end
-    
-        fig, axs = plt.subplots(2,2, figsize = (12, 8))
-        for c in range(len(cluster_transition_idx)):
-            axs[0,0].plot(trials, sta_max[c,:], c=colors_cluster[c], linewidth = 2.5)
-            axs[0,1].plot(trials, latency_max[c,:], c=colors_cluster[c], linewidth = 2.5)
-            axs[1,0].plot(trials, sta_min[c,:], c=colors_cluster[c], linewidth = 2.5)
-            axs[1,1].plot(trials, latency_min[c,:], c=colors_cluster[c], linewidth = 2.5)
-        axs[0,0].set_xlim(1, trials[-1])
-        axs[0,1].set_xlim(1, trials[-1])
-        axs[1,0].set_xlim(1, trials[-1])
-        axs[1,1].set_xlim(1, trials[-1])
-        axs[1,0].set_xlabel('Trial', fontsize = font_size)
-        axs[1,1].set_xlabel('Trial', fontsize = font_size)
-        axs[0,0].set_ylabel('Max z-score ', fontsize = font_size)
-        axs[1,0].set_ylabel('Min z-score ', fontsize = font_size)
-        axs[0,1].set_ylabel('Latency (s)', fontsize = font_size)
-        axs[1,1].set_ylabel('Latency (s)', fontsize = font_size)
-        axs[0,0].set(xticklabels=[])
-        axs[0,1].set(xticklabels=[])
-        axs[0,0].tick_params(bottom=False)
-        axs[0,1].tick_params(bottom=False)
-        axs[0,0].spines['right'].set_visible(False)
-        axs[0,0].spines['top'].set_visible(False)
-        axs[0,0].spines['bottom'].set_visible(False)
-        axs[0,1].spines['right'].set_visible(False)
-        axs[0,1].spines['top'].set_visible(False)
-        axs[0,1].spines['bottom'].set_visible(False)
-        axs[1,1].spines['right'].set_visible(False)
-        axs[1,1].spines['top'].set_visible(False)
-        axs[1,0].spines['right'].set_visible(False)
-        axs[1,0].spines['top'].set_visible(False)
-        fig.subplots_adjust(wspace=0.3)
-        plt.suptitle(var_name, fontsize = font_size)
-        if save_plot:
-            if not os.path.exists(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '_' + session)):
-                os.mkdir(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '_' + session))
-            plt.savefig(os.path.join(self.save_path, 'STA_' + var_name + '_' + mouse_id + '_' + session + '\\', 'STA_' + var_name + 'peaks_latency' + '.png'), dpi=self.my_dpi)
-            plt.close()
-
-
+    # def shuffle_spikes_ts(self, df_events, iter_n):
+    #     ''' Shuffle timestamps of events for multiple iterations. This code shuffle the ISIs of the whole session.
+    #     Inputs:
+    #         - df_events: dataframe of events for multiple ROIs. Column 'time' contains timestamps, column 'trial' indicates trial ID
+    #         - iter_n: number of shuffling iterations
+    #     '''
+    #     trial_len = round(max(df_events['time']))
+    #     trials = np.unique(df_events['trial'])
+    #     cumul_tr_len = np.arange(0, len(trials) * trial_len + trial_len, trial_len, dtype=int)
+    #     shuffled_spikes_ts_allrois = []
+    #     for n in range(2, df_events.shape[1]):
+    #         all_spikes_ts = np.array([])
+    #         # Find all timestamps of events for all trials for ROI 'n'
+    #         for tr in trials:
+    #             df_events_tr = df_events[df_events.trial == tr] # Extract trial 'tr'
+    #             events_idx = np.array(df_events_tr.index[df_events_tr.iloc[:, n] == 1]) # Find indexes of events for ROI 'n' and trial 'tr'
+    #             spikes_ts = np.array(df_events_tr.time[events_idx]) + trial_len*(tr-1) # Find timestamps of events for ROI 'n' and trial 'tr'
+    #             all_spikes_ts = np.concatenate((all_spikes_ts, spikes_ts)) # Concatenate timestamps of events of each trial for ROI 'n'
+    #         isi = np.diff(all_spikes_ts) # Compute ISI 
+    #         for _ in range(iter_n):
+    #             shuffled_spikes_ts_tr = []
+    #             np.random.shuffle(isi) # Shuffle ISI
+    #             shuffled_spikes_ts = np.insert(np.cumsum(isi), 0, 0) # Find new timestamps (whole session)
+    #             for tr in trials:
+    #                 shuffled_spikes_ts_tr.append(shuffled_spikes_ts[(cumul_tr_len[tr-1] < shuffled_spikes_ts) & (shuffled_spikes_ts <= cumul_tr_len[tr])] - (trial_len*(tr-1))) # List of shuffled timestamps for each trial for ROI 'n'
+    #         shuffled_spikes_ts_allrois.append(shuffled_spikes_ts_tr) 
+    #     return shuffled_spikes_ts_allrois
+            
+            
     def shuffle_spikes_ts(self, df_events, iter_n):
-        ''' Shuffle timestamps of events for multiple iterations.
+        ''' Shuffle timestamps of events for multiple iterations. This code shuffle the ISIs of each trial.
         Inputs:
             - df_events: dataframe of events for multiple ROIs. Column 'time' contains timestamps, column 'trial' indicates trial ID
             - iter_n: number of shuffling iterations
         '''
-        trial_len = round(max(df_events['time']))
         trials = np.unique(df_events['trial'])
-        cumul_tr_len = np.arange(0, len(trials) * trial_len + trial_len, trial_len, dtype=int)
         shuffled_spikes_ts_allrois = []
         for n in range(2, df_events.shape[1]):
-            all_spikes_ts = np.array([])
-            # Find all timestamps of events for all trials for ROI 'n'
+            shuffled_spikes_ts = []
+            # Find all timestamps of events for all trials for ROI 'n' 
             for tr in trials:
                 df_events_tr = df_events[df_events.trial == tr] # Extract trial 'tr'
                 events_idx = np.array(df_events_tr.index[df_events_tr.iloc[:, n] == 1]) # Find indexes of events for ROI 'n' and trial 'tr'
-                spikes_ts = np.array(df_events_tr.time[events_idx]) + trial_len*(tr-1) # Find timestamps of events for ROI 'n' and trial 'tr'
-                all_spikes_ts = np.concatenate((all_spikes_ts, spikes_ts)) # Concatenate timestamps of events of each trial for ROI 'n'
-            isi = np.diff(all_spikes_ts) # Compute ISI 
-            for _ in range(iter_n):
-                shuffled_spikes_ts_tr = []
-                np.random.shuffle(isi) # Shuffle ISI
-                shuffled_spikes_ts = np.insert(np.cumsum(isi), 0, 0) # Find new timestamps (whole session)
-                for tr in trials:
-                    shuffled_spikes_ts_tr.append(shuffled_spikes_ts[(cumul_tr_len[tr-1] < shuffled_spikes_ts) & (shuffled_spikes_ts <= cumul_tr_len[tr])] - (trial_len*(tr-1))) # List of shuffled timestamps for each trial for ROI 'n'
-            shuffled_spikes_ts_allrois.append(shuffled_spikes_ts_tr) 
-        return shuffled_spikes_ts_allrois
+                spikes_ts_tr = np.array(df_events_tr.time[events_idx])  # Find timestamps of events for ROI 'n' and trial 'tr'
+                isi = np.diff(spikes_ts_tr) # Compute ISI             
+                for _ in range(iter_n):
+                    shuffled_spikes_ts_tr = []
+                    np.random.shuffle(isi) # Shuffle ISI
+                    shuffled_spikes_ts_tr = np.insert(np.cumsum(isi), 0, 0) # Find new timestamps
+                shuffled_spikes_ts.append(shuffled_spikes_ts_tr)
+            shuffled_spikes_ts_allrois.append(shuffled_spikes_ts)
+        return shuffled_spikes_ts_allrois    
 
 
     def sta_shuffled(self, spikes_ts, variable, bcam_time, window, trials):
@@ -749,12 +768,12 @@ class df_behav_analysis:
                 for i in matching_ts_idx:
                     if i + window[0] >= 0 and i + window[-1] < len(variable[tr_idx]):
                         extracted_signal = variable[tr_idx][i + window[0]:i + window[-1] + 1]
-                        extracted_signal = (extracted_signal - np.mean(extracted_signal))/np.std(extracted_signal)
+                        # extracted_signal = (extracted_signal - np.mean(extracted_signal))/np.std(extracted_signal)
                         signal_chunks = np.vstack((signal_chunks, extracted_signal))
                 signal_chunks_tr.append(signal_chunks) # Array of traces for one ROI by trial
             # Compute STA by trial for one ROI     
             for tr_idx, _ in enumerate(trials): 
-                sta_trial = np.mean(signal_chunks_tr[tr_idx], axis = 0)
+                sta_trial = np.nanmean(signal_chunks_tr[tr_idx], axis = 0)
                 sta = np.vstack((sta, sta_trial))
             # STA all rois
             signal_chunks_allrois.append(np.concatenate(signal_chunks_tr, axis = 0)) # List of raw traces for each ROI whole session
@@ -816,7 +835,7 @@ class df_behav_analysis:
             axs[1, 0].set_xlim(window[0] * 1/self.sr_cam, window[-1] * 1/self.sr_cam)
             axs[1, 1].set_xlim(window[0] * 1/self.sr_cam, window[-1] * 1/self.sr_cam)
             axs[1, 2].set_xlim(window[0] * 1/self.sr_cam, window[-1] * 1/self.sr_cam)
-            axs[1, 0].set_ylabel(var_name + ' (z-scored)', fontsize = font_size)
+            axs[1, 0].set_ylabel(var_name, fontsize = font_size)
             axs[1, 0].set_xlabel('Time around event (s)', fontsize = font_size)
             axs[1, 0].spines['right'].set_visible(False)
             axs[1, 0].spines['top'].set_visible(False)
@@ -839,94 +858,347 @@ class df_behav_analysis:
                 plt.close()
 
 
-    def maxzs_distr(self, sta_zs, interval, signif_thresh, var_name, mouse_id, session, save_plot):
-        ''' Find the absolute max z-score (so either the positive maximum or the negative maximum) of STA and the latency 
-        of the peak from the event.
-        Inputs:
-            - sta_zs: array of z-scored STA for each ROI
-            - interval = interval before and after the event to compute max abs z-score
-            - signif_thresh: threshold of significance of the peak
-            - var_name: name of the behavioral variable (str)
-            - mouse_id: mouse name (str)
-            - session: ipsi=1, contra = 2 (int)
-            - save_plot (boolean)
-        '''
-        # Detect min and max z-score for every peak
+    def peaks_latency(self, sta, interval, sr_cam):
+        # Detect positive or negative peaks and their latency
         start = self.sr_cam+interval[0]
         end = self.sr_cam+interval[1]
-        max_zs = np.zeros((sta_zs.shape[0], sta_zs.shape[1]))
-        max_zs[:] = np.nan
-        min_zs = np.zeros((sta_zs.shape[0], sta_zs.shape[1]))
-        min_zs[:] = np.nan
-        latency = np.zeros((sta_zs.shape[0], sta_zs.shape[1]))
-        latency[:] = np.nan
-        for n in range(sta_zs.shape[0]):
-            for tr in range(sta_zs.shape[1]):
-                max_zs[n, tr] = max(sta_zs[n, tr, start:end])
-                min_zs[n, tr] = min(sta_zs[n, tr, start:end]) 
-                latency[n, tr] = (np.argmax(sta_zs[n, tr, start:end])/self.sr_cam)+round(interval[0]/self.sr_cam, 2)
+        peaks_pos = np.zeros((sta.shape[1], sta.shape[0]))
+        peaks_pos[:] = np.nan
+        latency_pos = np.zeros((sta.shape[1], sta.shape[0]))
+        latency_pos[:] = np.nan
+        peaks_neg = np.zeros((sta.shape[1], sta.shape[0]))
+        peaks_neg[:] = np.nan
+        latency_neg = np.zeros((sta.shape[1], sta.shape[0]))
+        latency_neg[:] = np.nan
+        count_pos_all = 0
+        count_neg_all = 0
+        count_neutral_all = 0
+        for n in range(sta.shape[1]):
+            count_pos = 0
+            count_neg = 0
+            count_neutral = 0
+            for tr in range(sta.shape[0]):
+                if max(sta[tr, n, start:end]) >= abs(min(sta[tr, n, start:end])) and max(sta[tr, n, start:end]) >= 2:
+                    count_pos = count_pos + 1
+                elif abs(min(sta[tr, n, start:end])) > max(sta[tr, n, start:end]) and min(sta[tr, n, start:end]) <= -2:
+                    count_neg = count_neg + 1
+                else:
+                    count_neutral = count_neutral + 1
+            if count_pos >= count_neg:
+                peaks_pos[n, :] = np.max(sta[:, n, start:end], axis = 1)
+                latency_pos[n, :] = (np.argmax(sta[:, n, start:end], axis=1)/sr_cam)+round(interval[0]/self.sr_cam, 2)
+            elif count_neg > count_pos:
+                peaks_neg[n, :] = np.min(sta[:, n, start:end], axis = 1)
+                latency_neg[n, :] = (np.argmin(sta[:, n, start:end], axis = 1)/sr_cam)+round(interval[0]/self.sr_cam, 2)
+            if count_pos >= count_neg:
+                count_pos_all = count_pos_all + 1
+            elif count_pos < count_neg:
+                count_neg_all = count_neg_all + 1
+            else:
+                count_neutral_all = count_neutral_all + 1
+        ratio = [count_pos_all, count_neg_all, count_neutral_all]
+        return peaks_pos, latency_pos, peaks_neg, latency_neg, ratio
 
-        # Plot distribution of max z-score for the whole session
-        fig, axs = plt.subplots(2,1, figsize=(8,12))
-        median_max_zs = np.nanmean(max_zs, axis=1)
-        median_min_zs = np.nanmean(min_zs, axis=1)
-        min_val = min(median_max_zs)
-        max_val = max(median_max_zs)
-        bin_size = 0.5
-        bin_edges = np.arange(int(min_val), int(max_val) + bin_size, bin_size)
-        hist, _ = np.histogram(median_max_zs, bins=bin_edges)
-        axs[0].bar(bin_edges[:-1], hist, bin_size, color='white')
-        for i in range(len(bin_edges)-1):
-            if bin_edges[i] >= signif_thresh:
-                axs[0].bar(bin_edges[i], hist[i], bin_size, color='yellow', edgecolor='black', linewidth=1.2)
+
+    def peaks_latency_doublepeak(self, sta, interval, sr_cam):
+        # Detect positive or negative peaks and their latency
+        start = self.sr_cam+interval[0]
+        end = self.sr_cam+interval[1]
+        peaks_pos = np.zeros((sta.shape[1], sta.shape[0]))
+        peaks_pos[:] = np.nan
+        latency_pos = np.zeros((sta.shape[1], sta.shape[0]))
+        latency_pos[:] = np.nan
+        peaks_neg = np.zeros((sta.shape[1], sta.shape[0]))
+        peaks_neg[:] = np.nan
+        latency_neg = np.zeros((sta.shape[1], sta.shape[0]))
+        latency_neg[:] = np.nan
+        count_pos = 0
+        count_neg = 0
+        count_both = 0
+        count_neutral = 0
+        for n in range(sta.shape[1]):
+            if np.any(np.max(sta[:, n, start:end], axis=1) >= 2.5) and np.all(np.min(sta[:, n, start:end], axis=1) > -2.5):
+                peaks_pos[n, :] = np.max(sta[:, n, start:end], axis = 1)
+                latency_pos[n, :] = (np.argmax(sta[:, n, start:end], axis=1)/sr_cam)+round(interval[0]/self.sr_cam, 2)
+                count_pos = count_pos + 1
+            elif np.all(np.max(sta[:, n, start:end], axis=1) < 2.5) and np.any(np.min(sta[:, n, start:end], axis=1) <= -2.5):
+                peaks_neg[n, :] = np.min(sta[:, n, start:end], axis = 1)
+                latency_neg[n, :] = (np.argmin(sta[:, n, start:end], axis = 1)/sr_cam)+round(interval[0]/self.sr_cam, 2)
+                count_neg = count_neg + 1
+            elif np.any(np.max(sta[:, n, start:end], axis=1) >= 2.5) and np.any(np.min(sta[:, n, start:end], axis=1) <= -2.5):
+                peaks_pos[n, :] = np.max(sta[:, n, start:end], axis = 1)
+                latency_pos[n, :] = (np.argmax(sta[:, n, start:end], axis=1)/sr_cam)+round(interval[0]/self.sr_cam, 2)
+                peaks_neg[n, :] = np.min(sta[:, n, start:end], axis = 1)
+                latency_neg[n, :] = (np.argmin(sta[:, n, start:end], axis = 1)/sr_cam)+round(interval[0]/self.sr_cam, 2)
+                count_both = count_both + 1                    
             else:
-                axs[0].bar(bin_edges[i], hist[i], bin_size, color='black', edgecolor='black', linewidth=1.2)
-        axs[0].set_xlabel('Max z-score', fontsize = 15)
-        axs[0].set_ylabel('Count', fontsize = 15)
-        min_val = min(median_min_zs)
-        max_val = max(median_min_zs)
-        bin_edges = np.arange(int(min_val), int(max_val) + bin_size, bin_size)
-        hist, _ = np.histogram(median_min_zs, bins=bin_edges)
-        axs[1].bar(bin_edges[:-1], hist, bin_size, color='white')
-        for i in range(len(bin_edges)-1):
-            if bin_edges[i+1] <= -signif_thresh:
-                axs[1].bar(bin_edges[i], hist[i], bin_size, color='blue', edgecolor='black', linewidth=1.2)
-            else:
-                axs[1].bar(bin_edges[i], hist[i], bin_size, color='black', edgecolor='black', linewidth=1.2)
-        axs[1].set_xlabel('Min z-score', fontsize = 15)
-        axs[1].set_ylabel('Count', fontsize = 15)
+                count_neutral = count_neutral + 1
+        ratio = [count_pos, count_neg, count_both, count_neutral]
+        return peaks_pos, latency_pos, peaks_neg, latency_neg, ratio
+
+
+    def sta_clusters(self, sta, cluster_transition_idx, window):
+        if len(cluster_transition_idx) > 1:
+            sta_clust = np.zeros((len(sta), len(cluster_transition_idx)-1, len(window)))
+            for c in range(1, len(cluster_transition_idx)):
+                for b in range(len(sta)):
+                    start = cluster_transition_idx[c-1]
+                    end = cluster_transition_idx[c]          
+                    sta_clust[b, c-1] = np.mean(sta[b, start:end, :], axis = 0)
+        else:
+            sta_clust = np.zeros((len(sta), 1, len(window)))
+            for b in range(len(sta)):
+                sta_clust[b, 0] = np.mean(sta[b, :, :], axis = 0)
+        return sta_clust
+    
+
+    def sta_expblocks(self, sta, trials, split_blocks):
+        sta_tr = np.array([[sta_roi[tr_idx] for sta_roi in sta] for tr_idx, _ in enumerate(trials)])
+        sta_blocks = np.array([np.mean(np.array(sta_tr[start:end]), axis=0) for start, end in split_blocks])
+        return sta_blocks
+
+
+    def plot_sta_all(self, sta_all, window, var_name, session_id, save_plot, condition):
+        font_size = 15
+        x_tick_values = [round(window[0]/self.sr_cam,1), round((1/2)*window[0]/self.sr_cam,1), 0, round((1/2)*window[-1]/self.sr_cam,1), round(window[-1]/self.sr_cam,1)]
+        x_ticks = np.linspace(0, len(window), len(x_tick_values)).astype(int)
+        if condition == 'blocks':
+            fig, axs = plt.subplots(1, len(sta_all[0]), figsize = (17, 8))
+            for b in range(len(sta_all[0])):
+                sta_block = [arr[b, :, :] for arr in sta_all]
+                sta_block = np.concatenate(sta_block)
+                sns.heatmap(sta_block, cmap = 'coolwarm', ax = axs[b], cbar = False, vmin = -2, vmax = 2)
+                axs[b].axvline(x=window[-1], color='k', linestyle='--')
+                axs[b].set_xticks(x_ticks, [f"{tick}" for tick in x_tick_values])
+                if b == 0:
+                    axs[b].set_ylabel('ROIs', fontsize = font_size)
+                axs[b].set(yticklabels=[])
+                axs[b].tick_params(left=False)
+                axs[b].set_xlabel('Time around event (s)', fontsize = font_size)
+                cumul_idx = 0
+                for m in range(len(sta_all)):
+                    cumul_idx = cumul_idx + sta_all[m].shape[1]
+                    axs[b].axhline(y=cumul_idx, c = 'k', linestyle='--')
+        elif condition == 'trials':
+            sta_tr = []
+            # Loop through each array in the 'list_of_arrays'
+            for arr in sta_all: #sta_zs[v]
+                if arr.shape[1] == 23:
+                    # Extract the elements for the array of size 23
+                    elements = arr[:,[0, 2, 3, 12, 13, 22]]
+                elif arr.shape[1] == 26:
+                    # Extract the elements for the array of size 26
+                    elements = arr[:, [0, 5, 6, 15, 16, 25]]
+                # Append the extracted elements to the list
+                sta_tr.append(elements)
+            sta_tr = np.concatenate(sta_tr)
+            fig, axs = plt.subplots(1, 6, figsize = (17, 8))
+            for tr in range(6):
+                sns.heatmap(sta_tr[:, tr, :], cmap = 'coolwarm', ax = axs[tr], cbar = False, vmin = -2, vmax = 2)
+                axs[tr].axvline(x=window[-1], color='k', linestyle='--')
+                axs[tr].set_xticks(x_ticks, [f"{tick}" for tick in x_tick_values])
+                axs[tr].set_xlabel('Time around event (s)', fontsize = font_size)
+                axs[tr].set(yticklabels=[])
+                axs[b].tick_params(left=False)
+                if tr == 0:
+                    axs[tr].set_ylabel('ROIs', fontsize = font_size)
+                cumul_idx = 0
+                for m in range(len(sta_all)):
+                    cumul_idx = cumul_idx + sta_all[m].shape[0]
+                    axs[tr].axhline(y=cumul_idx, c = 'k', linestyle='--')
+        fig.suptitle(var_name + ' STA all animals ' + session_id + ' by ' + condition, fontsize = font_size)
         if save_plot:
-            if not os.path.exists(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session)):
-                os.mkdir(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session))
-            plt.savefig(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session + '\\', 'Zs_distr.png'), dpi=self.my_dpi) 
+            if not os.path.exists(os.path.join(self.save_path, 'STA_summary_' + var_name + '_' + session_id)):
+                os.mkdir(os.path.join(self.save_path, 'STA_summary_' + var_name + '_' + session_id))
+            plt.savefig(os.path.join(self.save_path, 'STA_summary_' + var_name + '_' + session_id + '\\', 'STA_all' + var_name + '.png'), dpi=self.my_dpi)
+        plt.close()
+
+
+    def plot_zoom_sta(self, sta_clust, window, interval, colors_session, colors_cluster, var_name, session_id, animal, save_plot):
+        font_size = 15
+        x_tick_values = [round(interval[0]/self.sr_cam,1), round((1/2)*interval[0]/self.sr_cam,1), 0, round((1/2)*-interval[0]/self.sr_cam,1), round(-interval[0]/self.sr_cam,1)]
+        x_ticks = np.linspace(0, -interval[0]*2, len(x_tick_values)).astype(int)
+        # Zoomed in traces
+        if sta_clust.shape[1] > 1:
+            fig, axs = plt.subplots(sta_clust.shape[1],1, figsize = (5.5,20))
+            for c in range(sta_clust.shape[1]):        
+                for tr in range(sta_clust.shape[0]):
+                    axs[c].plot(sta_clust[tr,c,window[-1]+interval[0]:window[-1]-interval[0]], c = colors_session[tr+1], linewidth = 2) 
+                axs[c].axvline(x=-interval[0], c='k', linestyle = 'dashed')
+                axs[c].spines['right'].set_visible(False)
+                axs[c].spines['top'].set_visible(False)
+                axs[c].set_ylabel(var_name, fontsize = font_size)
+                if c == sta_clust.shape[1]-1:
+                    axs[c].set_xlabel('Time around event (s)', fontsize = font_size)
+                    axs[c].set_xticks(x_ticks, [f"{tick}" for tick in x_tick_values])
+                else:
+                    axs[c].set(xticklabels=[])
+                    axs[c].tick_params(bottom=False)
+                axs[c].set_ylim(-6, 6)
+                axs[c].set_title('Cluster ' + str(c+1), c = colors_cluster[c])
+        else:
+            plt.figure()
+            for c in range(sta_clust.shape[1]):        
+                for tr in range(sta_clust.shape[0]):
+                    plt.plot(sta_clust[tr,c,window[-1]+interval[0]:window[-1]-interval[0]], c = colors_session[tr+1], linewidth = 2) 
+                    plt.axvline(x=-interval[0], c='k', linestyle = 'dashed')
+            plt.gca().spines['right'].set_visible(False)
+            plt.gca().spines['top'].set_visible(False)
+            plt.ylabel(var_name, fontsize=font_size)
+            plt.xlabel('Time around event (s)', fontsize=font_size)
+            plt.xticks(x_ticks, [f"{tick}" for tick in x_tick_values])
+            plt.ylim(-6, 6)
+            plt.title('Cluster ' + str(c+1), c = colors_cluster[c])
+        if save_plot:
+            if not os.path.exists(os.path.join(self.save_path, 'STA_zoom_' + var_name +'_' + session_id)):
+                os.mkdir(os.path.join(self.save_path, 'STA_zoom_' + var_name +'_' + session_id))
+            plt.savefig(os.path.join(self.save_path, 'STA_zoom_' + var_name +'_' + session_id + '\\', 'STA_' + var_name + '_zoom_' + animal + '.png'), dpi=self.my_dpi)
+            plt.close()
         
-        # Boxplot latency of max z-score for the whole session
-        latency_negzs = latency[np.where(min_zs < signif_thresh)]
-        latency_poszs = latency[np.where(max_zs > signif_thresh)]
-        fig, ax = plt.subplots()
-        boxplot = ax.boxplot([latency_negzs, latency_poszs], showfliers=False, patch_artist=True)
-        ax.set_xticklabels([]) 
-        ax.tick_params(bottom=False)
-        colors = ['blue', 'yellow']
-        for patch, color in zip(boxplot['boxes'], colors):
+        
+    # def tuning_change(self, latency_pos, latency_neg, peaks_pos, peaks_neg, var_name, session_id, animal, trials, interval, save_plot):
+    #     fontsize = 15
+    #     colors = ['crimson', 'navy']
+    #     fig, ax = plt.subplots(2, 2, figsize = (20, 6), gridspec_kw={'hspace': 0})
+    #     for p in range(2):
+    #         if p == 0:
+    #             latency = latency_pos
+    #             mean_latency = np.nanmedian(latency, axis = 0)
+    #             peaks = peaks_pos[~np.isnan(peaks_pos).any(axis=1)]
+    #         else:
+    #             latency = latency_neg
+    #             mean_latency = np.nanmedian(latency, axis = 0)
+    #             peaks = peaks_neg[~np.isnan(peaks_neg).any(axis=1)]
+    #         for i in range(len(trials)):
+    #             ax[1, p].bar(trials[i], mean_latency[i], color = colors[p])
+    #             for c in range(latency_pos.shape[0]):
+    #                 ax[1, p].scatter(trials[i], latency[c, i], color='lightgray', s=5)
+    #         sns.heatmap(peaks, cmap = 'coolwarm', cbar = False, ax=ax[0, p], vmin = -5, vmax = 5)               
+    #         ax[1, p].set_ylim(round(interval[0]/self.sr_cam, 2)-0.05)
+    #         ax[1, p].set_xlim(trials[0]-0.5, trials[-1]+0.5)
+    #         ax[1, p].spines['right'].set_visible(False)
+    #         ax[1, p].spines['bottom'].set_visible(False)
+    #         ax[0, p].set_xlabel("Trials", fontsize=fontsize)
+    #         ax[1, p].set_ylabel("Latency (s)", fontsize=fontsize)
+    #         ax[0, p].xaxis.tick_top()
+    #         ax[0, p].xaxis.set_label_position('top')
+    #         ax[0, p].set_ylabel("Peaks (z)", fontsize=fontsize)
+    #         ax[0, p].set_xticks(np.arange(0.5, trials[-1]+0.5))
+    #         ax[0, p].set_xticklabels(range(1, trials[-1] + 1))  # Add this line to set the tick labels.
+    #         ax[1, p].set(xticklabels=[])
+    #         ax[1, p].tick_params(bottom=False)
+    #         ax[0, p].set(yticklabels=[])
+    #         ax[0, p].tick_params(left=False)
+    #     fig.suptitle(var_name + ' peaks and latency ' + animal + ' ' + session_id, fontsize=fontsize)
+    #     plt.tight_layout()
+    #     if save_plot:
+    #         if not os.path.exists(os.path.join(self.save_path, 'STA_summary_' + var_name + '_' + session_id)):
+    #             os.mkdir(os.path.join(self.save_path, 'STA_summary_' + var_name + '_'  + session_id))
+    #         plt.savefig(os.path.join(self.save_path, 'STA_summary_' + var_name + '_' + session_id + '\\', 'Peaks_Latency_' + var_name + '_' + animal + '.png'), dpi=self.my_dpi)
+
+
+    def tuning_change(self, latency_pos, latency_neg, peaks_pos, peaks_neg, var_name, session_id, animal, trials, interval, colors_cluster, save_plot):
+        fontsize = 15
+        height_ratios = [1.3, 1]
+        gs_kw = dict(height_ratios=height_ratios)
+        fig, ax = plt.subplots(2, 2, figsize = (15,9), gridspec_kw=gs_kw)
+        for p in range(2):
+            if p == 0:
+                latency = latency_pos
+                mean_latency = np.nanmedian(latency, axis = 0)
+                peaks = peaks_pos
+            else:
+                latency = latency_neg
+                mean_latency = np.nanmedian(latency, axis = 0)
+                peaks = peaks_neg
+            for i in range(len(trials)):
+                ax[1, p].bar(trials[i], mean_latency[i], color = 'lightgray')
+                for c in range(latency_pos.shape[0]):
+                    ax[1, p].scatter(trials[i], latency[c, i], color = colors_cluster[c], s=10)
+                    ax[0, p].plot(trials, peaks[c, :], linewidth = 2.5, marker = '.', c = colors_cluster[c])
+            ax[1, p].set_ylim(round(interval[0]/self.sr_cam, 2)-0.05)
+            ax[1, p].set_xlim(trials[0]-0.5, trials[-1]+0.5)
+            ax[1, p].spines['right'].set_visible(False)
+            ax[0, p].spines['bottom'].set_visible(False)
+            ax[0, p].spines['right'].set_visible(False)
+            ax[1, p].spines['bottom'].set_visible(False)
+            ax[1, p].set_ylabel("Latency (s)", fontsize=fontsize)
+            ax[0, p].set_ylabel("Peaks (z)", fontsize=fontsize)
+            ax[0, p].xaxis.tick_top()
+            ax[0, p].xaxis.set_label_position('top')
+            ax[0, p].set_xlabel("Trials", fontsize=fontsize)
+            ax[1, p].set(xticklabels=[])
+            ax[1, p].tick_params(bottom=False)
+            if p == 0:
+                ax[0, p].set_ylim(-1, 6.5)
+            else:
+                ax[0, p].set_ylim(-6.5, 1)
+            ax[0, p].set_xlim(1, trials[-1])
+            ax[0, p].set_xticks(np.arange(2, trials[-1] + 1, 2))
+        fig.suptitle(var_name + ' peaks and latency ' + animal + ' ' + session_id, fontsize=fontsize)
+        plt.tight_layout()
+        if save_plot:
+            if not os.path.exists(os.path.join(self.save_path, 'STA_summary_' + var_name + '_' + session_id)):
+                os.mkdir(os.path.join(self.save_path, 'STA_summary_' + var_name + '_'  + session_id))
+            plt.savefig(os.path.join(self.save_path, 'STA_summary_' + var_name + '_' + session_id + '\\', 'Peaks_Latency_' + var_name + '_' + animal + '.png'), dpi=self.my_dpi)      
+                
+                
+    def modulation_ratio(self, data_sum, var_name, session_id, save_plot):
+        fontsize = 15
+        plt.figure(figsize = (10, 8))
+        if len(data_sum) == 3:
+            colors = ['crimson', 'navy', 'Gainsboro']
+            plt.pie(data_sum, labels=['z > 2', 'z < -2', '-2 < z < 2'], colors = colors, wedgeprops={'linewidth': 1.7, 'edgecolor': 'k'})
+        else:
+            colors = ['navy', 'crimson', 'purple', 'Gainsboro']
+            plt.pie(data_sum, labels=['z > 2', 'z < -2', 'z > 2 and z < -2', '-2 < z < 2'], colors = colors, wedgeprops={'linewidth': 1.7, 'edgecolor': 'k'})
+        plt.rcParams['font.size'] = fontsize
+        total_observations = sum(data_sum)
+        annotations = [f'{value}/{total_observations}' for value in data_sum]
+        annotation_text = '\n'.join(annotations)
+        plt.annotate(annotation_text, xy=(1, 1), xytext=(-20, -20),
+                     fontsize=12, ha='right', va='top', xycoords='axes fraction', textcoords='offset points')
+        plt.title('Clusters modulated by ' + var_name + ' (all mice) ' + session_id, fontsize=fontsize)
+        if save_plot:
+            if not os.path.exists(os.path.join(self.save_path, 'STA_summary_' + var_name + '_' + session_id)):
+                os.mkdir(os.path.join(self.save_path, 'STA_summary_' + var_name + '_' + session_id))
+            plt.savefig(os.path.join(self.save_path, 'STA_summary_' + var_name + '_' + session_id + '\\', 'all_clust_modul_' + var_name + '.png'), dpi=self.my_dpi)
+        plt.close()
+        
+
+    def lat_peaks_distr(self, latency_pos_all, latency_neg_all, interval, session_id, var_name, save_plot): 
+        fontsize = 15       
+        mean_lat_neg = []
+        mean_lat_pos = []
+        for m in range(len(latency_neg_all)):
+            mean_lat_neg.append(np.nanmedian(latency_neg_all[m], axis = 1))
+            mean_lat_pos.append(np.nanmedian(latency_pos_all[m], axis = 1))
+        mean_lat_neg = np.concatenate(mean_lat_neg)
+        mean_lat_pos = np.concatenate(mean_lat_pos)
+        mean_lat_pos = mean_lat_pos[~np.isnan(mean_lat_pos)]
+        mean_lat_neg = mean_lat_neg[~np.isnan(mean_lat_neg)]
+        plt.figure(figsize = (6, 8))
+        box = plt.boxplot([mean_lat_pos, mean_lat_neg], labels=["z > 2", "z < -2"], patch_artist=True, widths=0.6)
+        box_colors = ["yellow", "blue"]
+        for patch, color in zip(box['boxes'], box_colors):
             patch.set_facecolor(color)
-            patch.set_edgecolor('black')
-            patch.set_linewidth(2)
-        for median in boxplot['medians']:
-            median.set(color='black', linewidth=1.7)
-        for whisker in boxplot['whiskers']:
-            whisker.set(color='black', linewidth=1.7)
-        for cap in boxplot['caps']:
-            cap.set(color='black', linewidth=1.7)
-        ax.set_ylabel('Latency (s)', fontsize = 15)
-        plt.show()
+            patch.set_linewidth(2.5)  
+        for median in box['medians']:
+            median.set_color("black")
+            median.set_linewidth(2.5)
+        for whisker in box['whiskers']:
+            whisker.set_linewidth(2.5)
+        plt.gca().spines['right'].set_visible(False)
+        plt.gca().spines['top'].set_visible(False)
+        plt.ylabel("Latency (s)", fontsize=fontsize)
+        plt.ylim(round(interval[0]/self.sr_cam, 2))
+        plt.title(var_name + ' peak latency (all mice) ' + session_id, fontsize=fontsize)
         if save_plot:
-            if not os.path.exists(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session)):
-                os.mkdir(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session))
-            plt.savefig(os.path.join(self.save_path, 'STA_zs_' + var_name + '_' + mouse_id + '_' + session + '\\', 'Latency.png'), dpi=self.my_dpi) 
-        
-        return max_zs, min_zs, latency   
-
+            if not os.path.exists(os.path.join(self.save_path, 'STA_summary_' + var_name + '_' + session_id)):
+                os.mkdir(os.path.join(self.save_path, 'STA_summary_' + var_name + '_' + session_id))
+            plt.savefig(os.path.join(self.save_path, 'STA_summary_' + var_name + '_' + session_id + '\\', 'all_clust_peak_latency_' + var_name + '.png'), dpi=self.my_dpi)
+            plt.close()
+    
     
     def peak_detection(self, bodycenter, ampl, TimePntThres, trials):
         '''Use the derivative method to detect body position peaks, onsets and offsets for each trial and plot them

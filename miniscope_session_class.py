@@ -1058,8 +1058,8 @@ class miniscope_session:
         skewness_dFF = df_dFF_aspectratio.skew(axis=0, skipna=True)
         skewness_dFF_argsort = np.argsort(np.array(skewness_dFF[2:]))
         # ROI curation (ΔF/F with the same range)
-        range_dFF = [df_dFF_aspectratio.loc[df_dFF_aspectratio['trial'] == trial_curation].min(axis=0)[2:].min(),
-                     df_dFF_aspectratio.loc[df_dFF_aspectratio['trial'] == trial_curation].max(axis=0)[2:].max()]
+        range_dFF = [df_dFF_aspectratio.loc[df_dFF_aspectratio['trial'] == trial_curation].min(axis=0, skipna=True)[2:].min(skipna=True),
+                     df_dFF_aspectratio.loc[df_dFF_aspectratio['trial'] == trial_curation].max(axis=0, skipna=True)[2:].max(skipna=True)]
         roi_list_after_aspectratio = df_dFF_aspectratio.columns[2:]
         roi_list_sort_skewness = roi_list_after_aspectratio[skewness_dFF_argsort[::-1]]
         roi_idx_sort_skewness = skewness_dFF_argsort[::-1]
@@ -1075,7 +1075,7 @@ class miniscope_session:
                      df_dFF_aspectratio.loc[(df_dFF_aspectratio['trial'] == trial_curation), r], color='black')
             ax1.set_title('Trial ' + str(trial_curation) + ' ' + str(count_r + 1) + '/' + str(
                 len(df_dFF_aspectratio.columns[2:])))
-            ax1.set_ylim(range_dFF)
+            # ax1.set_ylim(range_dFF)
             ax1.set_xlabel('Time (s)')
             ax1.spines['right'].set_visible(False)
             ax1.spines['top'].set_visible(False)
@@ -1318,7 +1318,34 @@ class miniscope_session:
             sysClock_clean = sysClock[frames_dFF[t] - 1:] / 1000  # -1 because frame index starts at 0
             frame_time.append(
                 sysClock_clean - sysClock_clean[0])  # get time of each frame to align with behavior recording
-        return frame_time
+        return frame_time       
+
+    def get_HF_trials(self, tifflist):
+        """From the list of acquired tiffs get the list of trials recorded
+        Inputs:
+            tifflist: list of recorded tiff files"""
+        trials = []
+        for count_f, f in enumerate(tifflist):
+            trials.append(np.int64(f[f.rfind('T')+1:f.find('.')]))
+        trials_ordered = np.sort(trials)
+        return trials_ordered
+
+    def get_HF_frame_time(self, trials, tifflist):
+        """From list of acquired tiffs get the timestamp of each frame
+        (Assumes set 30Hz acquisition without loss of frames)
+        Inputs:
+            tifflist: list of recorded tiff files"""
+        tifflist_ordered = []
+        for count_t, t in enumerate(trials):
+            for l in tifflist:
+                if np.int64(l[l.rfind('T')+1:l.rfind('.')]) == t:
+                    tifflist_ordered.append(l) 
+        frame_time = []
+        for f in tifflist_ordered:
+            image_stack = tiff.imread(f)
+            frame_nr = image_stack.shape[-1]
+            frame_time.append(np.linspace(0, frame_nr*(1/30), num=frame_nr))
+        return frame_time  
 
     def get_black_frames(self):
         """Get the number of black frames per tiff video that had to be removed.
@@ -1767,12 +1794,12 @@ class miniscope_session:
         np.save(os.path.join(self.path, 'processed files', 'clusters_rois_idx_order.npy'), idx_roi_cluster_ordered)
         return [clusters_rois_ordered, idx_roi_cluster_ordered]
 
-    def get_coordinates_cluster(self, centroid_ext, fov_coord, idx_roi_cluster_ordered):
+    def get_global_coordinates_cluster(self, centroid_ext, animal, idx_roi_cluster_ordered):
         """Get the coordinates of the clusters based on the mean of the centroids.
         Put the coordinates in a global scale (based on histology)
         Inputs:
-            fov_coord: coordinates of the center of the FOV (based on histology)
             idx_roi_cluster_ordered: list of cluster if for each ROI index
+            animal: (str) animal name to get the right FOV global coordinates
             centroid_ext: list of coordinates of ROIs centroids"""
         centroid_cluster_mean = np.zeros((len(np.unique(idx_roi_cluster_ordered)), 2))
         for count_i, i in enumerate(np.unique(idx_roi_cluster_ordered)):
@@ -1783,6 +1810,16 @@ class miniscope_session:
             centroid_mean = np.nanmean(centroid_cluster, axis=0)
             centroid_cluster_mean[count_i, 0] = -centroid_mean[0]  # because we are in the negative area of bregma
             centroid_cluster_mean[count_i, 1] = centroid_mean[1]
+        if animal == 'MC8855':
+            fov_coord = np.array([-6.27, 0.53])
+        if animal == 'MC9194':
+            fov_coord = np.array([-6.61, 0.89])
+        if animal == 'MC9226':
+            fov_coord = np.array([-6.39, 1.62])
+        if animal == 'MC9513':
+            fov_coord = np.array([-6.98, 1.47])
+        if animal == 'MC10221':
+            fov_coord = np.array([-6.80, 1.75])
         fov_corner = np.array([fov_coord[0] + 0.5, fov_coord[1] - 0.5])
         centroid_cluster_dist_corner = (centroid_cluster_mean * 0.001) + fov_corner
         if not os.path.exists(self.path + 'processed files'):
@@ -2182,19 +2219,23 @@ class miniscope_session:
             for t in trials:
                 data = np.array(df_dFF.loc[df_dFF['trial'] == t, r])
                 events_mat = np.zeros(len(data))
-                [Ev_Onset, IncremSet] = self.compute_events_onset(data, self.sr, detrend_bool)
-                if len(Ev_Onset) > 0:
-                    events = self.event_detection_calcium_trace(data, Ev_Onset, IncremSet, 3)
-                    if detrend_bool == 0:
-                        events_new = []
-                        for e in events:
-                            if data[e] >= np.nanpercentile(data, 75):
-                                events_new.append(e)
-                        events = events_new
-                    events_mat[events] = 1
+                if len(np.where(np.isnan(data))[0]) != len(data):
+                    [Ev_Onset, IncremSet] = self.compute_events_onset(data, self.sr, detrend_bool)
+                    if len(Ev_Onset) > 0:
+                        events = self.event_detection_calcium_trace(data, Ev_Onset, IncremSet, 3)
+                        if detrend_bool == 0:
+                            events_new = []
+                            for e in events:
+                                if data[e] >= np.nanpercentile(data, 75):
+                                    events_new.append(e)
+                            events = events_new
+                        events_mat[events] = 1
+                    else:
+                        print('No events for ' + r + ' trial ' + str(t))
+                        df_events.loc[df_events['trial'] == t, r] = events_mat
                 else:
                     print('No events for ' + r + ' trial ' + str(t))
-                df_events.loc[df_events['trial'] == t, r] = events_mat
+                    df_events.loc[df_events['trial'] == t, r] = events_mat
                 count_t += 1
             count_r += 1
         if len(csv_name) > 0:

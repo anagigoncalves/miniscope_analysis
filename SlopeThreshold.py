@@ -32,8 +32,12 @@ def Detect_PosEvents_ROI(dff_signal, acq_fq, rtau, graph=None):
     # Find the most approximated noise amplitude estimation using the 'gaussian derivative' trick:
     TrueStd, deriv_mean, deriv_std = DerivGauss_NoiseEstim(dff_signal, thres=2)
     # Use that noise amplitude to define regions of slope change / stability
-    IncremSet, DecremSet, F_Values = SlopeThreshold(dff_signal, TrueStd*2, int(np.ceil(rtau*acq_fq)),
-                                                       CollapSeq=False, acausal=True, graph=graph)
+
+    # IncremSet, DecremSet, F_Values = SlopeThreshold(dff_signal, TrueStd*2, int(np.ceil(rtau*acq_fq)),
+    #                                                    CollapSeq=False, acausal=True, graph=graph)
+
+    IncremSet, DecremSet, F_Values = SlopeThreshold(dff_signal, TrueStd * 4, int(np.ceil(rtau * acq_fq)),
+                                                    CollapSeq=False, acausal=True, graph=graph)
 
     Ev_Onset = list(map(lambda x : x[0], IncremSet)); Ev_ApproxPeak = list(map(lambda x : x[1], IncremSet))
     return Ev_Onset, Ev_ApproxPeak, TrueStd, IncremSet

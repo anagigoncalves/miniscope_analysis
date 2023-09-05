@@ -44,9 +44,7 @@ df_extract_rawtrace_detrended = pd.read_csv(
     os.path.join(mscope.path, 'processed files', 'df_extract_rawtrace_detrended.csv'))
 trials = np.load(os.path.join(mscope.path, 'processed files', 'trials.npy'))
 roi_list = mscope.get_roi_list(df_extract_rawtrace_detrended)
-roi = np.random.choice(roi_list, size=1)[0]
 roi = 'ROI18'
-trial = np.random.choice(trials, size=1)[0]
 fig, ax = plt.subplots(figsize=(10,5), tight_layout=True)
 for count_t, t in enumerate(trials):
     F = np.array(df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == t, roi])
@@ -59,5 +57,15 @@ ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=16)
 plt.savefig('D:\\Titer analysis\\example_14days_dil1to100_roi18_alltrials_pauses_bursts', dpi=256)
 
-#np.array(df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == 3, 'ROI3])[:30*mscope.sr] #bursty day 17 dil 100
-#np.array(df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == 4, 'ROI18])[:30*mscope.sr] #bursty day 14 dil 100
+df_events_extract_rawtrace = pd.read_csv(
+    os.path.join(mscope.path, 'processed files', 'df_events_extract_rawtrace.csv'))
+isi_events = mscope.compute_isi(df_events_extract_rawtrace, 'raw', 'isi_events')
+roi = 'ROI18'
+fig, ax = plt.subplots(figsize=(10,5), tight_layout=True)
+for count_t, t in enumerate(trials):
+    F = np.array(df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == t, roi])
+    F_time = np.array(df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == t, 'time'])
+    events = np.where(np.array(df_events_extract_rawtrace.loc[df_events_extract_rawtrace['trial'] == t, roi]))[0]
+    ax.plot(F_time, F + (count_t/4), linewidth=2, color='black')
+    ax.scatter(F_time[events], F[events] + (count_t/4), color='orange', s=30)
+

@@ -19,25 +19,25 @@ roi_nr_days = np.zeros((len(dils),len(days)))
 fr_days = []
 cv_days = []
 cv2_days = []
-perc95_days = []
+perc90_days = []
 skew_days = []
 for count_dil, dil in enumerate(dils):
     fr = []
     cv = []
     cv2 = []
-    perc95 = []
+    perc90 = []
     skew = []
     for count_d, d in enumerate(days):
         roi_nr_days[count_dil, count_d] = np.load(os.path.join(path, dil + '_day_' + d + '_roinr.npy'))
         fr.append(np.load(os.path.join(path, dil + '_day_' + d + '_fr.npy')))
         cv.append(np.load(os.path.join(path, dil + '_day_' + d + '_cv.npy')))
         cv2.append(np.load(os.path.join(path, dil + '_day_' + d + '_cv2.npy')))
-        perc95.append(np.load(os.path.join(path, dil + '_day_' + d + '_perc95.npy')))
+        perc90.append(np.load(os.path.join(path, dil + '_day_' + d + '_perc90.npy')))
         skew.append(np.load(os.path.join(path, dil + '_day_' + d + '_skew.npy')))
     fr_days.append(fr)
     cv_days.append(cv)
     cv2_days.append(cv2)
-    perc95_days.append(perc95)
+    perc90_days.append(perc90)
     skew_days.append(skew)
 
 fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
@@ -117,24 +117,24 @@ ax.tick_params(axis='both', which='major', labelsize=16)
 plt.savefig('D:\\Titer analysis\\cv2', dpi=256)
 
 fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
-perc95_days_mean = np.zeros((len(dils),len(days)))
-perc95_days_std = np.zeros((len(dils),len(days)))
+perc90_days_mean = np.zeros((len(dils),len(days)))
+perc90_days_std = np.zeros((len(dils),len(days)))
 for count_dil, dil in enumerate(dils):
     for d in range(len(days)):
-        perc95_days_mean[count_dil, d] = np.mean(perc95_days[count_dil][d])
-        perc95_days_std[count_dil, d] = np.std(perc95_days[count_dil][d])
+        perc90_days_mean[count_dil, d] = np.mean(perc90_days[count_dil][d])
+        perc90_days_std[count_dil, d] = np.std(perc90_days[count_dil][d])
 for count_dil, dil in enumerate(dils):
-    plt.plot(np.arange(len(days)), perc95_days_mean[count_dil, :], linewidth=2, label=dil)
-    plt.fill_between(np.arange(len(days)), perc95_days_mean[count_dil, :]-perc95_days_std[count_dil, :], perc95_days_mean[count_dil, :]+perc95_days_std[count_dil, :], alpha=0.3)
+    plt.plot(np.arange(len(days)), perc90_days_mean[count_dil, :], linewidth=2, label=dil)
+    plt.fill_between(np.arange(len(days)), perc90_days_mean[count_dil, :]-perc90_days_std[count_dil, :], perc90_days_mean[count_dil, :]+perc90_days_std[count_dil, :], alpha=0.3)
 ax.set_xlabel('Days post surgery', fontsize=16)
-ax.set_ylabel('Average 95% percentile of ISI (s)', fontsize=16)
+ax.set_ylabel('90% percentile of ISI (s)', fontsize=16)
 #ax.legend(dils, frameon=False, fontsize=16)
 ax.set_xticks(np.arange(len(days)))
 ax.set_xticklabels(days)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=16)
-plt.savefig('D:\\Titer analysis\\perc95', dpi=256)
+plt.savefig('D:\\Titer analysis\\perc90', dpi=256)
 
 fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
 skew_days_mean = np.zeros((len(dils),len(days)))

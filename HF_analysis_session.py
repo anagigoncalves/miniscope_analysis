@@ -13,7 +13,7 @@ save_path = 'D:\\Titer analysis\\session files\\'
 version_mscope = 'v4'
 plot_data = 1
 load_data = 1
-refine_events = 0
+refine_events = 1
 print_plots = 1
 save_data = 1
 fsize = 24
@@ -132,7 +132,7 @@ for dil in dils:
                     events_mat = np.zeros(len(data))
                     if len(data) == len(np.where(np.isnan(data))[0]):
                         Ev_Onset = []
-                    elif t == 6:
+                    elif t == 5 or t == 6:
                         Ev_Onset = []
                     else:
                         [Ev_Onset, IncremSet] = mscope.compute_events_onset(data, mscope.sr, detrend_bool)
@@ -179,7 +179,7 @@ for dil in dils:
 
         if refine_events:
             df_extract_rawtrace = pd.read_csv(
-                os.path.join(mscope.path, 'processed files', 'df_extract_rawtrace_raw.csv'))
+                os.path.join(mscope.path, 'processed files', 'df_extract_raw.csv'))
             # Get events
             detrend_bool = 1
             csv_name = 'df_events_extract_rawtrace'
@@ -202,7 +202,7 @@ for dil in dils:
                     events_mat = np.zeros(len(data))
                     if len(data) == len(np.where(np.isnan(data))[0]):
                         Ev_Onset = []
-                    elif t == 6 or t == 5:
+                    elif t == 5 or t == 6:
                         Ev_Onset = []
                     else:
                         [Ev_Onset, IncremSet] = mscope.compute_events_onset(data, mscope.sr, detrend_bool)
@@ -246,14 +246,14 @@ for dil in dils:
             cv2_roi = np.zeros(len(roi_list))
             for count_r, r in enumerate(roi_list):
                 cv2_roi[count_r] = isi_events_cv2.loc[isi_events_cv2['roi'] == r, 'cv2'].mean(skipna=True)
-            perc95_roi = np.zeros(len(roi_list))
+            perc90_roi = np.zeros(len(roi_list))
             for count_r, r in enumerate(roi_list):
-                perc95_roi[count_r] = np.nanpercentile(isi_events.loc[isi_events['roi'] == r, 'isi'], 95)
+                perc90_roi[count_r] = np.nanpercentile(isi_events.loc[isi_events['roi'] == r, 'isi'], 90)
             np.save(os.path.join(save_path, dil + '_day_' + day + '_roinr'), len(roi_list))
             np.save(os.path.join(save_path, dil + '_day_' + day + '_fr'), fr_roi)
             np.save(os.path.join(save_path, dil + '_day_' + day + '_cv'), cv_roi)
             np.save(os.path.join(save_path, dil + '_day_' + day + '_cv2'), cv2_roi)
-            np.save(os.path.join(save_path, dil + '_day_' + day + '_perc95'), perc95_roi)
+            np.save(os.path.join(save_path, dil + '_day_' + day + '_perc90'), perc90_roi)
 
             skewness_rois = list(df_extract_rawtrace_detrended.skew(axis=0, skipna=True).iloc[2:])
             np.save(os.path.join(save_path, dil + '_day_' + day + '_skew'), skewness_rois)

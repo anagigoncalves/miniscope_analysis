@@ -25,7 +25,8 @@ import matplotlib.patches as mp_patch
 import SlopeThreshold as ST
 import read_roi
 import scipy.spatial.distance as spdist
-
+from scipy.spatial import Delaunay
+from itertools import chain
 
 # to call class
 # os.chdir('/Users/anagoncalves/Documents/PhD/Code/Miniscope pipeline/')
@@ -1853,6 +1854,37 @@ class miniscope_session:
                     os.mkdir(os.path.join(self.path, 'images', 'cluster'))
                 plt.savefig(os.path.join(self.path, 'images', 'cluster', 'roi_clustering_fov'), dpi=self.my_dpi)
         return
+
+    def get_rois_aligned_reference_cluster(self, coord_ext, animal):
+        """Get the cluster reference id for each ROI of the session. Get the ROIs with at least
+        75% overlap.
+        Inputs:
+        coord_ext: list of ROI coordinates
+        animal: (str) animal name"""
+        path_ref_clusters = os.path.join(self.path[:self.path.find('TM RAW FILES')], 'TM RAW FILES', 'reference clusters')
+        coord_ext_reference_ses = np.load(os.path.join(path_ref_clusters,
+                             'coord_ext_reference_ses_' + animal + '.npy'), allow_pickle=True)
+        idx_roi_cluster_ordered_reference_ses = np.load(os.path.join(path_ref_clusters,
+                             'clusters_rois_idx_order_reference_ses_' + animal + '.npy'), allow_pickle=True)
+        overlap = 0.75
+        size_frame = np.int64(608/self.pixel_to_um)
+        clusters = np.unique(idx_roi_cluster_ordered_reference_ses)
+        coord_ext_overlap = np.zeros(np.shape(coord_ext)[0])
+        for i in range(np.shape(coord_ext)[0]): #for all the ROIs in the session
+         coord_roi_int = np.int64(coord_ext[i])
+         frame_arr_coord = np.ones((size_frame, size_frame))*-1
+         frame_arr_coord[coord_roi_int[:, 0], coord_roi_int[:, 1]] = 1 #make matrix of 1 where roi is
+         for c in clusters:
+          idx_cluster = np.where(idx_roi_cluster_ordered_reference_ses == c)[0]
+          rois_coordinates_cluster = np.array(list(chain.from_iterable(coord_ext_reference_ses[idx_cluster])))
+          coord_cluster_int = np.int64(rois_coordinates_cluster)
+          frame_arr_cluster = np.ones((size_frame, size_frame))*-1
+          frame_arr_cluster[coord_cluster_int[:, 0], coord_cluster_int[:, 1]] = 1 #make matrix of 1 where reference cluster is
+          #overlap of reference cluster and roi is 2
+          coord_roi_overlap = len(np.where((frame_arr_coord+frame_arr_cluster) == 2)[0])/len(np.where(frame_arr_coord == 1)[0])
+          if coord_roi_overlap >= overlap:
+           coord_ext_overlap[i] = c #get cluster reference id for each roi, 0 is none
+        return coord_ext_reference_ses, idx_roi_cluster_ordered_reference_ses, coord_ext_overlap
 
     def plot_single_cluster_map(self, ref_image, colors, idx, coord_cell, traces_type, plot_data, print_plots):
         """Plot ROIs on top of reference image color coded by the result of the hierarchical clustering
@@ -5026,6 +5058,64 @@ class miniscope_session:
                                              'Cluster' + str(roi_plot) + '_cv2_stacked_traces_' + traces_type),
                                 dpi=self.my_dpi)
         return
+
+    @staticmethod
+    def get_contour_cluster(coord_ext, idx_roi_cluster_ordered, cluster):
+        """Get the edges around a group of ROIs (a cluster for example).
+        Outputs x andy coordinates of the edges.
+        Inputs:
+         coord_ext: (list) coordinates for each ROI
+         idx_roi_cluster_ordered: for each ROI says the cluster index (starts at 1)
+         cluster: cluster number to plot the edges around"""
+        def alpha_shape(points, only_outer, alpha):
+            """Compute the alpha shape (concave hull) of a set
+            of points.
+            param points: Iterable container of points.
+            param alpha: alpha value to influence the
+                gooeyness of the border. Smaller numbers
+                don't fall inward as much as larger numbers.
+                Too large, and you lose everything!
+            only_outer: boolean value to specify if we keep only the outer border
+               or also inner edges."""
+            assert points.shape[0] > 3, "Need at least four points"
+            def add_edge(edges, i, j):
+                """Add an edge between the i-th and j-th points,
+                if not in the list already"""
+                if (i, j) in edges or (j, i) in edges:  # already added
+                    assert (j, i) in edges, "Can't go twice over same directed edge right?"
+                    if only_outer:
+                        edges.remove((j, i))  # if both neighboring triangles are in shape, it's not a boundary edge
+                    return
+                edges.add((i, j))
+            tri = Delaunay(points)
+            edges = set()
+            for ia, ib, ic in tri.vertices:
+                pa = points[ia]
+                pb = points[ib]
+                pc = points[ic]
+                a = np.sqrt((pa[0] - pb[0]) ** 2 + (pa[1] - pb[1]) ** 2)  # Lengths of sides of triangle
+                b = np.sqrt((pb[0] - pc[0]) ** 2 + (pb[1] - pc[1]) ** 2)
+                c = np.sqrt((pc[0] - pa[0]) ** 2 + (pc[1] - pa[1]) ** 2)
+                s = (a + b + c) / 2.0  # Semiperimeter of triangle
+                area = np.sqrt(s * (s - a) * (s - b) * (s - c))  # Area of triangle by Heron's formula
+                circum_r = np.divide(a * b * c, (4.0 * area))
+                if circum_r < (1.0 / alpha):  # Here's the radius filter.
+                    add_edge(edges, ia, ib)
+                    add_edge(edges, ib, ic)
+                    add_edge(edges, ic, ia)
+            return edges
+        idx_cluster = np.where(idx_roi_cluster_ordered == cluster)[0]
+        rois_coordinates_cluster = np.array(list(chain.from_iterable(coord_ext[idx_cluster])))
+        edges = alpha_shape(rois_coordinates_cluster, 1, alpha=0.4)
+        plt.figure()
+        plt.scatter(rois_coordinates_cluster[:, 0], rois_coordinates_cluster[:, 1], color='blue')
+        edges_coordinates = []
+        for i, j in edges:
+            edges_coordinates.append([rois_coordinates_cluster[[i, j], 0], rois_coordinates_cluster[[i, j], 1]])
+        edges_coordinates_array = np.array(edges_coordinates)
+        plt.scatter(edges_coordinates_array[:, 0], edges_coordinates_array[:, 1], color='black')
+        return edges_coordinates_array
+
     # def get_background_signal(self, weight, coord_cell):
     #     """ Get neuropil background signals for each cell coordinates. Low-pass filter of
     #     image with a Hamming window weight*cell diameter. Background signal is then computed

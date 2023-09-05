@@ -21,12 +21,14 @@ cv_days = []
 cv2_days = []
 perc90_days = []
 skew_days = []
+maxF_days = []
 for count_dil, dil in enumerate(dils):
     fr = []
     cv = []
     cv2 = []
     perc90 = []
     skew = []
+    maxF = []
     for count_d, d in enumerate(days):
         roi_nr_days[count_dil, count_d] = np.load(os.path.join(path, dil + '_day_' + d + '_roinr.npy'))
         fr.append(np.load(os.path.join(path, dil + '_day_' + d + '_fr.npy')))
@@ -34,11 +36,13 @@ for count_dil, dil in enumerate(dils):
         cv2.append(np.load(os.path.join(path, dil + '_day_' + d + '_cv2.npy')))
         perc90.append(np.load(os.path.join(path, dil + '_day_' + d + '_perc90.npy')))
         skew.append(np.load(os.path.join(path, dil + '_day_' + d + '_skew.npy')))
+        maxF.append(np.load(os.path.join(path, dil + '_day_' + d + '_maxF.npy')))
     fr_days.append(fr)
     cv_days.append(cv)
     cv2_days.append(cv2)
     perc90_days.append(perc90)
     skew_days.append(skew)
+    maxF_days.append(maxF)
 
 fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
 for count_dil, dil in enumerate(dils):
@@ -155,3 +159,22 @@ ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=16)
 plt.savefig('D:\\Titer analysis\\skew', dpi=256)
+
+fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+maxF_days_mean = np.zeros((len(dils),len(days)))
+maxF_days_std = np.zeros((len(dils),len(days)))
+for count_dil, dil in enumerate(dils):
+    for d in range(len(days)):
+        maxF_days_mean[count_dil, d] = np.mean(maxF_days[count_dil][d])
+        maxF_days_std[count_dil, d] = np.std(maxF_days[count_dil][d])
+for count_dil, dil in enumerate(dils):
+    plt.plot(np.arange(len(days)), maxF_days_mean[count_dil, :], linewidth=2, label=dil)
+    plt.fill_between(np.arange(len(days)), maxF_days_mean[count_dil, :]-maxF_days_std[count_dil, :], maxF_days_mean[count_dil, :]+maxF_days_std[count_dil, :], alpha=0.3)
+ax.set_xlabel('Days post surgery', fontsize=16)
+ax.set_ylabel('Maximum of fluorescence\nsignal', fontsize=16)
+ax.set_xticks(np.arange(len(days)))
+ax.set_xticklabels(days)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.tick_params(axis='both', which='major', labelsize=16)
+plt.savefig('D:\\Titer analysis\\maxF', dpi=256)

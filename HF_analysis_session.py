@@ -19,11 +19,11 @@ save_data = 1
 fsize = 24
 
 days = ['08', '10', '14', '17', '20', '23', '27']
-dils = ['dilution_1_to_50']
+dils = ['dilution_1_to_10']
 for dil in dils:
     for day in days:
-        path = 'D:\\Titer analysis\\TM RAW FILES\\' + dil.replace('_', ' ') + '\\2020_01_' + day + '\\'
-        # path = 'C:\\Users\\Ana\\Desktop\\' + dil.replace('_', ' ') + '\\2020_01_' + day + '\\'
+        #path = 'D:\\Titer analysis\\TM RAW FILES\\' + dil.replace('_', ' ') + '\\2020_01_' + day + '\\'
+        path = 'C:\\Users\\Ana\\Desktop\\' + dil.replace('_', ' ') + '\\2020_01_' + day + '\\'
         session_type = path.split('\\')[-4].split(' ')[0]
         # import classes
         os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
@@ -249,12 +249,15 @@ for dil in dils:
             perc90_roi = np.zeros(len(roi_list))
             for count_r, r in enumerate(roi_list):
                 perc90_roi[count_r] = np.nanpercentile(isi_events.loc[isi_events['roi'] == r, 'isi'], 90)
+            maxF_roi = np.zeros(len(roi_list))
+            for count_r, r in enumerate(roi_list):
+                maxF_roi[count_r] = np.nanmax(df_extract_rawtrace_detrended[r])
             np.save(os.path.join(save_path, dil + '_day_' + day + '_roinr'), len(roi_list))
             np.save(os.path.join(save_path, dil + '_day_' + day + '_fr'), fr_roi)
             np.save(os.path.join(save_path, dil + '_day_' + day + '_cv'), cv_roi)
             np.save(os.path.join(save_path, dil + '_day_' + day + '_cv2'), cv2_roi)
             np.save(os.path.join(save_path, dil + '_day_' + day + '_perc90'), perc90_roi)
-
+            np.save(os.path.join(save_path, dil + '_day_' + day + '_maxF'), maxF_roi)
             skewness_rois = list(df_extract_rawtrace_detrended.skew(axis=0, skipna=True).iloc[2:])
             np.save(os.path.join(save_path, dil + '_day_' + day + '_skew'), skewness_rois)
 

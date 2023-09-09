@@ -13,8 +13,8 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S2.xlsx')
-save_path = 'J:\\Miniscope processed files\\STA paw spatial diff\\split contra fast S1\\'
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
+save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA paw spatial diff\\split ipsi fast S1\\'
 if not os.path.exists(os.path.join(save_path, 'Plots')):
     os.mkdir(os.path.join(save_path, 'Plots'))
 protocol_type = save_path.split('\\')[-2].split(' ')[0]

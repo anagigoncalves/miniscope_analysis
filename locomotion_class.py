@@ -843,7 +843,7 @@ class loco_class:
     
     def compute_bodyspeed(self,bodycenter):
         """Computes body speed with a Savitzky-Golay filter"""
-        bodyspeed = savgol_filter(self.inpaint_nans(bodycenter),51,3,deriv=1)
+        bodyspeed = savgol_filter(self.inpaint_nans(bodycenter),81,3,deriv=1)
         return bodyspeed
     
     def compute_bodycenter(self,final_tracks,axis_name):
@@ -858,7 +858,7 @@ class loco_class:
 
     def compute_bodyacc(self,bodycenter):
         """Computes body acceleration with a Savitzky-Golay filter"""
-        bodyacc = savgol_filter(self.inpaint_nans(bodycenter),51,3,deriv=2)
+        bodyacc = savgol_filter(self.inpaint_nans(bodycenter),81,3,deriv=2)
         return bodyacc
 
     def get_trials_split(self,filelist): 

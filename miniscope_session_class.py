@@ -1855,10 +1855,11 @@ class miniscope_session:
                 plt.savefig(os.path.join(self.path, 'images', 'cluster', 'roi_clustering_fov'), dpi=self.my_dpi)
         return
 
-    def get_rois_aligned_reference_cluster(self, coord_ext, animal):
+    def get_rois_aligned_reference_cluster(self, df_data, coord_ext, animal):
         """Get the cluster reference id for each ROI of the session. Get the ROIs with at least
         75% overlap.
         Inputs:
+        df_data: dataframe with dFF data or events
         coord_ext: list of ROI coordinates
         animal: (str) animal name"""
         path_ref_clusters = os.path.join(self.path[:self.path.find('TM RAW FILES')], 'TM RAW FILES', 'reference clusters')
@@ -1871,20 +1872,29 @@ class miniscope_session:
         clusters = np.unique(idx_roi_cluster_ordered_reference_ses)
         coord_ext_overlap = np.zeros(np.shape(coord_ext)[0])
         for i in range(np.shape(coord_ext)[0]): #for all the ROIs in the session
-         coord_roi_int = np.int64(coord_ext[i])
-         frame_arr_coord = np.ones((size_frame, size_frame))*-1
-         frame_arr_coord[coord_roi_int[:, 0], coord_roi_int[:, 1]] = 1 #make matrix of 1 where roi is
-         for c in clusters:
-          idx_cluster = np.where(idx_roi_cluster_ordered_reference_ses == c)[0]
-          rois_coordinates_cluster = np.array(list(chain.from_iterable(coord_ext_reference_ses[idx_cluster])))
-          coord_cluster_int = np.int64(rois_coordinates_cluster)
-          frame_arr_cluster = np.ones((size_frame, size_frame))*-1
-          frame_arr_cluster[coord_cluster_int[:, 0], coord_cluster_int[:, 1]] = 1 #make matrix of 1 where reference cluster is
-          #overlap of reference cluster and roi is 2
-          coord_roi_overlap = len(np.where((frame_arr_coord+frame_arr_cluster) == 2)[0])/len(np.where(frame_arr_coord == 1)[0])
-          if coord_roi_overlap >= overlap:
-           coord_ext_overlap[i] = c #get cluster reference id for each roi, 0 is none
-        return coord_ext_reference_ses, idx_roi_cluster_ordered_reference_ses, coord_ext_overlap
+            coord_roi_int = np.int64(coord_ext[i])
+            frame_arr_coord = np.ones((size_frame, size_frame))*-1
+            frame_arr_coord[coord_roi_int[:, 0], coord_roi_int[:, 1]] = 1 #make matrix of 1 where roi is
+            for c in clusters:
+                idx_cluster = np.where(idx_roi_cluster_ordered_reference_ses == c)[0]
+                rois_coordinates_cluster = np.array(list(chain.from_iterable(coord_ext_reference_ses[idx_cluster])))
+                coord_cluster_int = np.int64(rois_coordinates_cluster)
+                frame_arr_cluster = np.ones((size_frame, size_frame))*-1
+                frame_arr_cluster[coord_cluster_int[:, 0], coord_cluster_int[:, 1]] = 1 #make matrix of 1 where reference cluster is
+                #overlap of reference cluster and roi is 2
+                coord_roi_overlap = len(np.where((frame_arr_coord + frame_arr_cluster) == 2)[0])/len(np.where(frame_arr_coord == 1)[0])
+                if coord_roi_overlap >= overlap:
+                    coord_ext_overlap[i] = c #get cluster reference id for each roi, 0 is none
+        roi_list = self.get_roi_list(df_data)
+        clusters_id = np.unique(coord_ext_overlap) #get overlap rois in cluster_rois variable format
+        clusters_rois_overlap = []
+        for c in clusters_id:
+            cluster_id_idx = np.where(coord_ext_overlap == c)[0]
+            cluster_rois_single = []
+            for i in cluster_id_idx:
+                cluster_rois_single.append(roi_list[i])
+            clusters_rois_overlap.append(cluster_rois_single)
+        return coord_ext_reference_ses, idx_roi_cluster_ordered_reference_ses, coord_ext_overlap, clusters_rois_overlap
 
     def plot_single_cluster_map(self, ref_image, colors, idx, coord_cell, traces_type, plot_data, print_plots):
         """Plot ROIs on top of reference image color coded by the result of the hierarchical clustering
@@ -5115,6 +5125,115 @@ class miniscope_session:
         edges_coordinates_array = np.array(edges_coordinates)
         plt.scatter(edges_coordinates_array[:, 0], edges_coordinates_array[:, 1], color='black')
         return edges_coordinates_array
+
+    @staticmethod
+    def sort_rois_clust(df_events, clusters_rois):
+        if len(clusters_rois) > 1:
+            clusters_rois_flat = np.transpose(sum(clusters_rois, []))
+            clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
+            clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
+            cluster_transition_idx = np.cumsum([len(clusters_rois[c]) for c in range(len(clusters_rois))]) - 1
+            df_events_sorted = df_events[clusters_rois_flat]
+        else:
+            df_events_sorted = df_events
+            cluster_transition_idx = np.array([0])
+        return df_events_sorted, cluster_transition_idx
+
+    @staticmethod
+    def sta(df_events, variable, bcam_time, window, trials):
+        '''Compute spike-triggered average for each ROI
+        Inputs:
+            - df_events: dataframe of events
+            - variable: 1D array of the variable
+            - bcam_time: timestamps of behavior
+            - window: peri-event epoch (samples)
+            - trials: 1D array of trial numbers
+        '''
+        signal_chunks_allrois = []
+        sta_allrois = []
+        for n in range(2, df_events.shape[1]):
+            sta = np.empty((0, len(window)))
+            signal_chunks_tr = []
+            for tr_idx, tr in enumerate(trials):
+                signal_chunks = np.empty((0, len(window)))
+                df_tr = df_events[df_events['trial']==tr]
+                events_idx = np.array(df_tr.index[df_tr.iloc[:, n] == 1])
+                events_ts = df_tr['time'].loc[events_idx].values
+                matching_ts_idx = [np.abs(bcam_time[tr_idx] - ts).argmin() for ts in events_ts]
+                # Extract traces around each event for one ROI
+                for i in matching_ts_idx:
+                    if i + window[0] >= 0 and i + window[-1] < len(variable[tr_idx]):
+                        extracted_signal = variable[tr_idx][i + window[0]:i + window[-1] + 1]
+                        # extracted_signal = (extracted_signal - np.nanmean(extracted_signal))/np.std(extracted_signal)
+                        # List of raw traces for one ROI 'n' and trial 'tr'
+                        signal_chunks = np.vstack((signal_chunks, extracted_signal))
+                signal_chunks_tr.append(signal_chunks) # Array of traces for one ROI all trials
+            # Compute STA by trial for one ROI
+            sta = np.vstack([np.nanmean(signal_chunks_tr[tr_idx], axis=0) for tr_idx, _ in enumerate(trials)])
+            # List of raw traces for each ROI whole session
+            signal_chunks_allrois.append(np.concatenate(signal_chunks_tr, axis = 0))
+            # STA by trial for all ROIs
+            sta_allrois.append(sta)
+        return sta_allrois, signal_chunks_allrois
+
+    @staticmethod
+    def shuffle_spikes_ts(df_events, iter_n):
+        ''' Shuffle timestamps of events for multiple iterations. This code shuffle the ISIs of each trial.
+        Inputs:
+            - df_events: dataframe of events for multiple ROIs. Column 'time' contains timestamps, column 'trial' indicates trial ID
+            - iter_n: number of shuffling iterations
+        '''
+        trials = np.unique(df_events['trial'])
+        shuffled_spikes_ts_allrois = []
+        for n in range(2, df_events.shape[1]):
+            shuffled_spikes_ts = []
+            # Find all timestamps of events for all trials for ROI 'n'
+            for tr in trials:
+                df_events_tr = df_events[df_events.trial == tr] # Extract trial 'tr'
+                events_idx = np.array(df_events_tr.index[df_events_tr.iloc[:, n] == 1]) # Find indexes of events for ROI 'n' and trial 'tr'
+                spikes_ts_tr = np.array(df_events_tr.time[events_idx])  # Find timestamps of events for ROI 'n' and trial 'tr'
+                isi = np.diff(spikes_ts_tr) # Compute ISI
+                for _ in range(iter_n):
+                    shuffled_spikes_ts_tr = []
+                    np.random.shuffle(isi) # Shuffle ISI
+                    shuffled_spikes_ts_tr = np.insert(np.cumsum(isi), 0, 0) # Find new timestamps
+                shuffled_spikes_ts.append(shuffled_spikes_ts_tr)
+            shuffled_spikes_ts_allrois.append(shuffled_spikes_ts)
+        return shuffled_spikes_ts_allrois
+
+    @staticmethod
+    def sta_shuffled(spikes_ts, variable, bcam_time, window, trials):
+        '''Compute spike-triggered average for single ROIs with shuffled event timings.
+        Inputs:
+            - spikes_ts = nested lists of spikes timestamps by trial for each neuron
+            - variable: 1D array of the variable
+            - bcam_time: timestamps of behavior
+            - window: peri-event epoch (samples)
+        '''
+        signal_chunks_allrois = []
+        sta_allrois = []
+        for n in range(len(spikes_ts)):
+            sta = np.empty((0, len(window)))
+            signal_chunks_tr = []
+            for tr_idx, tr in enumerate(trials):
+                signal_chunks = np.empty((0, len(window)))
+                events_ts = np.array(spikes_ts[n][tr_idx]) # Find timestamps of events for ROI 'n'
+                matching_ts_idx = [np.abs(bcam_time[tr_idx] - ts).argmin() for ts in events_ts] # Find timestamps of behavior matching the ones of events
+                # Extract traces around each event for one ROI
+                for i in matching_ts_idx:
+                    if i + window[0] >= 0 and i + window[-1] < len(variable[tr_idx]):
+                        extracted_signal = variable[tr_idx][i + window[0]:i + window[-1] + 1]
+                        # extracted_signal = (extracted_signal - np.mean(extracted_signal))/np.std(extracted_signal)
+                        signal_chunks = np.vstack((signal_chunks, extracted_signal))
+                signal_chunks_tr.append(signal_chunks) # Array of traces for one ROI by trial
+            # Compute STA by trial for one ROI
+            for tr_idx, _ in enumerate(trials):
+                sta_trial = np.nanmean(signal_chunks_tr[tr_idx], axis = 0)
+                sta = np.vstack((sta, sta_trial))
+            # STA all rois
+            signal_chunks_allrois.append(np.concatenate(signal_chunks_tr, axis = 0)) # List of raw traces for each ROI whole session
+            sta_allrois.append(sta)
+        return sta_allrois
 
     # def get_background_signal(self, weight, coord_cell):
     #     """ Get neuropil background signals for each cell coordinates. Low-pass filter of

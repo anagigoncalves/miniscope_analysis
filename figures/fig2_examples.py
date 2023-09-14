@@ -15,7 +15,7 @@ path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel(path_session_data + '\\session_data_split_S1.xlsx')
 load_path = path_session_data + '\\Analysis on population data\\STA paw spatial diff\\split ipsi fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig2\\'
-var_name = 'FR-FL_displacement_difference'
+var_name = 'FR-FL'
 window = np.arange(-330, 330 + 1)  # Samples
 iter_n = 100 # Number of iterations of CS timestamps random shuffling
 protocol_type = 'split'
@@ -96,7 +96,7 @@ if protocol_type == 'split':
         sta_zs_zoom[:, count_c, :] = np.nanmean(sta_zs[:, trial_start_idx:trial_end_idx, xaxis_start:xaxis_end], axis=1)
 sta_zs_zoom_cluster = np.zeros((len(clusters_rois_overlap), len(cond_name), xaxis_end - xaxis_start))
 sta_zs_zoom_cluster[:] = np.nan
-for count_c, c in enumerate(clusters_rois_overlap):
+for count_c, c in enumerate(clusters_rois_overlap): #TODO RECHECK IF THIS +1 IS CORRECT
     sta_zs_zoom_cluster[count_c, :, :] = np.nanmean(sta_zs_zoom[coord_ext_overlap == count_c+1, :, :],
                                                     axis=0)
 # CLUSTER SUMMARY

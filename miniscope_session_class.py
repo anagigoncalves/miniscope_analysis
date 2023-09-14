@@ -5235,6 +5235,44 @@ class miniscope_session:
             sta_allrois.append(sta)
         return sta_allrois
 
+    @staticmethod
+    def paw_diff(tracks, p1, p2):
+        ''' Compute displacement or phase difference between two paws.
+        Inputs:
+            - tracks: list of limbs coordinates for each trial
+            - p1: reference paw (FR=0, HR=1, FL=2, HL=3)
+            - P2: secondary paw
+        '''
+        paw_difference = []
+        for tr in range(len(tracks)):
+            ref = tracks[tr][0,p1,:] - np.nanmean(tracks[tr][0,p1,:])
+            sec = tracks[tr][0,p2,:] - np.nanmean(tracks[tr][0,p2,:])
+            paw_difference.append(ref - sec)
+        return paw_difference
+
+    def get_coordinates_cluster(self, centroid_ext, fov_coord, idx_roi_cluster_ordered):
+        """Get the coordinates of the clusters based on the mean of the centroids.
+        Put the coordinates in a global scale (based on histology)
+        Inputs:
+            fov_coord: coordinates of the center of the FOV (based on histology)
+            idx_roi_cluster_ordered: list of cluster if for each ROI index
+            centroid_ext: list of coordinates of ROIs centroids"""
+        centroid_cluster_mean = np.zeros((len(np.unique(idx_roi_cluster_ordered)), 2))
+        for count_i, i in enumerate(np.unique(idx_roi_cluster_ordered)):
+            cluster_idx = np.where(idx_roi_cluster_ordered == i)[0]
+            centroid_cluster = np.zeros((len(cluster_idx), 2))
+            for count_c, c in enumerate(cluster_idx):
+                centroid_cluster[count_c, :] = centroid_ext[c]
+            centroid_mean = np.nanmean(centroid_cluster, axis=0)
+            centroid_cluster_mean[count_i, 0] = -centroid_mean[0]  # because we are in the negative area of bregma
+            centroid_cluster_mean[count_i, 1] = centroid_mean[1]
+        fov_corner = np.array([fov_coord[0] + 0.5, fov_coord[1] - 0.5])
+        centroid_cluster_dist_corner = (centroid_cluster_mean * 0.001) + fov_corner
+        if not os.path.exists(self.path + 'processed files'):
+            os.mkdir(self.path + 'processed files')
+        np.save(os.path.join(self.path, 'processed files', 'cluster_coords.npy'), centroid_cluster_dist_corner)
+        return centroid_cluster_dist_corner
+
     # def get_background_signal(self, weight, coord_cell):
     #     """ Get neuropil background signals for each cell coordinates. Low-pass filter of
     #     image with a Hamming window weight*cell diameter. Background signal is then computed

@@ -13,10 +13,10 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(path_session_data + '\\session_data_split_S1.xlsx')
-load_path = path_session_data + '\\Analysis on population data\\STA bodyvars\\split ipsi fast S1\\'
+session_data = pd.read_excel(path_session_data + '\\session_data_tied_S1.xlsx')
+load_path = path_session_data + '\\Analysis on population data\\STA bodyvars\\tied baseline S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig2\\'
-protocol_type = 'split'
+protocol_type = 'tied'
 if protocol_type == 'tied':
     cond_name = ['slow', 'baseline', 'fast']
     colors_cond = ['purple', 'black', 'orange']
@@ -60,12 +60,12 @@ for f in animal_order:
     [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
     trials_ses_name.insert(len(trials_ses_name), 'late washout')
     trials_idx = np.where(np.in1d(np.arange(trials[0], trials[-1]+1), trials))[0]
+    [coord_ext_reference_ses, idx_roi_cluster_ordered_reference_ses, coord_ext_overlap, clusters_rois_overlap] = \
+        mscope.get_rois_aligned_reference_cluster(df_events_extract_rawtrace, coord_ext, animal)
 
     sta_zs = np.load(
         os.path.join(load_path, animal + ' ' + ses_info[0], 'sta_bodyvars_' + var_name.replace(' ', '_') + '.npy'))
-    sta_zs_clusterid = np.load(os.path.join(load_path, animal + ' ' + ses_info[0],
-                                            'sta_bodyvars_' + var_name.replace(' ',
-                                                                               '_') + '_cluster_transition_idx.npy'))
+
     #TODO ROIS SHOULD BE ORDERED BY CLUSTER
     if protocol_type == 'tied':
         sta_zs_zoom = np.zeros((np.shape(sta_zs)[0], len(cond_name), xaxis_end-xaxis_start))
@@ -98,18 +98,7 @@ for f in animal_order:
                 trial_start_idx = trials_idx[np.where(trials == trials_ses[count_c])[0][0]]
                 trial_end_idx = trials_idx[np.where(trials == trials_ses[count_c]+1)[0][0]]
             sta_zs_zoom[:, count_c, :] = np.nanmean(sta_zs[:, trial_start_idx:trial_end_idx, xaxis_start:xaxis_end], axis=1)
-    cluster_beg = np.insert(sta_zs_clusterid[:-1], 0, 0)
-    cluster_end = np.append(sta_zs_clusterid[1:], np.shape(sta_zs)[0])
-    sta_zs_zoom_cluster = np.zeros((len(sta_zs_clusterid), len(cond_name), xaxis_end-xaxis_start))
-    sta_zs_zoom_cluster[:] = np.nan
-    for count_r, r in enumerate(sta_zs_clusterid):
-        sta_zs_zoom_cluster[count_r, :, :] = np.nanmean(sta_zs_zoom[cluster_beg[count_r]:cluster_end[count_r], :, :], axis=0)
-    sta_animal_minus100.append(sta_zs_zoom_cluster[:, :, idx_minus100])
-    sta_animal_0.append(sta_zs_zoom_cluster[:, :, idx_0])
     sta_zoom_all.append(sta_zs_zoom)
-    sta_animal_transition.append(np.shape(sta_zs_zoom)[0])
-    animal_list.append(animal)
-    sta_animal_colors_cluster.append(colors_cluster)
 
 sta_zoom_all_concat = np.concatenate(sta_zoom_all)
 #ANIMALS SUMMARY
@@ -130,5 +119,5 @@ for t in range(np.shape(sta_zoom_all_concat)[1]):
     for a in np.cumsum(sta_animal_transition)[:-1]:
         ax[t].axhline(y=a, c='k', linestyle='--')
     ax[t].set_title(cond_name[t], fontsize=16)
-plt.savefig(os.path.join(save_path,
-                         'sta_bodyvars_' + var_name.replace(' ', '_') + '_animal_summary'), dpi=mscope.my_dpi)
+# plt.savefig(os.path.join(save_path,
+#                          'sta_bodyvars_' + var_name.replace(' ', '_') + '_animal_summary'), dpi=mscope.my_dpi)

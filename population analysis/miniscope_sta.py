@@ -13,8 +13,8 @@ import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S2.xlsx')
-save_path = 'J:\\Miniscope processed files\\STA paw spatial diff\\split contra fast S1\\'
-
+save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA paw spatial diff\\split contra fast S1\\'
+sta_type = 'paw_diff'
 window = np.arange(-330, 330 + 1)  # Samples
 iter_n = 100 # Number of iterations of CS timestamps random shuffling
 
@@ -29,8 +29,6 @@ for s in range(len(session_data)):
     session_id = session_type + '_' + ses_info[2]
     mscope = miniscope_session_class.miniscope_session(path)
     loco = locomotion_class.loco_class(path_loco)
-    import df_behav_class
-    nxb = df_behav_class.df_behav_analysis('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 
     # Session data and inputs
     animal = mscope.get_animal_id()
@@ -41,43 +39,46 @@ for s in range(len(session_data)):
     [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
 
-    # Load behavioral data
+    # Load behavioral data and get acceleration
     filelist = loco.get_track_files(animal, session)
     final_tracks_trials = []
+    bodyacc = []
+    bodycenter = []
+    bodyspeed = []
     for count_trial, f in enumerate(filelist):
-        [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f, 0.9, int(
+        [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter_DLC] = loco.read_h5(f, 0.9, int(
             frames_loco[count_trial]))
+        bodycenter_trial = loco.compute_bodycenter(final_tracks, 'X')
+        bodyspeed_trial = loco.compute_bodyspeed(bodycenter_trial)
+        bodyacc_trial = loco.compute_bodyacc(bodycenter_trial)
         final_tracks_trials.append(final_tracks)
+        bodyacc.append(bodyacc_trial)
+        bodycenter.append(bodycenter_trial)
+        bodyspeed.append(bodyspeed_trial)
 
-    # Get phase and displacement difference
-    displ_diff_diag = nxb.paw_diff(final_tracks_trials, 0, 3)
-    displ_diff_homo = nxb.paw_diff(final_tracks_trials, 0, 1)
-    displ_diff_front = nxb.paw_diff(final_tracks_trials, 0, 2)
-
-    # Dictionary of all the independent variables on which computing the STA
-    ind_vars = {'FR-HL displacement difference': displ_diff_diag, 'FR-HR displacement difference': displ_diff_homo,
-                'FR-FL displacement difference': displ_diff_front}
-    keys=list(ind_vars.keys())
+    if sta_type == 'bodyvars':
+        # Dictionary of all the independent variables on which computing the STA
+        ind_vars = {'Body position': bodycenter, 'Body speed': bodyspeed, 'Body acceleration': bodyacc}
+        keys=list(ind_vars.keys())
+    if sta_type == 'paw_diff':
+        # Get phase and displacement difference
+        displ_diff_diag = mscope.paw_diff(final_tracks_trials, 0, 3)
+        displ_diff_homo = mscope.paw_diff(final_tracks_trials, 0, 1)
+        displ_diff_front = mscope.paw_diff(final_tracks_trials, 0, 2)
+        ind_vars = {'FR-HL': displ_diff_diag, 'FR-HR': displ_diff_homo, 'FR-FL': displ_diff_front}
+        keys=list(ind_vars.keys())
 
     # Loop through independent variables to compute and plot STAs of each one
     for var in range(len(ind_vars)):
         var_name = keys[var]
         variable = ind_vars[var_name]
-
         # Compute spike-triggered average (STA) of kinematic variables
-        df_events_ordered, cluster_transition_idx = nxb.sort_rois_clust(df_events_extract_rawtrace,
-                                                                clusters_rois)  # Sort ROIs by cluster
-        sta_allrois, signal_chunks_allrois = nxb.sta(df_events_ordered, variable, bcam_time, window, trials)
-        # Sort ROIs
-        rois_sorted = []
-        for i in range(len(clusters_rois)):
-            rois_sorted = np.hstack((rois_sorted, clusters_rois[i]))
-
+        sta_allrois, signal_chunks_allrois = mscope.sta(df_events_extract_rawtrace, variable, bcam_time, window, trials)
         # Standardize observed STA on STA computed with shuffled data
         # Shuffle CS timestamps
-        shuffled_spikes_ts = nxb.shuffle_spikes_ts(df_events_extract_rawtrace, iter_n)
+        shuffled_spikes_ts = mscope.shuffle_spikes_ts(df_events_extract_rawtrace, iter_n)
         # Compute STA for shuffled data
-        sta_shuffled_ts = np.array(nxb.sta_shuffled(shuffled_spikes_ts, variable, bcam_time, window, trials))
+        sta_shuffled_ts = np.array(mscope.sta_shuffled(shuffled_spikes_ts, variable, bcam_time, window, trials))
         # Standardize STA
         mean_chance = np.nanmean(sta_shuffled_ts, axis=2)
         sd_chance = np.nanstd(sta_shuffled_ts, axis=2)
@@ -90,4 +91,6 @@ for s in range(len(session_data)):
         np.save(os.path.join(save_path, animal + ' ' + ses_info[0],
                              'sta_bodyvars_' + var_name.replace(' ', '_') + '.npy'), sta_zs)
         np.save(os.path.join(save_path, animal + ' ' + ses_info[0],
-            'sta_bodyvars_' + var_name.replace(' ', '_') + '_cluster_transition_idx.npy'), cluster_transition_idx)
+            'sta_bodyvars_' + var_name.replace(' ', '_') + '_trials_ses.npy'), trials_ses)
+        np.save(os.path.join(save_path, animal + ' ' + ses_info[0],
+            'sta_bodyvars_' + var_name.replace(' ', '_') + '_trials_ses_name.npy'), trials_ses_name)

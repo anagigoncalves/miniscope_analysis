@@ -12,9 +12,9 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S2.xlsx')
-save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA paw spatial diff\\split contra fast S1\\'
-sta_type = 'paw_diff'
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_tied_S1.xlsx')
+save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA paws\\tied baseline S1\\'
+sta_type = 'paws'
 window = np.arange(-330, 330 + 1)  # Samples
 iter_n = 100 # Number of iterations of CS timestamps random shuffling
 
@@ -45,6 +45,10 @@ for s in range(len(session_data)):
     bodyacc = []
     bodycenter = []
     bodyspeed = []
+    FR_X_excursion = []
+    FL_X_excursion = []
+    HR_X_excursion = []
+    HL_X_excursion = []
     for count_trial, f in enumerate(filelist):
         [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter_DLC] = loco.read_h5(f, 0.9, int(
             frames_loco[count_trial]))
@@ -55,6 +59,10 @@ for s in range(len(session_data)):
         bodyacc.append(bodyacc_trial)
         bodycenter.append(bodycenter_trial)
         bodyspeed.append(bodyspeed_trial)
+        FR_X_excursion.append(final_tracks[0, 0, :])
+        HR_X_excursion.append(final_tracks[0, 1, :])
+        FL_X_excursion.append(final_tracks[0, 2, :])
+        HL_X_excursion.append(final_tracks[0, 3, :])
 
     if sta_type == 'bodyvars':
         # Dictionary of all the independent variables on which computing the STA
@@ -66,6 +74,9 @@ for s in range(len(session_data)):
         displ_diff_homo = mscope.paw_diff(final_tracks_trials, 0, 1)
         displ_diff_front = mscope.paw_diff(final_tracks_trials, 0, 2)
         ind_vars = {'FR-HL': displ_diff_diag, 'FR-HR': displ_diff_homo, 'FR-FL': displ_diff_front}
+        keys=list(ind_vars.keys())
+    if sta_type == 'paws':
+        ind_vars = {'FR': FR_X_excursion, 'FL': FL_X_excursion, 'HR': HR_X_excursion, 'HL': HL_X_excursion}
         keys=list(ind_vars.keys())
 
     # Loop through independent variables to compute and plot STAs of each one

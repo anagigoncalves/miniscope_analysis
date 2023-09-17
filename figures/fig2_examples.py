@@ -3,6 +3,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import seaborn as sns
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -13,9 +14,9 @@ import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel(path_session_data + '\\session_data_split_S1.xlsx')
-load_path = path_session_data + '\\Analysis on population data\\STA paw spatial diff\\split ipsi fast S1\\'
+load_path = path_session_data + '\\Analysis on population data\\STA bodyvars\\split ipsi fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig2\\'
-var_name = 'FR-FL'
+var_name = 'Body acceleration'
 window = np.arange(-330, 330 + 1)  # Samples
 iter_n = 100 # Number of iterations of CS timestamps random shuffling
 protocol_type = 'split'
@@ -35,6 +36,7 @@ xaxis_start = np.where(xaxis >= zoom_in[0])[0][0]
 xaxis_end = np.where(xaxis >= zoom_in[1])[0][0]
 
 session_data_idx = 1 #example is MC9194
+cluster_plot = 0
 ses_info = session_data.iloc[session_data_idx, :]
 date = ses_info[3]
 # path inputs
@@ -94,13 +96,18 @@ if protocol_type == 'split':
             trial_start_idx = trials_idx[np.where(trials == trials_ses[count_c])[0][0]]
             trial_end_idx = trials_idx[np.where(trials == trials_ses[count_c] + 1)[0][0]]
         sta_zs_zoom[:, count_c, :] = np.nanmean(sta_zs[:, trial_start_idx:trial_end_idx, xaxis_start:xaxis_end], axis=1)
-sta_zs_zoom_cluster = np.zeros((len(clusters_rois_overlap), len(cond_name), xaxis_end - xaxis_start))
+
+clusters_in_session_all = np.unique(coord_ext_overlap)
+if len(np.where(clusters_in_session_all == 0)[0]) > 0:
+    clusters_in_session = np.delete(clusters_in_session_all, np.where(clusters_in_session_all == 0)[0][0])
+else:
+    clusters_in_session = np.delete(clusters_in_session_all, np.where(clusters_in_session_all == 0)[0])
+sta_zs_zoom_cluster = np.zeros((len(clusters_in_session), len(cond_name), xaxis_end - xaxis_start))
 sta_zs_zoom_cluster[:] = np.nan
-for count_c, c in enumerate(clusters_rois_overlap): #TODO RECHECK IF THIS +1 IS CORRECT
-    sta_zs_zoom_cluster[count_c, :, :] = np.nanmean(sta_zs_zoom[coord_ext_overlap == count_c+1, :, :],
+for count_c, c in enumerate(clusters_in_session):
+    sta_zs_zoom_cluster[count_c, :, :] = np.nanmean(sta_zs_zoom[coord_ext_overlap == c, :, :],
                                                     axis=0)
 # CLUSTER SUMMARY
-cluster_plot = 0
 fig, ax = plt.subplots(figsize=(5, 5), tight_layout='True')
 for t in range(len(cond_name)):
     ax.plot(xaxis[xaxis_start:xaxis_end], sta_zs_zoom_cluster[cluster_plot, t, :],
@@ -130,3 +137,74 @@ ax.tick_params(axis='both', which='major', labelsize=18)
 plt.savefig(os.path.join(save_path,
                          'sta_bodyvars_' + var_name.replace(' ', '_') + '_' + animal + '_' + ses_info[
                              0].replace(' ', '_') + '_cluster' + str(cluster_plot + 1) + '_summary_legend'), dpi=mscope.my_dpi)
+
+#HEATMAP EXAMPLE BODYBARS
+# Align dF/F and behavior (body position, speed, acceleration) for each trial and desired epoch
+# Order ROIs by cluster
+if len(clusters_rois) == 1:
+    clusters_rois_flat = clusters_rois[0]
+else:
+    clusters_rois_flat = np.transpose(sum(clusters_rois, []))
+clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
+clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
+df = mscope.norm_traces(df_extract_rawtrace_detrended[clusters_rois_flat], norm_name='zscore', axis='session') # Normalized dF/F traces for 'popul_heatmap'
+
+# Load behavioral data and get acceleration
+filelist = loco.get_track_files(animal, session)
+bodyacc = []
+bodycenter = []
+bodyspeed = []
+for count_trial, f in enumerate(filelist):
+    [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter_DLC] = loco.read_h5(f, 0.9, int(
+        frames_loco[count_trial]))
+    bodycenter_trial = loco.compute_bodycenter(final_tracks, 'X')
+    bodyspeed_trial = loco.compute_bodyspeed(bodycenter_trial)
+    bodyacc_trial = loco.compute_bodyacc(bodycenter_trial)
+    bodyacc.append(bodyacc_trial)
+    bodycenter.append(bodycenter_trial)
+    bodyspeed.append(bodyspeed_trial)
+
+[df_sorted, cluster_transition_idx] = mscope.sort_rois_clust(df, clusters_rois)
+
+trial = 2
+beg = 20
+end = 45
+fig, axs = plt.subplots(4, 1, figsize=(25, 10))
+df_trial = df_sorted.loc[(df_sorted['trial'] == trial)&(df_sorted['time']>beg)&(df_sorted['time']<end)].iloc[:, 2:]  # Get df/f for the desired trial and interval
+hm = sns.heatmap(df_trial.T, cmap='plasma', ax=axs[0])
+cbar = hm.collections[0].colorbar
+cbar.ax.set_label('\u0394F/F')
+cbar.ax.tick_params(labelsize=16)
+axs[0].set_xticks([])
+axs[0].set(xticklabels=[])
+axs[0].set_ylabel('ROIs', fontsize=20)
+axs[0].spines['right'].set_visible(False)
+axs[0].spines['top'].set_visible(False)
+axs[0].spines['bottom'].set_visible(False)
+for c in cluster_transition_idx:  # Lines to mark clusters in the heatmap
+    axs[0].hlines(c + 1, *axs[0].get_xlim(), color='white', linestyle='dashed', linewidth=1)
+# Behavior
+t = np.linspace(beg, end, (end-beg)*loco.sr)  # Create x-axis time values
+sns.lineplot(x=t, y=bodycenter[trial-1][beg*loco.sr:end*loco.sr], ax=axs[1], color='black', linewidth=2)
+axs[1].set(xticklabels=[])
+axs[1].set_xlim([t[0], t[-1]])
+axs[1].set_ylabel('Body\nCenter (mm)', fontsize=20)
+axs[1].tick_params(axis='both', which='major', labelsize=18)
+axs[1].spines['right'].set_visible(False)
+axs[1].spines['top'].set_visible(False)
+axs[1].tick_params(left=False, bottom=False)
+sns.lineplot(x=t, y=bodyspeed[trial-1][beg*loco.sr:end*loco.sr], ax=axs[2], color='black', linewidth=2)
+axs[2].set(xticklabels=[])
+axs[2].set_xlim([t[0], t[-1]])
+axs[2].set_ylabel('Body\nSpeed (m/s)', fontsize=20)
+axs[2].tick_params(axis='both', which='major', labelsize=18)
+axs[2].spines['right'].set_visible(False)
+axs[2].spines['top'].set_visible(False)
+sns.lineplot(x=t, y=bodyacc[trial-1][beg*loco.sr:end*loco.sr], ax=axs[3], color='black', linewidth=2)
+axs[3].set_xlim([t[0], t[-1]])
+axs[3].set_ylabel('Body\nAcceleration\n(m/s\u00b2)', fontsize=16)
+axs[3].set_xlabel('Time (s)', fontsize=20)
+axs[3].tick_params(axis='both', which='major', labelsize=18)
+axs[3].spines['right'].set_visible(False)
+axs[3].spines['top'].set_visible(False)
+plt.savefig(os.path.join('J:\\Thesis\\for figures\\fig2\\', 'example_bodyvars_MC9194_splitipsifast_S1_cbar'), dpi=128)

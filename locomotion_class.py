@@ -312,16 +312,29 @@ class loco_class:
                         if phase_type == 'st-sw-st':
                             nr_st = len(final_tracks_trials[count_t][0, p, st_on:sw_on])
                             nr_sw = len(final_tracks_trials[count_t][0, p, sw_on:st_off])
-                            excursion_phase[st_on - 1:sw_on] = np.linspace(0, 0.5, nr_st + 1)
-                            excursion_phase[sw_on - 1:st_off] = np.linspace(0.5, 1, nr_sw + 1)
+                            excursion_phase[st_on:sw_on+1] = np.linspace(0, 0.5, nr_st + 1)
+                            excursion_phase[sw_on:st_off+1] = np.linspace(0.5, 1, nr_sw + 1)
                             excursion_phase[st_off] = 0  # put it there -1
                         if phase_type == 'st-st':
                             nr_st = len(final_tracks_trials[count_t][0, p, st_on:st_off])
-                            excursion_phase[st_on - 1:st_off] = np.linspace(0, 1, nr_st + 1)
+                            excursion_phase[st_on:st_off+1] = np.linspace(0, 1, nr_st + 1)
                             excursion_phase[st_off] = 0  # put it there -1
+                        #TODO sw-sw phase
                     final_tracks_phase[a, p, :] = excursion_phase
             final_tracks_trials_phase.append(final_tracks_phase)
         return final_tracks_trials_phase
+
+    #@staticmethod
+    #def phase_unwrap(data):
+        #get idx of nan values
+        #on data that is not nan, multiply by 2*pi and do np.unwrap
+        #put data that was unwraped on the initial idx
+
+    #def phase_diff
+        #for the two paws one wants to compute put nan on nan idx from both vectors
+        #compute phase diff in pi
+
+
 
     def get_sw_st_matrices_JR(self,final_tracks,dict_swst,exclusion):
         """Computes swing and stance points of a trial from x axis of the bottom view tracking.

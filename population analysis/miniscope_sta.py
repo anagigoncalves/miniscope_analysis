@@ -12,9 +12,9 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_tied_S1.xlsx')
-save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA paws\\tied baseline S1\\'
-sta_type = 'paws'
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
+save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA phase diff st-st\\split ipsi fast S1\\'
+sta_type = 'phase_diff'
 window = np.arange(-330, 330 + 1)  # Samples
 iter_n = 100 # Number of iterations of CS timestamps random shuffling
 
@@ -49,13 +49,18 @@ for s in range(len(session_data)):
     FL_X_excursion = []
     HR_X_excursion = []
     HL_X_excursion = []
+    st_strides_trials = []
+    sw_strides_trials = []
     for count_trial, f in enumerate(filelist):
         [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter_DLC] = loco.read_h5(f, 0.9, int(
             frames_loco[count_trial]))
+        [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
         bodycenter_trial = loco.compute_bodycenter(final_tracks, 'X')
         bodyspeed_trial = loco.compute_bodyspeed(bodycenter_trial)
         bodyacc_trial = loco.compute_bodyacc(bodycenter_trial)
         final_tracks_trials.append(final_tracks)
+        st_strides_trials.append(st_strides_mat)
+        sw_strides_trials.append(sw_pts_mat)
         bodyacc.append(bodyacc_trial)
         bodycenter.append(bodycenter_trial)
         bodyspeed.append(bodyspeed_trial)
@@ -63,6 +68,7 @@ for s in range(len(session_data)):
         HR_X_excursion.append(final_tracks[0, 1, :])
         FL_X_excursion.append(final_tracks[0, 2, :])
         HL_X_excursion.append(final_tracks[0, 3, :])
+    final_tracks_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials, 'st-st')
 
     if sta_type == 'bodyvars':
         # Dictionary of all the independent variables on which computing the STA
@@ -77,6 +83,16 @@ for s in range(len(session_data)):
         keys=list(ind_vars.keys())
     if sta_type == 'paws':
         ind_vars = {'FR': FR_X_excursion, 'FL': FL_X_excursion, 'HR': HR_X_excursion, 'HL': HL_X_excursion}
+        keys=list(ind_vars.keys())
+    if sta_type == 'phase_diff':
+        # paw_diff_fr_hl = loco.phase_diff(final_tracks_phase, 'FR', 'HL', 'X')
+        # paw_diff_fl_hl = loco.phase_diff(final_tracks_phase, 'FL', 'HL', 'X')
+        # paw_diff_hr_hl = loco.phase_diff(final_tracks_phase, 'HR', 'HL', 'X')
+        # ind_vars = {'FR-HL-phase': paw_diff_fr_hl, 'FL-HL-phase': paw_diff_fl_hl, 'HR-HL-phase': paw_diff_hr_hl}
+        paw_diff_fl_fr = loco.phase_diff(final_tracks_phase, 'FL', 'FR', 'X')
+        paw_diff_hr_fr = loco.phase_diff(final_tracks_phase, 'HR', 'FR', 'X')
+        paw_diff_hl_fr = loco.phase_diff(final_tracks_phase, 'HL', 'FR', 'X')
+        ind_vars = {'FL-FR-phase': paw_diff_fl_fr, 'HR-FR-phase': paw_diff_hr_fr, 'HL-FR-phase': paw_diff_hl_fr}
         keys=list(ind_vars.keys())
 
     # Loop through independent variables to compute and plot STAs of each one
@@ -94,13 +110,21 @@ for s in range(len(session_data)):
         mean_chance = np.nanmean(sta_shuffled_ts, axis=2)
         sd_chance = np.nanstd(sta_shuffled_ts, axis=2)
         sta_zs = np.zeros((len(sta_allrois), len(trials), len(window)))
+        sta = np.zeros((len(sta_allrois), len(trials), len(window)))
+        sta_shuffled = np.zeros((len(sta_allrois), len(trials), len(window)))
         for n in range(len(sta_allrois)):
             for tr in range(len(trials)):
                 sta_zs[n, tr] = (sta_allrois[n][tr] - mean_chance[n][tr]) / sd_chance[n][tr]
+                sta[n, tr] = sta_allrois[n][tr]
+                sta_shuffled[n, tr] = mean_chance[n][tr]
         if not os.path.exists(os.path.join(save_path, animal + ' ' + ses_info[0])):
             os.mkdir(os.path.join(save_path, animal + ' ' + ses_info[0]))
         np.save(os.path.join(save_path, animal + ' ' + ses_info[0],
-                             'sta_bodyvars_' + var_name.replace(' ', '_') + '.npy'), sta_zs)
+                             'sta_bodyvars_' + var_name.replace(' ', '_') + '_zscored.npy'), sta_zs)
+        np.save(os.path.join(save_path, animal + ' ' + ses_info[0],
+                             'sta_bodyvars_' + var_name.replace(' ', '_') + '_shuffled.npy'), sta_shuffled)
+        np.save(os.path.join(save_path, animal + ' ' + ses_info[0],
+                             'sta_bodyvars_' + var_name.replace(' ', '_') + '.npy'), sta)
         np.save(os.path.join(save_path, animal + ' ' + ses_info[0],
             'sta_bodyvars_' + var_name.replace(' ', '_') + '_trials_ses.npy'), trials_ses)
         np.save(os.path.join(save_path, animal + ' ' + ses_info[0],

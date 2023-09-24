@@ -45,6 +45,7 @@ class miniscope_session:
         self.delim = self.path[-1]
         # pixel_to_um = 0.93 #1px is 0.93um for miniscopes v3.2
         self.pixel_to_um = 0.608  # 1px is 0.608um for miniscopes v4
+        self.pixel_to_mm_behavior = 1/1.955
         self.sr = 30  # sampling rate of miniscopes
         self.my_dpi = 128  # resolution for plotting
         self.sr_loco = 330  # sampling rate of behavioral camera
@@ -5235,8 +5236,7 @@ class miniscope_session:
             sta_allrois.append(sta)
         return sta_allrois
 
-    @staticmethod
-    def paw_diff(tracks, p1, p2):
+    def paw_diff(self, tracks, p1, p2):
         ''' Compute displacement or phase difference between two paws.
         Inputs:
             - tracks: list of limbs coordinates for each trial
@@ -5245,8 +5245,8 @@ class miniscope_session:
         '''
         paw_difference = []
         for tr in range(len(tracks)):
-            ref = tracks[tr][0, p1, :] - np.nanmean(tracks[tr][0, :4, :], axis=0)
-            sec = tracks[tr][0, p2, :] - np.nanmean(tracks[tr][0, :4, :], axis=0)
+            ref = (tracks[tr][0, p1, :]*self.pixel_to_mm_behavior) - (np.nanmean(tracks[tr][0, :4, :], axis=0)*self.pixel_to_mm_behavior)
+            sec = (tracks[tr][0, p2, :]*self.pixel_to_mm_behavior) - (np.nanmean(tracks[tr][0, :4, :], axis=0)*self.pixel_to_mm_behavior)
             paw_difference.append(ref - sec)
         return paw_difference
 

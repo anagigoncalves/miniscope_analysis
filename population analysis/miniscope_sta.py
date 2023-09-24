@@ -64,10 +64,10 @@ for s in range(len(session_data)):
         bodyacc.append(bodyacc_trial)
         bodycenter.append(bodycenter_trial)
         bodyspeed.append(bodyspeed_trial)
-        FR_X_excursion.append(final_tracks[0, 0, :]-np.nanmean(final_tracks[0, :4, :], axis=0))
-        HR_X_excursion.append(final_tracks[0, 1, :]-np.nanmean(final_tracks[0, :4, :], axis=0))
-        FL_X_excursion.append(final_tracks[0, 2, :]-np.nanmean(final_tracks[0, :4, :], axis=0))
-        HL_X_excursion.append(final_tracks[0, 3, :]-np.nanmean(final_tracks[0, :4, :], axis=0))
+        FR_X_excursion.append((final_tracks[0, 0, :]*loco.pixel_to_mm)-(np.nanmean(final_tracks[0, :4, :], axis=0)*loco.pixel_to_mm))
+        HR_X_excursion.append((final_tracks[0, 1, :]*loco.pixel_to_mm)-(np.nanmean(final_tracks[0, :4, :], axis=0)*loco.pixel_to_mm))
+        FL_X_excursion.append((final_tracks[0, 2, :]*loco.pixel_to_mm)-(np.nanmean(final_tracks[0, :4, :], axis=0)*loco.pixel_to_mm))
+        HL_X_excursion.append((final_tracks[0, 3, :]*loco.pixel_to_mm)-(np.nanmean(final_tracks[0, :4, :], axis=0)*loco.pixel_to_mm))
     final_tracks_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials, 'st-sw-st')
 
     if sta_type == 'bodyvars':

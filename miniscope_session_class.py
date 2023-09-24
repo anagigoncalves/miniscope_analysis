@@ -5245,8 +5245,8 @@ class miniscope_session:
         '''
         paw_difference = []
         for tr in range(len(tracks)):
-            ref = tracks[tr][0,p1,:] - np.nanmean(tracks[tr][0,p1,:])
-            sec = tracks[tr][0,p2,:] - np.nanmean(tracks[tr][0,p2,:])
+            ref = tracks[tr][0, p1, :] - np.nanmean(tracks[tr][0, :4, :], axis=0)
+            sec = tracks[tr][0, p2, :] - np.nanmean(tracks[tr][0, :4, :], axis=0)
             paw_difference.append(ref - sec)
         return paw_difference
 

@@ -312,7 +312,7 @@ class loco_class:
                         if phase_type == 'st-sw-st':
                             nr_st = len(final_tracks_trials[count_t][0, p, st_on:sw_on])
                             nr_sw = len(final_tracks_trials[count_t][0, p, sw_on:st_off])
-                            excursion_phase[st_on:sw_on+1] = np.linspace(0, 0.5, nr_st + 2)[:-1]
+                            excursion_phase[st_on:sw_on+1] = np.linspace(0, 0.5, nr_st + 1)
                             excursion_phase[sw_on:st_off+1] = np.linspace(0.5, 1, nr_sw + 2)[:-1]
                             # excursion_phase[st_off+1] = 0  # put it there -1
                         if phase_type == 'st-st':

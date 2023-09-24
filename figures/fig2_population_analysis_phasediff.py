@@ -16,8 +16,8 @@ import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel(path_session_data + '\\session_data_split_S1.xlsx')
-load_path = path_session_data + '\\Analysis on population data\\STA phase diff st-st\\split ipsi fast S1\\'
-save_path = 'J:\\Thesis\\for figures\\phase\\'
+load_path = path_session_data + '\\Analysis on population data\\STA phase diff st-sw-st\\split ipsi fast S1\\'
+save_path = path_session_data + '\\Analysis on population data\\STA phase diff st-sw-st\\'
 protocol_type = 'split'
 if protocol_type == 'tied':
     cond_name = ['slow', 'baseline', 'fast']
@@ -40,7 +40,7 @@ fov_coords = np.array([[6.27, 0.53],
                      [6.98, 1.47],
                      [6.39, 1.62]]) #AP, ML
 sort_type = 'ML'
-var_name = 'HR-FR-phase'
+var_name = 'HR-HL-phase'
 
 sta_zoom_all = []
 animal_list = []

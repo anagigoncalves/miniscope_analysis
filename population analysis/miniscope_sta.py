@@ -13,8 +13,8 @@ import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
-save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA phase diff st-st\\split ipsi fast S1\\'
-sta_type = 'phase_diff'
+save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA paw spatial diff\\split ipsi fast S1\\'
+sta_type = 'paw_diff'
 window = np.arange(-330, 330 + 1)  # Samples
 iter_n = 100 # Number of iterations of CS timestamps random shuffling
 
@@ -64,11 +64,11 @@ for s in range(len(session_data)):
         bodyacc.append(bodyacc_trial)
         bodycenter.append(bodycenter_trial)
         bodyspeed.append(bodyspeed_trial)
-        FR_X_excursion.append(final_tracks[0, 0, :])
-        HR_X_excursion.append(final_tracks[0, 1, :])
-        FL_X_excursion.append(final_tracks[0, 2, :])
-        HL_X_excursion.append(final_tracks[0, 3, :])
-    final_tracks_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials, 'st-st')
+        FR_X_excursion.append(final_tracks[0, 0, :]-np.nanmean(final_tracks[0, :4, :], axis=0))
+        HR_X_excursion.append(final_tracks[0, 1, :]-np.nanmean(final_tracks[0, :4, :], axis=0))
+        FL_X_excursion.append(final_tracks[0, 2, :]-np.nanmean(final_tracks[0, :4, :], axis=0))
+        HL_X_excursion.append(final_tracks[0, 3, :]-np.nanmean(final_tracks[0, :4, :], axis=0))
+    final_tracks_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials, 'st-sw-st')
 
     if sta_type == 'bodyvars':
         # Dictionary of all the independent variables on which computing the STA
@@ -85,14 +85,14 @@ for s in range(len(session_data)):
         ind_vars = {'FR': FR_X_excursion, 'FL': FL_X_excursion, 'HR': HR_X_excursion, 'HL': HL_X_excursion}
         keys=list(ind_vars.keys())
     if sta_type == 'phase_diff':
-        # paw_diff_fr_hl = loco.phase_diff(final_tracks_phase, 'FR', 'HL', 'X')
-        # paw_diff_fl_hl = loco.phase_diff(final_tracks_phase, 'FL', 'HL', 'X')
-        # paw_diff_hr_hl = loco.phase_diff(final_tracks_phase, 'HR', 'HL', 'X')
-        # ind_vars = {'FR-HL-phase': paw_diff_fr_hl, 'FL-HL-phase': paw_diff_fl_hl, 'HR-HL-phase': paw_diff_hr_hl}
+        paw_diff_fr_hl = loco.phase_diff(final_tracks_phase, 'FR', 'HL', 'X')
+        paw_diff_fl_hl = loco.phase_diff(final_tracks_phase, 'FL', 'HL', 'X')
+        paw_diff_hr_hl = loco.phase_diff(final_tracks_phase, 'HR', 'HL', 'X')
         paw_diff_fl_fr = loco.phase_diff(final_tracks_phase, 'FL', 'FR', 'X')
         paw_diff_hr_fr = loco.phase_diff(final_tracks_phase, 'HR', 'FR', 'X')
         paw_diff_hl_fr = loco.phase_diff(final_tracks_phase, 'HL', 'FR', 'X')
-        ind_vars = {'FL-FR-phase': paw_diff_fl_fr, 'HR-FR-phase': paw_diff_hr_fr, 'HL-FR-phase': paw_diff_hl_fr}
+        ind_vars = {'FL-FR-phase': paw_diff_fl_fr, 'HR-FR-phase': paw_diff_hr_fr, 'HL-FR-phase': paw_diff_hl_fr,
+                    'FR-HL-phase': paw_diff_fr_hl, 'FL-HL-phase': paw_diff_fl_hl, 'HR-HL-phase': paw_diff_hr_hl}
         keys=list(ind_vars.keys())
 
     # Loop through independent variables to compute and plot STAs of each one

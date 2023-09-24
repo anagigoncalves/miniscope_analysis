@@ -60,7 +60,7 @@ for session_data_idx in range(np.shape(session_data)[0]):
         final_tracks_trials.append(final_tracks)
         st_strides_trials.append(st_strides_mat)
         sw_strides_trials.append(sw_pts_mat)
-    final_tracks_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials, 'st-st')
+    final_tracks_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials, 'st-sw-st')
 
     if animal == 'MC8855':
         trials_new = trials + 3
@@ -89,7 +89,35 @@ ax.set_ylabel('Phase difference (deg)', fontsize=20)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=18)
-plt.savefig(os.path.join(save_path, 'paw_diff_fr_split_ipsi_fast_S1'), dpi=mscope.my_dpi)
+plt.savefig(os.path.join(save_path, 'paw_diff_fr_split_ipsi_fast_S1_st-sw-st'), dpi=mscope.my_dpi)
+
+fig, ax = plt.subplots(figsize=(5, 10), tight_layout = True)
+p = 2
+ax.plot(np.arange(1, N_trials+1), np.nanmean(phase_diff_fr[:, :, p], axis=0), color=colors_paws[p], linewidth=2)
+ax.fill_between(np.arange(1, N_trials + 1), np.nanmean(phase_diff_fr[:, :, p], axis=0)-np.nanstd(phase_diff_fr[:, :, p], axis=0),
+np.nanmean(phase_diff_fr[:, :, p], axis=0)+np.nanstd(phase_diff_fr[:, :, p], axis=0), color=colors_paws[p], alpha=0.3)
+ax.axvline(x=6.5, linestyle='dashed', color='black')
+ax.axvline(x=16.5, linestyle='dashed', color='black')
+ax.set_xlabel('Trials', fontsize=20)
+ax.set_ylabel('Phase difference (deg)', fontsize=20)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.tick_params(axis='both', which='major', labelsize=18)
+plt.savefig(os.path.join(save_path, 'paw_diff_fr_split_ipsi_fast_S1_st-sw-st_fl_only'), dpi=mscope.my_dpi)
+
+fig, ax = plt.subplots(figsize=(5, 10))
+p = 2
+for a in range(np.shape(phase_diff_fr)[0]):
+    ax.plot(np.arange(1, N_trials+1), phase_diff_fr[a, :, p], label=session_data['animal'][a], linewidth=2)
+ax.legend(frameon=False, fontsize=14)
+ax.axvline(x=6.5, linestyle='dashed', color='black')
+ax.axvline(x=16.5, linestyle='dashed', color='black')
+ax.set_xlabel('Trials', fontsize=20)
+ax.set_ylabel('Phase difference (deg)', fontsize=20)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.tick_params(axis='both', which='major', labelsize=18)
+plt.savefig(os.path.join(save_path, 'paw_diff_fr_split_ipsi_fast_S1_st-sw-st_fl_only_single_animals'), dpi=mscope.my_dpi)
 
 fig, ax = plt.subplots(figsize=(5, 5), tight_layout = True)
 for p in range(4):
@@ -99,7 +127,7 @@ ax.set_ylabel('Phase difference (bs)\nfor after-effect trial', fontsize=20)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=18)
-plt.savefig(os.path.join(save_path, 'paw_diff_fr_ae_split_ipsi_fast_S1'), dpi=mscope.my_dpi)
+plt.savefig(os.path.join(save_path, 'paw_diff_fr_ae_split_ipsi_fast_S1_st-sw-st'), dpi=mscope.my_dpi)
 
 fig, ax = plt.subplots(figsize=(5, 10), tight_layout = True)
 for p in range(4):
@@ -113,7 +141,7 @@ ax.set_ylabel('Phase difference (deg)', fontsize=20)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=18)
-plt.savefig(os.path.join(save_path, 'paw_diff_hl_split_ipsi_fast_S1'), dpi=mscope.my_dpi)
+plt.savefig(os.path.join(save_path, 'paw_diff_hl_split_ipsi_fast_S1_st-sw-st'), dpi=mscope.my_dpi)
 
 fig, ax = plt.subplots(figsize=(5, 5), tight_layout = True)
 for p in range(4):
@@ -123,7 +151,7 @@ ax.set_ylabel('Phase difference (bs)\nfor after-effect trial', fontsize=20)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=18)
-plt.savefig(os.path.join(save_path, 'paw_diff_hl_ae_split_ipsi_fast_S1'), dpi=mscope.my_dpi)
+plt.savefig(os.path.join(save_path, 'paw_diff_hl_ae_split_ipsi_fast_S1_st-sw-st'), dpi=mscope.my_dpi)
 
 #phase_diff_hl[:, ae_idx, 0]-np.nanmean(phase_diff_hl[:, :6, 0], axis=1)
 #no ae for hl phase for MC10221 and MC9513

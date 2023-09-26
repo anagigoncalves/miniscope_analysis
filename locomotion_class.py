@@ -904,7 +904,7 @@ class loco_class:
         bodyspeed = savgol_filter(self.inpaint_nans(bodycenter),81,3,deriv=1)
         return bodyspeed
     
-    def compute_bodycenter(self,final_tracks,axis_name):
+    def compute_bodycenter(self, final_tracks, axis_name):
         """ Computes bodycenter as the mean of the four paws for the desired axis"""
         if axis_name == 'X':
             axis_id = 0

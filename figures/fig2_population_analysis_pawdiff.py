@@ -15,8 +15,8 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(path_session_data + '\\session_data_split_S2.xlsx')
-load_path = path_session_data + '\\Analysis on population data\\STA paw spatial diff\\split contra fast S1\\'
+session_data = pd.read_excel(path_session_data + '\\session_data_split_S1.xlsx')
+load_path = path_session_data + '\\Analysis on population data\\STA paw spatial diff\\split ipsi fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig2\\'
 protocol_type = 'split'
 if protocol_type == 'tied':
@@ -254,7 +254,7 @@ lags_cluster_after0_arr = np.concatenate(lags_cluster_after0_all)
 cmap_plot = mp.cm.get_cmap('PuRd', np.shape(lags_cluster_arr)[0]+10)
 color_list = [mp.colors.rgb2hex(cmap_plot(i)[:3]) for i in range(cmap_plot.N)]
 ml_sort_idx = np.argsort(sta_ml)
-fig, ax = plt.subplots(1, 2, figsize=(20, 10), tight_layout=True)
+fig, ax = plt.subplots(1, 2, figsize=(10, 5), tight_layout=True)
 ax = ax.ravel()
 if protocol_type == 'split':
     for i, idx_plot in enumerate(ml_sort_idx):
@@ -263,7 +263,7 @@ if protocol_type == 'split':
                        label=str(np.round(sta_ml[idx_plot],4)), linewidth=2)
         else:
             ax[0].plot(range(len(cond_name)), lags_cluster_arr[idx_plot, :], c=color_list[i], linewidth=2)
-    ax[0].legend(frameon=False, fontsize=12)
+    # ax[0].legend(frameon=False, fontsize=12)
 else:
     ax[0].plot(range(len(cond_name)), np.transpose(lags_cluster_arr), color='black')
 ax[0].set_xticks(range(len(cond_name)))
@@ -280,4 +280,4 @@ ax[1].spines['right'].set_visible(False)
 ax[1].spines['top'].set_visible(False)
 ax[1].tick_params(axis='both', which='major', labelsize=16)
 plt.savefig(os.path.join(save_path,
-                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_' + var_name + '_quantification_lags_ml_legend'), dpi=mscope.my_dpi)
+                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_' + var_name + '_quantification_lags_ml'), dpi=mscope.my_dpi)

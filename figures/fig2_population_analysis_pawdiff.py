@@ -15,8 +15,8 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(path_session_data + '\\session_data_split_S1.xlsx')
-load_path = path_session_data + '\\Analysis on population data\\STA paws\\split ipsi fast S1\\'
+session_data = pd.read_excel(path_session_data + '\\session_data_split_S2.xlsx')
+load_path = path_session_data + '\\Analysis on population data\\STA paw spatial diff\\split contra fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig2\\'
 protocol_type = 'split'
 if protocol_type == 'tied':
@@ -29,7 +29,7 @@ if protocol_type == 'split':
                    (0.03137254901960784, 0.18823529411764706, 0.4196078431372549, 1.0),
                    (0.7935828877005348, 0.8702317290552584, 0.9429590017825312, 1.0)]
 window = np.arange(-330, 330 + 1)  # Samples
-zoom_in = np.array([-0.25, 0.25])
+zoom_in = np.array([-0.5, 0.25])
 xaxis = window / 330
 xaxis_start = np.where(xaxis >= zoom_in[0])[0][0]
 xaxis_end = np.where(xaxis >= zoom_in[1])[0][0]
@@ -40,7 +40,7 @@ fov_coords = np.array([[6.27, 0.53],
                      [6.98, 1.47],
                      [6.39, 1.62]]) #AP, ML
 sort_type = 'ML'
-var_name = 'FR'
+var_name = 'FR-FL'
 
 sta_zoom_all = []
 animal_list = []

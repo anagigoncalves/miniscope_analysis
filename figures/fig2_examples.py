@@ -16,7 +16,7 @@ path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel(path_session_data + '\\session_data_tied_S1.xlsx')
 load_path = path_session_data + '\\Analysis on population data\\STA bodyvars\\tied baseline S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig2\\'
-var_name = 'Body_position'
+var_name = 'Body_speed'
 protocol_type = 'tied'
 if protocol_type == 'tied':
     cond_name = ['slow', 'baseline', 'fast']
@@ -136,17 +136,17 @@ plt.savefig(os.path.join(save_path,
                          'sta_bodyvars_' + var_name.replace(' ', '_') + '_' + animal + '_' + ses_info[
                              0].replace(' ', '_') + '_cluster' + str(cluster_plot + 1) + '_summary_legend'), dpi=mscope.my_dpi)
 
-#HEATMAP EXAMPLE BODYBARS
-# Align dF/F and behavior (body position, speed, acceleration) for each trial and desired epoch
-# Order ROIs by cluster
-if len(clusters_rois) == 1:
-    clusters_rois_flat = clusters_rois[0]
-else:
-    clusters_rois_flat = np.transpose(sum(clusters_rois, []))
-clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
-clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
-df = mscope.norm_traces(df_extract_rawtrace_detrended[clusters_rois_flat], norm_name='zscore', axis='session') # Normalized dF/F traces for 'popul_heatmap'
-
+# #HEATMAP EXAMPLE BODYBARS
+# # Align dF/F and behavior (body position, speed, acceleration) for each trial and desired epoch
+# # Order ROIs by cluster
+# if len(clusters_rois) == 1:
+#     clusters_rois_flat = clusters_rois[0]
+# else:
+#     clusters_rois_flat = np.transpose(sum(clusters_rois, []))
+# clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'time')
+# clusters_rois_flat = np.insert(clusters_rois_flat, 0, 'trial')
+# df = mscope.norm_traces(df_extract_rawtrace_detrended[clusters_rois_flat], norm_name='zscore', axis='session') # Normalized dF/F traces for 'popul_heatmap'
+#
 # # Load behavioral data and get acceleration
 # filelist = loco.get_track_files(animal, session)
 # bodyacc = []
@@ -194,13 +194,13 @@ df = mscope.norm_traces(df_extract_rawtrace_detrended[clusters_rois_flat], norm_
 # sns.lineplot(x=t, y=bodyspeed[trial-1][beg*loco.sr:end*loco.sr], ax=axs[2], color='black', linewidth=2)
 # axs[2].set(xticklabels=[])
 # axs[2].set_xlim([t[0], t[-1]])
-# axs[2].set_ylabel('Body\nSpeed (m/s)', fontsize=20)
+# axs[2].set_ylabel('Body\nSpeed (mm/s)', fontsize=20)
 # axs[2].tick_params(axis='both', which='major', labelsize=18)
 # axs[2].spines['right'].set_visible(False)
 # axs[2].spines['top'].set_visible(False)
 # sns.lineplot(x=t, y=bodyacc[trial-1][beg*loco.sr:end*loco.sr], ax=axs[3], color='black', linewidth=2)
 # axs[3].set_xlim([t[0], t[-1]])
-# axs[3].set_ylabel('Body\nAcceleration\n(m/s\u00b2)', fontsize=16)
+# axs[3].set_ylabel('Body\nAcceleration\n(mm/s\u00b2)', fontsize=16)
 # axs[3].set_xlabel('Time (s)', fontsize=20)
 # axs[3].tick_params(axis='both', which='major', labelsize=18)
 # axs[3].spines['right'].set_visible(False)

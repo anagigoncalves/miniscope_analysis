@@ -56,7 +56,7 @@ for count_trial, f in enumerate(filelist):
     [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter_DLC] = loco.read_h5(f, 0.9, int(
         frames_loco[count_trial]))
     [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
-    bodycenter_trial = sp.medfilt(loco.compute_bodycenter(final_tracks, 'X'), 5) #filter for tracking errors
+    bodycenter_trial = sp.medfilt(loco.compute_bodycenter(final_tracks, 'X'), 11)/1000 #filter for tracking errors
     bodyspeed_trial = loco.compute_bodyspeed(bodycenter_trial)
     bodyacc_trial = loco.compute_bodyacc(bodycenter_trial)
     bodyacc.append(bodyacc_trial)

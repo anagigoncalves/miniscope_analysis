@@ -48,8 +48,7 @@ sta_animal_id = []
 sta_cluster_size = []
 sta_ap = []
 sta_ml = []
-lags_cluster_all = []
-lags_cluster_after0_all = []
+peaks_cluster_all = []
 sl_aftereffect = []
 sta_zoom_all_notzscored = []
 for count_f, f in enumerate(animal_order):
@@ -107,11 +106,10 @@ for count_f, f in enumerate(animal_order):
         clusters_in_session = np.delete(clusters_in_session_all, np.where(clusters_in_session_all == 0)[0])
 
     # SEPARATE BY TRIALS YOU WANT TO PLOT AND THE OVERLAPPING CLUSTERS
-    xaxis_crosscorr = xaxis[xaxis_start:xaxis_end]
-    idx_time0 = np.where(xaxis_crosscorr == 0)[0][0]
-    xaxis_crosscorr_crop = xaxis_crosscorr[:idx_time0]
-    lags_cluster = np.zeros((len(clusters_in_session), len(cond_name)))
-    lags_cluster_after0 = np.zeros((len(clusters_in_session), len(cond_name)))
+    xaxis_short = xaxis[xaxis_start:xaxis_end]
+    idx_time0 = np.where(xaxis_short == 0)[0][0]
+    xaxis_short_crop = xaxis_short[:idx_time0]
+    peaks_cluster = np.zeros((len(clusters_in_session), len(cond_name)))
     for count_c, c in enumerate(clusters_in_session):  # 0 are ROIs that don't overlap with reference session
         sta_zs_zoom = np.zeros((len(np.where(coord_ext_overlap == c)[0]), len(cond_name), xaxis_end - xaxis_start))
         sta_zs_zoom[:] = np.nan
@@ -162,18 +160,10 @@ for count_f, f in enumerate(animal_order):
         sta_zoom_all_notzscored.append(sta_zoom)
         # QUANTIFY LAGS IN CROSS CORRELATION ACROSS TRIALS
         sta_zs_zoom_c = np.nanmean(sta_zs_zoom, axis=0)
-        for t in range(len(cond_name[:-1])):
-            correlation = sig.correlate(sta_zs_zoom_c[0, :idx_time0], sta_zs_zoom_c[t + 1, :idx_time0], mode='full')
-            lags = sig.correlation_lags(sta_zs_zoom_c[0, :idx_time0].size, sta_zs_zoom_c[t + 1, :idx_time0].size,
-                                        mode='full')
-            lags_cluster[count_c, t + 1] = xaxis_crosscorr_crop[lags[np.argmax(correlation)]]
-            correlation_after0 = sig.correlate(sta_zs_zoom_c[0, :idx_time0], sta_zs_zoom_c[t + 1, idx_time0:],
-                                               mode='full')
-            lags_after0 = sig.correlation_lags(sta_zs_zoom_c[0, :idx_time0].size, sta_zs_zoom_c[t + 1, idx_time0:].size,
-                                               mode='full')
-            lags_cluster_after0[count_c, t + 1] = xaxis_crosscorr_crop[lags_after0[np.argmax(correlation_after0)]]
-    lags_cluster_all.append(lags_cluster)
-    lags_cluster_after0_all.append(lags_cluster_after0)
+        for t in range(len(cond_name)):
+            amp, latency = mscope.get_peakamp_latency(sta_zs_zoom_c[t, :idx_time0], xaxis_short)
+            peaks_cluster[count_c, t] = latency
+    peaks_cluster_all.append(peaks_cluster)
 
 sort_ml = np.argsort(sta_ml)
 sort_ap = np.argsort(sta_ap)
@@ -198,8 +188,10 @@ sta_zoom_all_concat_notzscored = np.concatenate(sta_zoom_all_sort)
 #ANIMALS SUMMARY
 fig, ax = plt.subplots(1, np.shape(sta_zoom_all_concat)[1], figsize=(25, 10), tight_layout='True', sharey=True)
 for t in range(np.shape(sta_zoom_all_concat)[1]):
-    hm = sns.heatmap(sta_zoom_all_concat[:, t, :], vmax=np.nanpercentile(sta_zoom_all_concat,99.5),
-                vmin=np.nanpercentile(sta_zoom_all_concat,0.5), cmap='coolwarm', ax=ax[t])
+    # hm = sns.heatmap(sta_zoom_all_concat[:, t, :], vmax=np.nanpercentile(sta_zoom_all_concat,99.5),
+    #             vmin=np.nanpercentile(sta_zoom_all_concat,0.5), cmap='coolwarm', ax=ax[t])
+    hm = sns.heatmap(sta_zoom_all_concat[:, t, :], vmax=4.5,
+                vmin=-4.5, cmap='coolwarm', ax=ax[t])
     ax[t].set_xticks(np.array([0, np.where(xaxis==0)[0][0]-xaxis_start, np.shape(sta_zoom_all_concat)[2]]))
     ax[t].set_xticklabels([str(np.round(xaxis[xaxis_start], 2)), '0', str(np.round(xaxis[xaxis_end],2))], fontsize=20)
     ax[t].axvline(x=np.where(xaxis==0)[0][0]-xaxis_start, color='white')
@@ -209,8 +201,8 @@ for t in range(np.shape(sta_zoom_all_concat)[1]):
     ax[t].tick_params(axis='both', which='major', labelsize=16)
     cbar = hm.collections[0].colorbar
     cbar.ax.tick_params(labelsize=16)
-    # for a in np.cumsum(sta_cluster_size)[:-1]:
-    #     ax[t].axhline(y=a, c='k', linestyle='--')
+    for a in np.cumsum(sta_cluster_size)[:-1]:
+        ax[t].axhline(y=a, c='white', linestyle='--')
     if sort_type == 'ML':
         ax[t].set_yticklabels(list(map(str, np.round(np.sort(sta_ml), 2))), fontsize=12, rotation=45)
     if sort_type == 'AP':
@@ -219,7 +211,7 @@ for t in range(np.shape(sta_zoom_all_concat)[1]):
         ax[t].set_ylabel('   '.join(sta_animal_id[::-1]), fontsize=6)
     ax[t].set_title(cond_name[t], fontsize=16)
 plt.savefig(os.path.join(save_path,
-                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_' + var_name + '_animal_summary_sort_'+sort_type), dpi=mscope.my_dpi)
+                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_' + var_name + '_animal_summary_sort_'+sort_type+'_animal_lines'), dpi=mscope.my_dpi)
 
 fig, ax = plt.subplots(1, np.shape(sta_zoom_all_concat)[1], figsize=(25, 10), tight_layout='True', sharey=True)
 for t in range(np.shape(sta_zoom_all_concat)[1]):
@@ -249,35 +241,26 @@ for t in range(np.shape(sta_zoom_all_concat)[1]):
 plt.savefig(os.path.join(save_path,
                          'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_' + var_name + '_animal_summary_sort_notzscored_'+sort_type), dpi=mscope.my_dpi)
 
-lags_cluster_arr = np.concatenate(lags_cluster_all)
-lags_cluster_after0_arr = np.concatenate(lags_cluster_after0_all)
-cmap_plot = mp.cm.get_cmap('PuRd', np.shape(lags_cluster_arr)[0]+10)
+peaks_cluster_arr = np.concatenate(peaks_cluster_all)
+cmap_plot = mp.cm.get_cmap('PuRd', np.shape(peaks_cluster_arr)[0]+10)
 color_list = [mp.colors.rgb2hex(cmap_plot(i)[:3]) for i in range(cmap_plot.N)]
 ml_sort_idx = np.argsort(sta_ml)
-fig, ax = plt.subplots(1, 2, figsize=(10, 5), tight_layout=True)
-ax = ax.ravel()
+fig, ax = plt.subplots(1, figsize=(5, 5), tight_layout=True)
 if protocol_type == 'split':
     for i, idx_plot in enumerate(ml_sort_idx):
-        if i == 0 or i == np.shape(lags_cluster_arr)[0]/2 or i == np.shape(lags_cluster_arr)[0]-1:
-            ax[0].plot(range(len(cond_name)), lags_cluster_arr[idx_plot, :], c=color_list[i],
+        if i == 0 or i == np.shape(peaks_cluster_arr)[0]/2 or i == np.shape(peaks_cluster_arr)[0]-1:
+            ax.plot(range(len(cond_name)), peaks_cluster_arr[idx_plot, :], c=color_list[i],
                        label=str(np.round(sta_ml[idx_plot],4)), linewidth=2)
         else:
-            ax[0].plot(range(len(cond_name)), lags_cluster_arr[idx_plot, :], c=color_list[i], linewidth=2)
-    # ax[0].legend(frameon=False, fontsize=12)
+            ax.plot(range(len(cond_name)), peaks_cluster_arr[idx_plot, :], c=color_list[i], linewidth=2)
+    # ax.legend(frameon=False, fontsize=12)
 else:
-    ax[0].plot(range(len(cond_name)), np.transpose(lags_cluster_arr), color='black')
-ax[0].set_xticks(range(len(cond_name)))
-ax[0].set_xticklabels(cond_name, fontsize=16, rotation=45)
-ax[0].set_ylabel(var_name + '\ncross-correlation lags', fontsize=18)
-ax[0].spines['right'].set_visible(False)
-ax[0].spines['top'].set_visible(False)
-ax[0].tick_params(axis='both', which='major', labelsize=16)
-ax[1].plot(range(len(cond_name)), np.transpose(lags_cluster_after0_arr), color='black')
-ax[1].set_xticks(range(len(cond_name)))
-ax[1].set_xticklabels(cond_name, fontsize=16, rotation=45)
-ax[1].set_ylabel(var_name + '\ncross-correlation lags', fontsize=18)
-ax[1].spines['right'].set_visible(False)
-ax[1].spines['top'].set_visible(False)
-ax[1].tick_params(axis='both', which='major', labelsize=16)
+    ax.plot(range(len(cond_name)), np.transpose(peaks_cluster_arr), color='black')
+ax.set_xticks(range(len(cond_name)))
+ax.set_xticklabels(cond_name, fontsize=16, rotation=45)
+ax.set_ylabel(var_name + '\npeak latency', fontsize=18)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.tick_params(axis='both', which='major', labelsize=16)
 plt.savefig(os.path.join(save_path,
-                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_' + var_name + '_quantification_lags_ml'), dpi=mscope.my_dpi)
+                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_' + var_name + '_quantification_peaks_ml'), dpi=mscope.my_dpi)

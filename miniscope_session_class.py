@@ -26,6 +26,7 @@ import SlopeThreshold as ST
 import read_roi
 import scipy.spatial.distance as spdist
 from scipy.spatial import Delaunay
+import scipy.signal as sp
 from itertools import chain
 
 # to call class
@@ -5272,6 +5273,19 @@ class miniscope_session:
             os.mkdir(self.path + 'processed files')
         np.save(os.path.join(self.path, 'processed files', 'cluster_coords.npy'), centroid_cluster_dist_corner)
         return centroid_cluster_dist_corner
+
+    @staticmethod
+    def get_peakamp_latency(data, xaxis):
+        """Get the last peak time and amplitude of a sinusoidal curve such as difference between paws
+        Inputs:
+            data: vector with sinusoid (e.g. difference between paws)
+            xaxis: vector with time of data points"""
+        data_filt = sp.medfilt(data - np.nanmean(data), 11)
+        peaks_idx = sp.find_peaks(data_filt, width=10)[0]
+        idx_closest_peak = np.argmax(peaks_idx)
+        amp = data[peaks_idx[idx_closest_peak]]
+        latency = xaxis[peaks_idx[idx_closest_peak]]
+        return amp, latency
 
     # def get_background_signal(self, weight, coord_cell):
     #     """ Get neuropil background signals for each cell coordinates. Low-pass filter of

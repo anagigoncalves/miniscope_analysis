@@ -13,9 +13,9 @@ import miniscope_session_class
 import locomotion_class
 #   DO S2
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_tied_S1.xlsx')
-save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA paws\\tied baseline S1\\'
-sta_type = 'paws'
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S2.xlsx')
+save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA phase diff st-sw-st\\split contra fast S1\\'
+sta_type = 'phase_diff'
 window = np.arange(-330, 330 + 1)  # Samples
 iter_n = 100 # Number of iterations of CS timestamps random shuffling
 

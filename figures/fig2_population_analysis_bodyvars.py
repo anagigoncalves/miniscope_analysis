@@ -18,9 +18,9 @@ session_data = pd.read_excel(path_session_data +'\\session_data_tied_S1.xlsx')
 load_path = path_session_data + '\\Analysis on population data\\STA bodyvars\\tied baseline S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig2\\'
 protocol_type = 'tied'
-sort_type = 'AP'
+sort_type = 'ML'
 window = np.arange(-330, 330 + 1)  # Samples
-zoom_in = np.array([-0.5, 0.25])
+zoom_in = np.array([-1, 0.25])
 xaxis = window / 330
 xaxis_start = np.where(xaxis >= zoom_in[0])[0][0]
 xaxis_end = np.where(xaxis >= zoom_in[1])[0][0]

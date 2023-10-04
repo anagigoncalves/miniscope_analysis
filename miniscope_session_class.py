@@ -5276,15 +5276,21 @@ class miniscope_session:
 
     @staticmethod
     def get_peakamp_latency(data, xaxis):
-        """Get the last peak time and amplitude of a sinusoidal curve such as difference between paws
+        """Get the last peak time before 0 and amplitude of a sinusoidal curve such as difference between paws
         Inputs:
             data: vector with sinusoid (e.g. difference between paws)
             xaxis: vector with time of data points"""
+        idx_time0 = np.where(xaxis == 0)[0][0]
         data_filt = sp.medfilt(data - np.nanmean(data), 11)
         peaks_idx = sp.find_peaks(data_filt, width=10)[0]
-        idx_closest_peak = np.argmax(peaks_idx)
-        amp = data[peaks_idx[idx_closest_peak]]
-        latency = xaxis[peaks_idx[idx_closest_peak]]
+        peaks_idx_before0 = peaks_idx[np.where(peaks_idx < idx_time0)[0]]
+        if len(peaks_idx_before0)>0:
+            idx_closest_peak = np.argmax(peaks_idx_before0)
+            amp = data[peaks_idx[idx_closest_peak]]
+            latency = xaxis[peaks_idx[idx_closest_peak]]
+        else:
+            amp = np.nan
+            latency = np.nan
         return amp, latency
 
     # def get_background_signal(self, weight, coord_cell):

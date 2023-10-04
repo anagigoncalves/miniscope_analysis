@@ -15,10 +15,10 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(path_session_data + '\\session_data_split_S1.xlsx')
-load_path = path_session_data + '\\Analysis on population data\\STA paw spatial diff\\split ipsi fast S1\\'
+session_data = pd.read_excel(path_session_data + '\\session_data_tied_S1.xlsx')
+load_path = path_session_data + '\\Analysis on population data\\STA paw spatial diff\\tied baseline S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig2\\'
-protocol_type = 'split'
+protocol_type = 'tied'
 if protocol_type == 'tied':
     cond_name = ['slow', 'baseline', 'fast']
     colors_cond = ['purple', 'black', 'orange']
@@ -161,7 +161,11 @@ for count_f, f in enumerate(animal_order):
         # QUANTIFY LAGS IN CROSS CORRELATION ACROSS TRIALS
         sta_zs_zoom_c = np.nanmean(sta_zs_zoom, axis=0)
         for t in range(len(cond_name)):
-            amp, latency = mscope.get_peakamp_latency(sta_zs_zoom_c[t, :idx_time0], xaxis_short)
+            if session_type == 'tied' and animal == 'MC8855' and t == 0: #no slow speed
+                amp = np.nan
+                latency = np.nan
+            else:
+                amp, latency = mscope.get_peakamp_latency(sta_zs_zoom_c[t, :], xaxis_short)
             peaks_cluster[count_c, t] = latency
     peaks_cluster_all.append(peaks_cluster)
 
@@ -242,25 +246,31 @@ plt.savefig(os.path.join(save_path,
                          'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_' + var_name + '_animal_summary_sort_notzscored_'+sort_type), dpi=mscope.my_dpi)
 
 peaks_cluster_arr = np.concatenate(peaks_cluster_all)
-cmap_plot = mp.cm.get_cmap('PuRd', np.shape(peaks_cluster_arr)[0]+10)
+cmap_plot = mp.cm.get_cmap('plasma', np.shape(peaks_cluster_arr)[0])
 color_list = [mp.colors.rgb2hex(cmap_plot(i)[:3]) for i in range(cmap_plot.N)]
-ml_sort_idx = np.argsort(sta_ml)
-fig, ax = plt.subplots(1, figsize=(5, 5), tight_layout=True)
-if protocol_type == 'split':
-    for i, idx_plot in enumerate(ml_sort_idx):
-        if i == 0 or i == np.shape(peaks_cluster_arr)[0]/2 or i == np.shape(peaks_cluster_arr)[0]-1:
-            ax.plot(range(len(cond_name)), peaks_cluster_arr[idx_plot, :], c=color_list[i],
-                       label=str(np.round(sta_ml[idx_plot],4)), linewidth=2)
-        else:
-            ax.plot(range(len(cond_name)), peaks_cluster_arr[idx_plot, :], c=color_list[i], linewidth=2)
-    # ax.legend(frameon=False, fontsize=12)
-else:
-    ax.plot(range(len(cond_name)), np.transpose(peaks_cluster_arr), color='black')
-ax.set_xticks(range(len(cond_name)))
-ax.set_xticklabels(cond_name, fontsize=16, rotation=45)
-ax.set_ylabel(var_name + '\npeak latency', fontsize=18)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-ax.tick_params(axis='both', which='major', labelsize=16)
+fig, ax = plt.subplots(len(session_data['animal']), 1, figsize=(5, 10), tight_layout=True, sharex=True)
+ax = ax.ravel()
+for i in range(np.shape(peaks_cluster_arr)[0]):
+    animal_id = sta_animal_id[i]
+    if animal_id == 'MC8855':
+        j = 0
+    if animal_id == 'MC9194':
+        j = 1
+    if animal_id == 'MC9226':
+        j = 2
+    if animal_id == 'MC9513':
+        j = 3
+    if animal_id == 'MC10221':
+        j = 4
+    ax[j].plot(range(len(cond_name)), peaks_cluster_arr[i, :], c=color_list[i], linewidth=2, label=str(np.round(sta_ml[i],4)))
+    ax[j].legend(frameon=False, fontsize=12)
+    ax[j].set_xticks(range(len(cond_name)))
+    ax[j].set_xticklabels(cond_name, fontsize=16, rotation=45)
+    ax[j].set_ylabel(var_name + '\npeak latency', fontsize=14)
+    ax[j].spines['right'].set_visible(False)
+    ax[j].spines['top'].set_visible(False)
+    ax[j].tick_params(axis='both', which='major', labelsize=14)
+    ax[j].set_ylim([-0.3, 0])
 plt.savefig(os.path.join(save_path,
-                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_' + var_name + '_quantification_peaks_ml'), dpi=mscope.my_dpi)
+                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_' + var_name + '_animal_summary_sort_notzscored_quantification'), dpi=mscope.my_dpi)
+

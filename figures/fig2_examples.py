@@ -14,9 +14,9 @@ import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel(path_session_data + '\\session_data_split_S1.xlsx')
-load_path = path_session_data + '\\Analysis on population data\\STA paw spatial diff\\split ipsi fast S1\\'
+load_path = path_session_data + '\\Analysis on population data\\STA phase diff st-sw-st\\split ipsi fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig2\\'
-var_name = 'FR-FL'
+var_name = 'FL-FR-phase'
 window = np.arange(-330, 330 + 1)  # Samples
 iter_n = 100 # Number of iterations of CS timestamps random shuffling
 protocol_type = 'split'
@@ -30,7 +30,7 @@ if protocol_type == 'split':
                    (0.03137254901960784, 0.18823529411764706, 0.4196078431372549, 1.0),
                    (0.7935828877005348, 0.8702317290552584, 0.9429590017825312, 1.0)]
 window = np.arange(-330, 330 + 1)  # Samples
-zoom_in = np.array([-0.5, 0.25])
+zoom_in = np.array([-1, 0.25])
 xaxis = window / 330
 xaxis_start = np.where(xaxis >= zoom_in[0])[0][0]
 xaxis_end = np.where(xaxis >= zoom_in[1])[0][0]
@@ -63,7 +63,7 @@ trials_idx = np.where(np.in1d(np.arange(trials[0], trials[-1] + 1), trials))[0]
     mscope.get_rois_aligned_reference_cluster(df_events_extract_rawtrace, coord_ext, animal)
 
 sta_zs = np.load(
-    os.path.join(load_path, animal + ' ' + ses_info[0], 'sta_bodyvars_' + var_name.replace(' ', '_') + '.npy'))
+    os.path.join(load_path, animal + ' ' + ses_info[0], 'sta_bodyvars_' + var_name.replace(' ', '_') + '_zscored.npy'))
 
 if protocol_type == 'tied':
     sta_zs_zoom = np.zeros((np.shape(sta_zs)[0], len(cond_name), xaxis_end - xaxis_start))
@@ -208,21 +208,21 @@ plt.savefig(os.path.join(save_path,
 # axs[3].spines['right'].set_visible(False)
 # axs[3].spines['top'].set_visible(False)
 # plt.savefig(os.path.join('J:\\Thesis\\for figures\\fig2\\', 'example_bodyvars_MC9194_splitipsifast_S1_cbar'), dpi=128)
-
-# Load behavioral data and get acceleration
-filelist = loco.get_track_files(animal, session)
-bodyacc = []
-bodycenter = []
-bodyspeed = []
-for count_trial, f in enumerate(filelist):
-    [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter_DLC] = loco.read_h5(f, 0.9, int(
-        frames_loco[count_trial]))
-    bodycenter_trial = loco.compute_bodycenter(final_tracks, 'X')
-    bodyspeed_trial = loco.compute_bodyspeed(bodycenter_trial)
-    bodyacc_trial = loco.compute_bodyacc(bodycenter_trial)
-    bodyacc.append(bodyacc_trial)
-    bodycenter.append(bodycenter_trial)
-    bodyspeed.append(bodyspeed_trial)
+#
+# # Load behavioral data and get acceleration
+# filelist = loco.get_track_files(animal, session)
+# bodyacc = []
+# bodycenter = []
+# bodyspeed = []
+# for count_trial, f in enumerate(filelist):
+#     [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter_DLC] = loco.read_h5(f, 0.9, int(
+#         frames_loco[count_trial]))
+#     bodycenter_trial = loco.compute_bodycenter(final_tracks, 'X')
+#     bodyspeed_trial = loco.compute_bodyspeed(bodycenter_trial)
+#     bodyacc_trial = loco.compute_bodyacc(bodycenter_trial)
+#     bodyacc.append(bodyacc_trial)
+#     bodycenter.append(bodycenter_trial)
+#     bodyspeed.append(bodyspeed_trial)
 #
 # [df_sorted, cluster_transition_idx] = mscope.sort_rois_clust(df, clusters_rois)
 #

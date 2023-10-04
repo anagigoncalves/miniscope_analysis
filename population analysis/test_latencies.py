@@ -77,18 +77,21 @@ def get_peakamp_latency(data, xaxis):
     data = np.transpose(sta_zs_zoom[roi, 0, :])
     data_filt = sp.medfilt(data - np.nanmean(data), 11)
     peaks_idx = sp.find_peaks(data_filt, width=10)[0]
-    idx_closest_peak = np.argmax(peaks_idx - idx_time0)
+    peaks_idx_before0 = peaks_idx[np.where(peaks_idx < idx_time0)[0]]
+    idx_closest_peak = np.argmax(peaks_idx_before0)
     amp = data[peaks_idx[idx_closest_peak]]
     latency = xaxis_short[peaks_idx[idx_closest_peak]]
     return amp, latency
-roi = 11
+roi = 35
 #find closest peak to 0
 data = np.transpose(sta_zs_zoom[roi, 0, :])
 data_filt = sp.medfilt(data-np.nanmean(data), 11)
 peaks_idx = sp.find_peaks(data_filt, width=10)[0]
-idx_closest_peak = np.argmax(peaks_idx-idx_time0)
+idx_closest_peak = np.argmax(peaks_idx)
 amp = data[peaks_idx[idx_closest_peak]]
 latency = xaxis_short[peaks_idx[idx_closest_peak]]
 plt.plot(data, color='black')
 plt.plot(data_filt, color='blue')
 plt.scatter(peaks_idx, data_filt[peaks_idx], s=60, color='orange')
+plt.scatter(peaks_idx[idx_closest_peak], data_filt[peaks_idx[idx_closest_peak]], s=60, color='red')
+plt.axvline(np.where(xaxis_short == 0)[0][0], color='black')

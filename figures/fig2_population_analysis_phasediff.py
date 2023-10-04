@@ -29,7 +29,7 @@ if protocol_type == 'split':
                    (0.03137254901960784, 0.18823529411764706, 0.4196078431372549, 1.0),
                    (0.7935828877005348, 0.8702317290552584, 0.9429590017825312, 1.0)]
 window = np.arange(-330, 330 + 1)  # Samples
-zoom_in = np.array([-0.25, 0.25])
+zoom_in = np.array([-1, 0.25])
 xaxis = window / 330
 xaxis_start = np.where(xaxis >= zoom_in[0])[0][0]
 xaxis_end = np.where(xaxis >= zoom_in[1])[0][0]
@@ -40,7 +40,7 @@ fov_coords = np.array([[6.27, 0.53],
                      [6.98, 1.47],
                      [6.39, 1.62]]) #AP, ML
 sort_type = 'ML'
-var_name = 'HR-HL-phase'
+var_name = 'FL-FR-phase'
 
 sta_zoom_all = []
 animal_list = []
@@ -48,6 +48,7 @@ sta_animal_id = []
 sta_cluster_size = []
 sta_ap = []
 sta_ml = []
+peaks_cluster_all = []
 sta_zoom_all_notzscored = []
 for count_f, f in enumerate(animal_order):
     session_data_idx = np.where(session_data['animal'] == f)[0][0]
@@ -93,9 +94,10 @@ for count_f, f in enumerate(animal_order):
         clusters_in_session = np.delete(clusters_in_session_all, np.where(clusters_in_session_all == 0)[0])
 
     # SEPARATE BY TRIALS YOU WANT TO PLOT AND THE OVERLAPPING CLUSTERS
-    xaxis_crosscorr = xaxis[xaxis_start:xaxis_end]
-    idx_time0 = np.where(xaxis_crosscorr == 0)[0][0]
-    xaxis_crosscorr_crop = xaxis_crosscorr[:idx_time0]
+    xaxis_short = xaxis[xaxis_start:xaxis_end]
+    idx_time0 = np.where(xaxis_short == 0)[0][0]
+    xaxis_short_crop = xaxis_short[:idx_time0]
+    peaks_cluster = np.zeros((len(clusters_in_session), len(cond_name)))
     for count_c, c in enumerate(clusters_in_session):  # 0 are ROIs that don't overlap with reference session
         sta_zs_zoom = np.zeros((len(np.where(coord_ext_overlap == c)[0]), len(cond_name), xaxis_end - xaxis_start))
         sta_zs_zoom[:] = np.nan
@@ -143,6 +145,16 @@ for count_f, f in enumerate(animal_order):
         sta_cluster_size.append(np.shape(sta_zs_zoom)[0])
         sta_ap.append(cluster_coord[count_c, 0])
         sta_ml.append(cluster_coord[count_c, 1])
+        # QUANTIFY LAGS IN CROSS CORRELATION ACROSS TRIALS
+        sta_zs_zoom_c = np.nanmean(sta_zs_zoom, axis=0)
+        for t in range(len(cond_name)):
+            if session_type == 'tied' and animal == 'MC8855':  # no slow speed
+                amp = np.nan
+                latency = np.nan
+            else:
+                amp, latency = mscope.get_peakamp_latency(sta_zs_zoom_c[t, :], xaxis_short)
+            peaks_cluster[count_c, t] = latency
+    peaks_cluster_all.append(peaks_cluster)
 
 sort_ml = np.argsort(sta_ml)
 sort_ap = np.argsort(sta_ap)
@@ -217,3 +229,4 @@ for t in range(np.shape(sta_zoom_all_concat)[1]):
     ax[t].set_title(cond_name[t], fontsize=16)
 plt.savefig(os.path.join(save_path,
                          'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_' + var_name + '_animal_summary_sort_notzscored_'+sort_type), dpi=mscope.my_dpi)
+

@@ -2134,12 +2134,12 @@ class miniscope_session:
     def load_processed_files(self):
         """Loads processed files that were saved under path/processed files"""
         df_extract = pd.read_csv(os.path.join(self.path, 'processed files', 'df_extract.csv'))
-        df_events_extract = pd.read_csv(os.path.join(self.path, 'processed files', 'df_events_extract.csv'))
+        df_events_extract = pd.read_csv(os.path.join(self.path, 'processed files', 'df_events_extract_th2.csv'))
         df_extract_rawtrace = pd.read_csv(os.path.join(self.path, 'processed files', 'df_extract_raw.csv'))
         df_extract_rawtrace_detrended = pd.read_csv(
             os.path.join(self.path, 'processed files', 'df_extract_rawtrace_detrended.csv'))
         df_events_extract_rawtrace = pd.read_csv(
-            os.path.join(self.path, 'processed files', 'df_events_extract_rawtrace.csv'))
+            os.path.join(self.path, 'processed files', 'df_events_extract_rawtrace_th2.csv'))
         coord_ext = np.load(os.path.join(self.path, 'processed files', 'coord_ext.npy'), allow_pickle=True)
         reg_th = np.load(os.path.join(self.path, 'processed files', 'reg_th.npy'))
         reg_bad_frames = np.load(os.path.join(self.path, 'processed files', 'frames_to_exclude.npy'))
@@ -2276,7 +2276,7 @@ class miniscope_session:
                         events_mat[events] = 1
                     else:
                         print('No events for ' + r + ' trial ' + str(t))
-                        df_events.loc[df_events['trial'] == t, r] = events_mat
+                    df_events.loc[df_events['trial'] == t, r] = events_mat
                 else:
                     print('No events for ' + r + ' trial ' + str(t))
                     df_events.loc[df_events['trial'] == t, r] = events_mat
@@ -2416,7 +2416,7 @@ class miniscope_session:
                                 dpi=self.my_dpi)
         return r1, hist_norm
 
-    def plot_isi_boxplots(self, roi, isi_events, traces_type, session_type, animal, trials, plot_data, print_plots):
+    def plot_isi_boxplots(self, roi, isi_events, traces_type, session_type, animal, session, trials, plot_data, print_plots):
         """Function to plot the all ISI distributions across the session for a certain ROI
         Inputs:
             roi: (int) ROI id
@@ -2424,12 +2424,13 @@ class miniscope_session:
             traces_type: (str) raw or deconv
             session_type: (str) tied or split
             animal: (str) animal name
+            session: (str) session number
             colors_session: (list) colors for each trial in the session
             trials: (list)
             plot_data: boolean
             print_plots: boolean"""
         [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split,
-         trials_washout] = self.get_session_data(trials, session_type, animal)
+         trials_washout] = self.get_session_data(trials, session_type, animal, session)
         colors_session = self.colors_session(session_type, trials, 1)
         colors_session_boxplot = self.colors_session(session_type, trials, 0)
         int_find = ''.join(x for x in isi_events['roi'][0] if x.isdigit())

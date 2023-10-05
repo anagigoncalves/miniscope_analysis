@@ -15,8 +15,8 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(path_session_data + '\\session_data_split_S1.xlsx')
-load_path = path_session_data + '\\Analysis on population data\\STA phase diff st-sw-st\\split ipsi fast S1\\'
+session_data = pd.read_excel(path_session_data + '\\session_data_split_S2.xlsx')
+load_path = path_session_data + '\\Analysis on population data\\STA phase diff st-sw-st\\split contra fast S1\\'
 save_path = path_session_data + '\\Analysis on population data\\STA phase diff st-sw-st\\'
 protocol_type = 'split'
 if protocol_type == 'tied':

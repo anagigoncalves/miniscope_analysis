@@ -12,7 +12,7 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(path_session_data + '\\session_data_split_S2.xlsx')
+session_data = pd.read_excel(path_session_data + '\\session_data_split_S1.xlsx')
 protocol_type = 'split'
 
 for session_data_idx in range(np.shape(session_data)[0]):
@@ -43,6 +43,7 @@ for session_data_idx in range(np.shape(session_data)[0]):
     df_events_extract_rawtrace = mscope.get_events(df_extract_rawtrace, 1,
                                                    'df_events_extract_rawtrace')  # 1 for detrending"
 
+    # reg_bad_frames = reg_bad_frames[:np.where(reg_bad_frames<31568)[0][-1]] for MC9513 tied session S1
     df_events_extract = df_events_extract.drop(reg_bad_frames)
     df_events_extract_rawtrace = df_events_extract_rawtrace.drop(reg_bad_frames)
     df_events_extract.to_csv(os.path.join(mscope.path, 'processed files', 'df_events_extract.csv'), sep=',', index=False)
@@ -53,32 +54,32 @@ for session_data_idx in range(np.shape(session_data)[0]):
 # print('ROI ' + str(roi_plot))
 # trial_plot = np.random.choice(trials)
 # print('Trial ' + str(trial_plot))
-# int_find = ''.join(x for x in df_events_extract_rawtrace.columns[2] if x.isdigit())
-# int_find_idx = df_events_extract_rawtrace.columns[2].find(int_find)
-# if df_events_extract_rawtrace.columns[2][:int_find_idx] == 'ROI':
-#     df_type = 'ROI'
-# else:
-#     df_type = 'cluster'
-# idx_nr = df_type + str(roi_plot)
-# df_dff_trial = np.array(df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == trial_plot, idx_nr])  # get dFF for the desired trial
-# df_dff_time = np.array(df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == trial_plot, 'time'])  # get dFF for the desired trial
-# fig, ax = plt.subplots(figsize=(20, 10), tight_layout=True)
-# idx_trial = np.where(trials == trial_plot)[0][0]
-# ax.plot(df_dff_time, df_dff_trial, color='black')
-# events_plot = np.where(df_events_extract_rawtrace.loc[df_events_extract_rawtrace['trial'] == trial_plot, idx_nr])[0]
-# for e in events_plot:
-#     ax.scatter(df_dff_time[e], df_dff_trial[e], s=60,
-#                color='orange')
-# ax.set_xlabel('Time (s)', fontsize=mscope.fsize - 4)
-# ax.set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=mscope.fsize - 4)
-# plt.xticks(fontsize=mscope.fsize - 4)
-# plt.yticks(fontsize=mscope.fsize - 4)
-# plt.setp(ax.get_yticklabels(), visible=False)
-# ax.tick_params(axis='y', which='y', length=0)
-# ax.spines['right'].set_visible(False)
-# ax.spines['top'].set_visible(False)
-# ax.spines['left'].set_visible(False)
-# plt.tick_params(axis='y', labelsize=0, length=0)
+int_find = ''.join(x for x in df_events_extract_rawtrace.columns[2] if x.isdigit())
+int_find_idx = df_events_extract_rawtrace.columns[2].find(int_find)
+if df_events_extract_rawtrace.columns[2][:int_find_idx] == 'ROI':
+    df_type = 'ROI'
+else:
+    df_type = 'cluster'
+idx_nr = df_type + str(roi_plot)
+df_dff_trial = np.array(df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == trial_plot, idx_nr])  # get dFF for the desired trial
+df_dff_time = np.array(df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == trial_plot, 'time'])  # get dFF for the desired trial
+fig, ax = plt.subplots(figsize=(20, 10), tight_layout=True)
+idx_trial = np.where(trials == trial_plot)[0][0]
+ax.plot(df_dff_time, df_dff_trial, color='black')
+events_plot = np.where(df_events_extract_rawtrace.loc[df_events_extract_rawtrace['trial'] == trial_plot, idx_nr])[0]
+for e in events_plot:
+    ax.scatter(df_dff_time[e], df_dff_trial[e], s=60,
+               color='orange')
+ax.set_xlabel('Time (s)', fontsize=mscope.fsize - 4)
+ax.set_ylabel('Calcium trace for trial ' + str(trial_plot), fontsize=mscope.fsize - 4)
+plt.xticks(fontsize=mscope.fsize - 4)
+plt.yticks(fontsize=mscope.fsize - 4)
+plt.setp(ax.get_yticklabels(), visible=False)
+ax.tick_params(axis='y', which='y', length=0)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.spines['left'].set_visible(False)
+plt.tick_params(axis='y', labelsize=0, length=0)
 
 # #compute firing rates and ISI...
 # isi_df = mscope.compute_isi(df_events_extract_rawtrace, 'raw', [])

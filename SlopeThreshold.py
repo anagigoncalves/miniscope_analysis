@@ -33,7 +33,7 @@ def Detect_PosEvents_ROI(dff_signal, acq_fq, rtau, graph=None):
     TrueStd, deriv_mean, deriv_std = DerivGauss_NoiseEstim(dff_signal, thres=2)
     # Use that noise amplitude to define regions of slope change / stability
 
-    IncremSet, DecremSet, F_Values = SlopeThreshold(dff_signal, TrueStd * 3, int(np.ceil(rtau * acq_fq)),
+    IncremSet, DecremSet, F_Values = SlopeThreshold(dff_signal, TrueStd * 2.5, int(np.ceil(rtau * acq_fq)),
                                                     CollapSeq=False, acausal=True, graph=graph) #TrueStd*2 before, TrueStd*4 for HF data
 
     Ev_Onset = list(map(lambda x : x[0], IncremSet)); Ev_ApproxPeak = list(map(lambda x : x[1], IncremSet))

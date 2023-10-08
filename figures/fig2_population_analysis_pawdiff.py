@@ -15,10 +15,10 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(path_session_data + '\\session_data_tied_S1.xlsx')
-load_path = path_session_data + '\\Analysis on population data\\STA paw spatial diff\\tied baseline S1\\'
+session_data = pd.read_excel(path_session_data + '\\session_data_split_S1.xlsx')
+load_path = path_session_data + '\\Analysis on population data\\STA paw spatial diff\\split ipsi fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig2\\'
-protocol_type = 'tied'
+protocol_type = 'split'
 if protocol_type == 'tied':
     cond_name = ['slow', 'baseline', 'fast']
     colors_cond = ['purple', 'black', 'orange']
@@ -29,7 +29,7 @@ if protocol_type == 'split':
                    (0.03137254901960784, 0.18823529411764706, 0.4196078431372549, 1.0),
                    (0.7935828877005348, 0.8702317290552584, 0.9429590017825312, 1.0)]
 window = np.arange(-330, 330 + 1)  # Samples
-zoom_in = np.array([-0.5, 0.25])
+zoom_in = np.array([-1, 0.25])
 xaxis = window / 330
 xaxis_start = np.where(xaxis >= zoom_in[0])[0][0]
 xaxis_end = np.where(xaxis >= zoom_in[1])[0][0]

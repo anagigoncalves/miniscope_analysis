@@ -19,7 +19,7 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files\\'
-session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S2.xlsx')
 event_count_loco_split_all = []
 event_count_loco_ie_all = []
 event_count_loco_ae_all = []
@@ -114,7 +114,7 @@ ax.set_ylabel('FR forward locomotion', fontsize=mscope.fsize - 4)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 6)
-plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_phases_S1'), dpi=mscope.my_dpi)
+plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_phases_S2'), dpi=mscope.my_dpi)
 
 fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True, sharey=True)
 for count_a, a in enumerate(animals):
@@ -140,7 +140,7 @@ ax.set_ylabel('Firing rate during\nforward locomotion', fontsize=mscope.fsize - 
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 6)
-plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_phases_S1_violin'), dpi=mscope.my_dpi)
+plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_phases_S2_violin'), dpi=mscope.my_dpi)
 
 fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True, sharey=True)
 for i in range(len(event_count_loco_split_all)):
@@ -164,7 +164,7 @@ ax.set_ylabel('Firing rate during\nforward locomotion', fontsize=mscope.fsize - 
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 6)
-plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_initial_error_after_effect_S1'), dpi=mscope.my_dpi)
+plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_initial_error_after_effect_S2'), dpi=mscope.my_dpi)
 
 split_all = []
 washout_all = []
@@ -197,6 +197,6 @@ ax.set_ylabel('Firing rate during\nforward locomotion', fontsize=mscope.fsize - 
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 4)
-plt.savefig(os.path.join(path_session_data, 'rois_fr_forwardloco_split_phases_S1_violin_pooled'), dpi=mscope.my_dpi)
+plt.savefig(os.path.join(path_session_data, 'rois_fr_forwardloco_split_phases_S2_violin_pooled'), dpi=mscope.my_dpi)
 
 

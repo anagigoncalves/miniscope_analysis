@@ -184,6 +184,6 @@ plt.savefig(os.path.join(path_session_data, 'rois_fr_forwardloco_speed_violin_po
 
 
 
-plt.hist(slow_all, bins=25, color='purple')
-plt.hist(bs_all, bins=25, color='black')
-plt.hist(fast_all, bins=25, color='orange')
+# plt.hist(slow_all, bins=25, color='purple')
+# plt.hist(bs_all, bins=25, color='black')
+# plt.hist(fast_all, bins=25, color='orange')

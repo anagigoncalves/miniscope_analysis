@@ -2134,12 +2134,12 @@ class miniscope_session:
     def load_processed_files(self):
         """Loads processed files that were saved under path/processed files"""
         df_extract = pd.read_csv(os.path.join(self.path, 'processed files', 'df_extract.csv'))
-        df_events_extract = pd.read_csv(os.path.join(self.path, 'processed files', 'df_events_extract_th2.csv'))
+        df_events_extract = pd.read_csv(os.path.join(self.path, 'processed files', 'df_events_extract.csv'))
         df_extract_rawtrace = pd.read_csv(os.path.join(self.path, 'processed files', 'df_extract_raw.csv'))
         df_extract_rawtrace_detrended = pd.read_csv(
             os.path.join(self.path, 'processed files', 'df_extract_rawtrace_detrended.csv'))
         df_events_extract_rawtrace = pd.read_csv(
-            os.path.join(self.path, 'processed files', 'df_events_extract_rawtrace_th2.csv'))
+            os.path.join(self.path, 'processed files', 'df_events_extract_rawtrace.csv'))
         coord_ext = np.load(os.path.join(self.path, 'processed files', 'coord_ext.npy'), allow_pickle=True)
         reg_th = np.load(os.path.join(self.path, 'processed files', 'reg_th.npy'))
         reg_bad_frames = np.load(os.path.join(self.path, 'processed files', 'frames_to_exclude.npy'))

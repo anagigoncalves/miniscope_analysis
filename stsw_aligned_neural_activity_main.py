@@ -23,11 +23,16 @@ save_path = 'C:\\Users\\User\\Carey Lab Dropbox\\Rotation Carey\\Francesco and A
 save_plot = True
 save_data = True
 bins_phase = np.arange(0, 1.01, 0.05) # 5 deg
-bins_time = np.arange(-0.125, 0.126, 0.01) # 10 ms
+bins_time = np.arange(-0.125, 0.126, 0.0125) # 12.5 ms
 paws = ['FR', 'HR', 'FL', 'HL']
 
-for align, temporal_dimension in ['sw', 'phase']: # All the combinations: [['stride', 'phase'], ['sw', 'phase'], ['sw', 'time'], ['st', 'time']]
-    for s in range(len(session_data)-1): # For tied session use: [0,1,3,7]
+align = 'sw'
+temporal_dimension = 'phase'
+s = 1
+
+for align, temporal_dimension in [['sw', 'phase'], ['stride', 'phase'], ['sw', 'time']]:
+    for s in range(len(session_data)-1):
+    # for s in [0,1,3,7]:
         # Load animal info for a session
         ses_info = session_data.iloc[s, :]
         print(ses_info)
@@ -88,19 +93,18 @@ for align, temporal_dimension in ['sw', 'phase']: # All the combinations: [['str
         stsw = {}
         for p, paw in enumerate(paws):
             stsw[paw] = blna.get_stsw(st_strides_trials, sw_strides_trials, p)
-            
+
         # In the behavioral dataset, find index of spikes occurring within each stride cycle
         spikesIdx_behavData = {}
         for paw in paws:
             on_ts = stsw[paw]['st onset ts']
             off_ts = stsw[paw]['st offset ts']
             spikesIdx_behavData_allrois = []
-            stridesWithSpike_idx_allrois = []
+            if align == 'st':
+                align_ts = stsw[paw]['st onset ts']
+            else:
+                align_ts = stsw[paw]['sw onset ts']            
             for n in range(2, df_spikes.shape[1]):
-                if align == 'st':
-                    align_ts = stsw[paw]['st onset ts']
-                else:
-                    align_ts = stsw[paw]['sw onset ts']
                 spikesIdx_behavData_roi = blna.get_spikes_behav(df_spikes.iloc[:, [0,1,n]], on_ts, off_ts, align_ts, bins_time, bcam_time, temporal_dimension)
                 spikesIdx_behavData_allrois.append(spikesIdx_behavData_roi)
             spikesIdx_behavData[paw] = spikesIdx_behavData_allrois
@@ -144,7 +148,7 @@ for align, temporal_dimension in ['sw', 'phase']: # All the combinations: [['str
         firing_rate = {}
         spike_prob = {}
         for p, paw in enumerate(spikes_count.keys()):
-            phase = [final_tracks_trials_phase[tr_idx][0, p] for tr_idx, _ in enumerate(trials)]
+            phase = [final_tracks_trials_phase[tr_idx][0, p] for tr_idx, _ in enumerate(trials)] # Here issues when plotting in time: time spent in each time bin, not phase bin!
             firing_rate_allrois = []
             spike_prob_allrois = []
             for n in range(len(spikes_count[paw])):
@@ -154,9 +158,10 @@ for align, temporal_dimension in ['sw', 'phase']: # All the combinations: [['str
             firing_rate[paw] = firing_rate_allrois
             spike_prob[paw] = spike_prob_allrois
             
-        # Plot raster, normalized spike count and P(CS) in time or phase for each ROI and cluster
+        # Plot raster, firing rate and P(CS) in time or phase for each ROI
         print(f'Plotting {align}-locked neural activity {temporal_dimension} {animal} {session_id}')
-        for n in range(len(spikes_timing['FR'])): 
+        # for n in range(len(spikes_timing['FR'])): 
+        for n in [13]:
             spikes_timing_roi = {key: spikes_timing[key][n] for key in spikes_timing.keys()}
             spike_prob_roi = {key: spike_prob[key][n] for key in spike_prob.keys()}
             firing_rate_roi = {key: firing_rate[key][n] for key in firing_rate.keys()}

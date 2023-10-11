@@ -34,33 +34,33 @@ class behav_locked_neural_activity:
         stsw_dict = {'st onset ts' : st_on_ts, 'st onset idx' : st_on_idx, 'st offset ts' : st_off_ts, 
                        'st offset idx' : st_off_idx, 'sw onset ts' : sw_on_ts, 'sw onset idx' : sw_on_idx}
         return stsw_dict
-    
-    
+
+
     def get_spikes_behav(self, df_spikes, on_ts, off_ts, align_ts, window, bcam_time, temporal_dimension):
         ''' In the behavioral dataset, find matching indices and timestamps of spikes occurring within a behavioral event 
         (e.g.: between the onset and offset of a stride cycle)'''
         trials = np.unique(df_spikes['trial'])
         spikeIdx_behavData = []
         for tr_idx, tr in enumerate(trials):
-            spikeIdx_behavData_tr = []
-            spikes_tr = df_spikes[df_spikes['trial'] == tr]
-            spikes_tr = spikes_tr.reset_index(drop=True)
-            for i in range(len(on_ts[tr_idx])): # Loop through each behavioral event (e.g.: each stride)
-                if temporal_dimension == 'phase':
-                    start = on_ts[tr_idx][i]
-                    end = off_ts[tr_idx][i]
-                    signal_chunck = spikes_tr[(spikes_tr['time'] >= start) & (spikes_tr['time'] < end)].iloc[:, 2]
-                elif temporal_dimension == 'time':
-                    start = align_ts[tr_idx][i] + window[0]
-                    end = align_ts[tr_idx][i] + window[-1]
-                    signal_chunck = spikes_tr[(spikes_tr['time'] > start) & (spikes_tr['time'] < end)].iloc[:, 2]
-                spike_idx = signal_chunck.index[signal_chunck == 1].tolist()
-                spike_ts = np.array(spikes_tr['time'].iloc[spike_idx])
-                if len(spike_ts) > 0:
-                     spikeIdx_behavData_tr.append(np.array([np.where(bcam_time[tr_idx] == bcam_time[tr_idx][np.abs(bcam_time[tr_idx] - t).argmin()])[0][0] for t in spike_ts]))
-                else:
-                    spikeIdx_behavData_tr.append([np.nan]) 
-            spikeIdx_behavData.append(spikeIdx_behavData_tr)
+            # Find spikes timestamps
+            spikes_tr = df_spikes[df_spikes['trial'] == tr].reset_index(drop=True)
+            spikes_idx = spikes_tr.index[spikes_tr.iloc[:, 2] == 1].tolist() 
+            spikes_ts = np.array(spikes_tr['time'].iloc[spikes_idx])
+            # Find matching timestamps in behavioral dataset
+            mapped_spikes_idx = np.array([np.argmin(np.abs(bcam_time[tr_idx] - t)) for t in spikes_ts])
+            mapped_spikes_ts = bcam_time[tr_idx][mapped_spikes_idx]
+            # Find corresponding strides
+            if temporal_dimension == 'phase':
+                start = on_ts[tr_idx]
+                end = off_ts[tr_idx]
+            elif temporal_dimension == 'time':
+                start = align_ts[tr_idx] + window[0]
+                end = align_ts[tr_idx] + window[-1]
+            spikes_ts_matrix = np.tile(mapped_spikes_ts, (len(start), 1)).T # For broadcasting
+            onset_matrix = np.tile(start, (len(mapped_spikes_ts), 1)) # For broadcasting
+            offset_matrix = np.tile(end, (len(mapped_spikes_ts), 1)) # For broadcasting
+            mask = (spikes_ts_matrix >= onset_matrix) & (spikes_ts_matrix <= offset_matrix) # Mask for spikes falling within each stride
+            spikeIdx_behavData.append([mapped_spikes_idx[np.where(mask[:, col])[0]] for col in range(mask.shape[1])])
         return spikeIdx_behavData
 
 
@@ -73,7 +73,7 @@ class behav_locked_neural_activity:
         for tr_idx, tr in enumerate(trials):
             spikes_timing_all = []
             for i in range(len(spikesIdx_behavData[tr_idx])): 
-                if np.isnan(spikesIdx_behavData[tr_idx][i]).any() == False:
+                if np.any(spikesIdx_behavData[tr_idx][i]):
                     spikes_timing = temporal_dataset[tr_idx][spikesIdx_behavData[tr_idx][i]]
                     if temporal_dimension == 'time':
                         spikes_timing = spikes_timing - align_ts[tr_idx][i]
@@ -108,21 +108,16 @@ class behav_locked_neural_activity:
         firing_rate = np.zeros((len(trials), len(bins)-1))
         spike_prob = np.zeros((len(trials), len(bins)-1))
         for tr in range(len(trials)):       
-             # Sum spikes in each bin
-            spikes_count = np.sum(np.vstack(spikes_mat[tr]), axis = 0)
-            # Compute time spent in each bin
-            frames_bin, _ = np.histogram(phase[tr][~np.isnan(phase[tr])], bins=len(bins)-1)
+            spikes_count = np.sum(np.vstack(spikes_mat[tr]), axis = 0) # Sum spikes in each bin
+            frames_bin, _ = np.histogram(phase[tr][~np.isnan(phase[tr])], bins=len(bins)-1) # Compute time spent in each bin
             time_bin = frames_bin*(1/self.sr_cam)
-            # Compute firing rate
-            firing_rate[tr] = spikes_count/time_bin
-            # Compute spike probability (normalized by time)
-            n_strides = len(spikes_mat[tr])
-            spike_prob[tr] = firing_rate[tr]/n_strides
+            firing_rate[tr] = spikes_count/time_bin # Compute firing rate
+            spike_prob[tr] = (spikes_count/np.sum(spikes_count))/time_bin # Compute spike probability (normalized by time)
         return firing_rate, spike_prob
     
         
     def plot_behav_locked_activity_rois(self, spikes_timing, firing_rate, spike_prob, bins, trials_ses, colors_session, animal, session_id, roi, align, save_plot, temporal_dimension):
-        ''' Plot st/sw-aligned neural activity: rasters, firing rate heatmap, P(CS)'''
+        ''' Plot st/sw-aligned neural activity for each ROI: rasters, firing rate heatmap, P(CS)'''
 
         trials = np.arange(0, trials_ses[-1, -1])
         
@@ -166,10 +161,12 @@ class behav_locked_neural_activity:
             elif temporal_dimension == 'time':
                 axs[0, p].axvline(x = 0, color='crimson', linestyle='--')
         
-            # HM count and P(CS) by trial for each ROI
+            # Firing rate heatmap and P(CS) by trial for each ROI
             for tr in range(len(trials)):       
-                if np.any(trials_ses-1 == tr): # Maybe better block mean
-                    axs[2, p].plot(spike_prob[paw][tr], c = colors_session[tr+1], linewidth = 2.5)
+                # if np.any(trials_ses-1 == tr):
+                if tr in [0, 4, 6, 14, 16, 24]:
+                    axs[2, p].plot(np.mean(spike_prob[paw][tr:tr+1], axis = 0), c = colors_session[tr+1], linewidth = 2.5)
+                    # axs[2, p].plot(spike_prob[paw][tr], c = colors_session[tr+1], linewidth = 2.5)
             sns.heatmap(np.flipud(firing_rate[paw]), cmap = 'viridis', cbar = False, vmin = 0, vmax = 6, ax = axs[1, p])
             for i in range(len(trials_ses)-1):
                 axs[1, p].axhline(y=trials_ses[-1, 1]-trials_ses[i, 1], color='white')
@@ -181,7 +178,7 @@ class behav_locked_neural_activity:
             axs[1, p].tick_params(bottom=False)
             axs[2, p].spines['top'].set_visible(False)
             axs[2, p].spines['right'].set_visible(False)
-            axs[2, p].set_ylim(0, 0.05)
+            axs[2, p].set_ylim(0, 0.08)
             axs[2, p].set_xlim(0, len(bins)-1)
             axs[2, p].set_xticks(x_ticks)
             axs[2, p].set_xticklabels(x_tick_labels, fontsize = self.font_size)
@@ -195,6 +192,23 @@ class behav_locked_neural_activity:
                 os.mkdir(os.path.join(self.save_path, f'{align}-locked neural activity {temporal_dimension} {animal} {session_id}'))
             plt.savefig(os.path.join(self.save_path, f'{align}-locked neural activity {temporal_dimension} {animal} {session_id}\\', f'{align}-locked neural activity {temporal_dimension} {roi} {animal} {session_id}.png'), dpi=self.my_dpi)
         plt.close()
+
+
+    def plot__behav_locked_activity_popul(self, firing_rate, trials_ses):
+        ''' Plot heatmap of behavior-locked firing rate for the whole population '''
+        fig, axs = plt.subplots(len(trials_ses.flatten()), 4)
+        for p, paw in enumerate(firing_rate.keys()):
+            axs[0, p].set_title(paw, fontsize = self.font_size)
+            # for tr, _ in enumerate(trials_ses.flatten()-1):
+            for tr_idx, tr in enumerate([0, 4, 6, 14, 16, 24]):
+                firing_rate_block = []
+                for n in range(len(firing_rate[paw])):
+                    # firing_rate_block.append(firing_rate[paw][n][tr])
+                    firing_rate_block.append(np.mean(firing_rate[paw][n][tr:tr+1], axis = 0))
+                # sns.heatmap(firing_rate_block, cmap = 'viridis', cbar = False, vmin = 0, vmax = 6, ax = axs[tr, p])
+                sns.heatmap(firing_rate_block, cmap = 'viridis', cbar = False, vmin = 0, vmax = 6, ax = axs[tr_idx, p])
+                # axs[tr, p].axvline(x=len(firing_rate[paw][0][0])/2, c = 'white', linestyle = '--')
+                axs[tr_idx, p].axvline(x=len(firing_rate[paw][0][0])/2, c = 'white', linestyle = '--')
 
 
     def get_mean_behav_stride(self, behavior, on_idx, off_idx, trials):
@@ -224,47 +238,50 @@ class behav_locked_neural_activity:
         sorted_variable1 = [variable1[i] for i in sort]
         sorted_variable2 = np.array(variable2)[sort]
         return sorted_variable1, sorted_variable2
-    
-    
-    def plot_behav_locked_activity_sorted_rois(self, spikes_timing, sorted_spikes_timing, bins, trials, sorted_by, animal, session_id, paw, roi, align, save_plot, temporal_dimension):
+
+
+    def compute_quartiles(self, vector):
+        """ Calculate quartile indices for a sorted vector """
+        q1_idx = int(0.25 * (len(vector) - 1))
+        q2_idx = int(0.50 * (len(vector) - 1))
+        q3_idx = int(0.75 * (len(vector) - 1))
+        Q = [0, q1_idx, q2_idx, q3_idx, len(vector)]
+        return Q
+
+
+    def plot_behav_locked_activity_sorted_rois(self, sorted_spikes_timing, quartile_firing_rate, behavior_stride, bins, trials, sorted_by, animal, session_id, p1, p2, roi, align, save_plot, temporal_dimension):
         ''' Plot sorted st/sw-aligned rasters'''      
-        # Rasterplot divided by block and sorted by time for each ROI
-        fig, axs = plt.subplots(2,1, sharex = True, sharey = True, figsize=(7,10))       
+        colors = ['peachpuff', 'lightcoral', 'crimson', 'brown']
+        fig, axs = plt.subplots(2,2, figsize=(14,10))       
         for stride, timing in enumerate(sorted_spikes_timing):
-            axs[1].scatter(timing, np.ones(len(timing))*stride, c = 'dimgray', marker = '.', s = 15)
-        cumul_strides = 0
-        for tr_idx, _ in enumerate(trials):
-            for _, timing in enumerate(spikes_timing[tr_idx]):
-                axs[0].scatter(timing, np.ones(len(timing))*cumul_strides, c = 'dimgray', marker = '.', s = 15)
-                cumul_strides += 1
-        plt.ylabel('Strides', fontsize = self.font_size)
-        plt.tick_params(bottom=False)
-        plt.xlim(bins[0], bins[-1])
-        ax = plt.gca()
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.set_xlim(bins[0], bins[-1])
-        if temporal_dimension == 'phase':
-            if align == 'sw':
-                x_tick_labels = ['st', 'sw', 'st']
-                x_ticks = [bins[0], 0.5, bins[-1]]
-                plt.axvline(x = 0.5, color='crimson', linestyle='--')
-            elif align == 'stride':
-                x_tick_labels = ['st', 'st']
-                x_ticks = [bins[0], bins[-1]]
-        elif temporal_dimension == 'time':
-                x_tick_labels = [str(round(bins[0], 3)), str(0), str(round(bins[-1], 3))]
-                x_ticks = [bins[0], 0, bins[-1]]
-                plt.axvline(x = 0, color='crimson', linestyle='--')  
-        ax.set_xticks(x_ticks, fontsize = self.font_size)
-        ax.set_xticklabels(x_tick_labels, fontsize = self.font_size)
-        plt.suptitle('Sorted by ' + sorted_by + ' ' + paw + ' ' + roi, fontsize = self.font_size)
-        axs[0].set_title('Unsorted', fontsize = self.font_size)
-        axs[1].set_title('Sorted', fontsize = self.font_size)
+            axs[0, 0].scatter(timing, np.ones(len(timing))*stride, c = 'dimgray', marker = '.', s = 15)
+        if sorted_by in ['sw phase', f'{p2}-st phase']:
+            axs[0, 0].scatter(behavior_stride, np.arange(0, len(behavior_stride)), c = 'crimson', marker = '|', s = 5)
+        axs[0, 1].plot(behavior_stride, np.arange(1, len(behavior_stride)+1), c = 'crimson', linewidth = 2.5)
+        axs[0, 0].set_xlim(bins[0], bins[-1])
+        for q, q_fr in enumerate(quartile_firing_rate):
+            axs[1, 0].plot(q_fr, linewidth = 2.5, c = colors[q])
+        x_tick_labels = ['st', 'st']
+        axs[0, 0].set_xlabel('Stride phase', fontsize=self.font_size)
+        axs[0, 0].set_ylabel('Strides', fontsize=self.font_size)
+        axs[0, 1].set_xlabel(sorted_by, fontsize=self.font_size)
+        axs[0, 1].set_ylabel('Strides', fontsize=self.font_size)
+        axs[1, 0].set_xlabel('Stride phase', fontsize=self.font_size)
+        axs[1, 0].set_ylabel('Firing Rate (Hz)', fontsize=self.font_size)
+        axs[0, 0].set_xticks([bins[0], bins[-1]], fontsize = self.font_size)
+        axs[0, 0].set_xticklabels(x_tick_labels, fontsize = self.font_size)
+        axs[1, 0].set_xticks([0, len(bins)-1], fontsize = self.font_size)
+        axs[1, 0].set_xticklabels(x_tick_labels, fontsize = self.font_size)
+        axs[1, 0].set_xlim(0, len(bins)-1)
+        axs[1, 0].legend(['1st qrt', '2nd qrt', '3rd qrt', '4th qrt'])
+        fig.delaxes(axs[1, 1])
+        for ax in axs.flat:
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
         if save_plot:
-            if not os.path.exists(os.path.join(self.save_path, paw + ' ' + align + '-locked neural activity ' + temporal_dimension + ' sorted ' + animal + ' ' + session_id)):
-                os.mkdir(os.path.join(self.save_path, paw + ' ' + align + '-locked neural activity ' + temporal_dimension + ' sorted ' + animal + ' ' + session_id))
-            plt.savefig(os.path.join(self.save_path, paw + ' ' + align + '-locked neural activity ' + temporal_dimension + ' sorted ' + animal + ' ' + session_id + '\\', paw + ' ' + align + '-locked neural activity ' + temporal_dimension + ' sorted by ' + sorted_by +  ' ' + animal + ' ' + roi + ' ' + session_id + '.png'), dpi=self.my_dpi)
+            if not os.path.exists(os.path.join(self.save_path, p1 + ' ' + align + '-locked neural activity ' + temporal_dimension + ' sorted ' + animal + ' ' + session_id)):
+                os.mkdir(os.path.join(self.save_path, p1 + ' ' + align + '-locked neural activity ' + temporal_dimension + ' sorted ' + animal + ' ' + session_id))
+            plt.savefig(os.path.join(self.save_path, p1 + ' ' + align + '-locked neural activity ' + temporal_dimension + ' sorted ' + animal + ' ' + session_id + '\\', p1 + ' ' + align + '-locked neural activity ' + temporal_dimension + ' sorted by ' + sorted_by +  ' ' + animal + ' ' + roi + ' ' + session_id + '.png'), dpi=self.my_dpi)
         plt.close()
 
 

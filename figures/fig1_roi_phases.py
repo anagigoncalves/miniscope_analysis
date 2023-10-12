@@ -19,7 +19,7 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files\\'
-session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S2.xlsx')
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
 event_count_loco_split_all = []
 event_count_loco_ie_all = []
 event_count_loco_ae_all = []

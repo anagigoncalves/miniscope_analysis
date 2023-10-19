@@ -12,15 +12,18 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 path_session_data = 'J:\\Miniscope processed files'
-save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA bodyvars\\split contra fast S1\\'
-sta_type = 'bodyvars'
+save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA paw spatial diff\\split contra fast S1\\'
+sta_type = 'paw_diff'
 window = np.arange(-330, 330 + 1)  # Samples
 iter_n = 100 # Number of iterations of CS timestamps random shuffling
 
 # path inputs
-path = 'J:\\Miniscope processed files\\TM RAW FILES\\split contra fast 405\\MC13419\\2022_05_31\\'
-path_loco = 'J:\\Miniscope processed files\\TM TRACKING FILES\\split contra fast 405nm S2 310522\\'
-protocol = 'split contra fast 405'
+path = 'J:\\Miniscope processed files\\TM RAW FILES\\split contra fast\\MC13420\\2022_05_31\\'
+path_loco = 'J:\\Miniscope processed files\\TM TRACKING FILES\\split contra fast S1 310522\\'
+protocol = 'split contra fast'
+# path = 'J:\\Miniscope processed files\\TM RAW FILES\\split contra fast\\MC13419\\2022_05_31\\'
+# path_loco = 'J:\\Miniscope processed files\\TM TRACKING FILES\\split contra fast S1 310522\\'
+# protocol = 'split contra fast'
 session_type = path.split('\\')[-4].split(' ')[0]
 mscope = miniscope_session_class.miniscope_session(path)
 loco = locomotion_class.loco_class(path_loco)
@@ -28,14 +31,11 @@ loco = locomotion_class.loco_class(path_loco)
 # Session data and inputs
 animal = mscope.get_animal_id()
 session = loco.get_session_id()
-df_extract_rawtrace = pd.read_csv(os.path.join(mscope.path, 'processed files', 'df_extract_raw.csv'))
 df_extract_rawtrace_detrended = pd.read_csv(
     os.path.join(mscope.path, 'processed files', 'df_extract_rawtrace_detrended.csv'))
 df_events_extract_rawtrace = pd.read_csv(
     os.path.join(mscope.path, 'processed files', 'df_events_extract_rawtrace.csv'))
 coord_ext = np.load(os.path.join(mscope.path, 'processed files', 'coord_ext.npy'), allow_pickle=True)
-reg_th = np.load(os.path.join(mscope.path, 'processed files', 'reg_th.npy'))
-reg_bad_frames = np.load(os.path.join(mscope.path, 'processed files', 'frames_to_exclude.npy'))
 trials = np.load(os.path.join(mscope.path, 'processed files', 'trials.npy'))
 ref_image = np.load(os.path.join(mscope.path, 'processed files', 'ref_image.npy'), allow_pickle=True)
 frames_dFF = np.load(os.path.join(mscope.path, 'processed files', 'black_frames.npy'), allow_pickle=True)
@@ -61,7 +61,7 @@ for count_trial, f in enumerate(filelist):
     [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter_DLC] = loco.read_h5(f, 0.9, int(
         frames_loco[count_trial]))
     [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
-    bodycenter_trial = sp.medfilt(loco.compute_bodycenter(final_tracks, 'X'), 5) #filter for tracking errors
+    bodycenter_trial = sp.medfilt(loco.compute_bodycenter(final_tracks, 'X'), 25) #filter for tracking errors
     bodyspeed_trial = loco.compute_bodyspeed(bodycenter_trial)
     bodyacc_trial = loco.compute_bodyacc(bodycenter_trial)
     final_tracks_trials.append(final_tracks)

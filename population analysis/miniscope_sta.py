@@ -12,8 +12,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S2_test.xlsx')
-save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA bodyvars\\split contra fast S1\\'
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_tied_S1.xlsx')
+save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA bodyvars\\tied baseline S1\\'
 sta_type = 'bodyvars'
 window = np.arange(-330, 330 + 1)  # Samples
 iter_n = 100 # Number of iterations of CS timestamps random shuffling
@@ -55,7 +55,7 @@ for s in range(len(session_data)):
         [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter_DLC] = loco.read_h5(f, 0.9, int(
             frames_loco[count_trial]))
         [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
-        bodycenter_trial = sp.medfilt(loco.compute_bodycenter(final_tracks, 'X'), 5) #filter for tracking errors
+        bodycenter_trial = sp.medfilt(loco.compute_bodycenter(final_tracks, 'X'), 25) #filter for tracking errors
         bodyspeed_trial = loco.compute_bodyspeed(bodycenter_trial)
         bodyacc_trial = loco.compute_bodyacc(bodycenter_trial)
         final_tracks_trials.append(final_tracks)

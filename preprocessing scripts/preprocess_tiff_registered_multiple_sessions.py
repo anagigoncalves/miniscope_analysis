@@ -11,7 +11,7 @@ import tifffile as tiff
 
 #%% Create registered tiffs
 #path inputs
-path = 'D:\\Miniscopes\\TM RAW FILES\\split contra fast 405 with 480 videos for processing together\\MC13419\\2022_05_31\\'
+path = 'D:\\Miniscopes\\TM RAW FILES\\split contra fast 405 processed with 480\\MC13420\\2022_05_31\\'
 # path_loco = 'J:\\TM TRACKING FILES\\split contra fast S1 060421\\'
 version_mscope = 'v4'
 #import classes
@@ -53,12 +53,12 @@ for t in trials:
     if t > 1:
         tif_start_discard_len = len(np.arange(tiflist_frames[tif_idx_to_concat[0]],trial_beg[idx_trial]))
         trial_len = trial_end[idx_trial]-trial_beg[idx_trial]
-        trial_frames_full = tiflist_concatenated[tif_start_discard_len:trial_len,:,:] 
+        trial_frames_full = tiflist_concatenated[tif_start_discard_len:trial_len+tif_start_discard_len,:,:] 
     tiff.imsave(path+'Registered video\\T'+str(t)+'_reg.tif', trial_frames_full, bigtiff=True)
 
 #%% Get registered tiffs and do downsampled version
 #path inputs
-path = 'D:\\Miniscopes\\TM RAW FILES\\split contra fast 405 with 480 videos for processing together\\MC13419\\2022_05_31\\'
+path = 'D:\\Miniscopes\\TM RAW FILES\\split contra fast 405 processed with 480\\MC13420\\2022_05_31\\'
 version_mscope = 'v4'
 #import classes
 os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')

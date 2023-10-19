@@ -14,11 +14,11 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(path_session_data +'\\session_data_tied_S1.xlsx')
-load_path = path_session_data + '\\Analysis on population data\\STA bodyvars\\tied baseline S1\\'
+session_data = pd.read_excel(path_session_data +'\\session_data_split_S2.xlsx')
+load_path = path_session_data + '\\Analysis on population data\\STA bodyvars\\split contra fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig2\\'
-protocol_type = 'tied'
-sort_type = 'ML'
+protocol_type = 'split'
+sort_type = 'AP'
 window = np.arange(-330, 330 + 1)  # Samples
 zoom_in = np.array([-1, 0.25])
 xaxis = window / 330
@@ -39,9 +39,11 @@ var_names = ['Body position', 'Body speed', 'Body acceleration']
 sta_zoom_all_concat_vars = []
 sta_zoom_all_cluster_size = []
 sta_zoom_all_concat_vars_notzscored = []
+sta_zoom_all_concat_vars_shuffled = []
 for var in var_names:
     sta_zoom_all = []
     sta_zoom_all_notzscore = []
+    sta_zoom_all_shuffled = []
     sta_animal_id = []
     sta_cluster_size = []
     sta_ap = []
@@ -68,8 +70,8 @@ for var in var_names:
         [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
         trials_ses_name.insert(len(trials_ses_name), 'late washout')
         trials_idx = np.where(np.in1d(np.arange(trials[0], trials[-1]+1), trials))[0]
-        [coord_ext_reference_ses, idx_roi_cluster_ordered_reference_ses, coord_ext_overlap, clusters_rois_overlap] = \
-            mscope.get_rois_aligned_reference_cluster(df_events_extract_rawtrace, coord_ext, animal)
+        # [coord_ext_reference_ses, idx_roi_cluster_ordered_reference_ses, coord_ext_overlap, clusters_rois_overlap] = \
+        #     mscope.get_rois_aligned_reference_cluster(df_events_extract_rawtrace, coord_ext, animal)
 
         sta_zs = np.load(
             os.path.join(load_path, animal + ' ' + ses_info[0], 'sta_bodyvars_' + var.replace(' ', '_') + '_zscored.npy'))
@@ -77,22 +79,23 @@ for var in var_names:
         sta = np.load(
             os.path.join(load_path, animal + ' ' + ses_info[0], 'sta_bodyvars_' + var.replace(' ', '_') + '.npy'))
 
-        # Get cluster global coordinates - use only overlapping ROIs
-        centroid_ext_overlap = mscope.get_roi_centroids(coord_ext[np.where(coord_ext_overlap>0)[0]])
-        fov_coord = fov_coords[count_f]
-        cluster_coord = mscope.get_coordinates_cluster(centroid_ext_overlap, fov_coord, coord_ext_overlap[np.where(coord_ext_overlap>0)[0]])
-        clusters_in_session_all = np.unique(coord_ext_overlap)
-        if len(np.where(clusters_in_session_all == 0)[0]) > 0:
-            clusters_in_session = np.delete(clusters_in_session_all, np.where(clusters_in_session_all == 0)[0][0])
-        else:
-            clusters_in_session = np.delete(clusters_in_session_all, np.where(clusters_in_session_all == 0)[0])
+        sta_shuffled = np.load(
+            os.path.join(load_path, animal + ' ' + ses_info[0], 'sta_bodyvars_' + var.replace(' ', '_') + '_shuffled.npy'))
 
-        for count_c, c in enumerate(clusters_in_session): #0 are ROIs that don't overlap with reference session
-            sta_zs_zoom = np.nanmean(sta_zs[coord_ext_overlap == c, :, xaxis_start:xaxis_end], axis=1)
-            sta_zoom = np.nanmean(sta[coord_ext_overlap == c, :, xaxis_start:xaxis_end], axis=1)
+        # Get cluster global coordinates
+        centroid_ext = mscope.get_roi_centroids(coord_ext)
+        fov_coord = fov_coords[count_f]
+        cluster_coord = mscope.get_coordinates_cluster(centroid_ext, fov_coord, idx_roi_cluster_ordered)
+
+        for count_c in range(len(clusters_rois)): #0 are ROIs that don't overlap with reference session
+            # do trial average
+            sta_zs_zoom = np.nanmean(sta_zs[idx_roi_cluster_ordered == count_c+1, :, xaxis_start:xaxis_end], axis=1)
+            sta_zoom = np.nanmean(sta[idx_roi_cluster_ordered == count_c+1, :, xaxis_start:xaxis_end], axis=1)
+            sta_zoom_shuffled = np.nanmean(sta_shuffled[idx_roi_cluster_ordered == count_c + 1, :, xaxis_start:xaxis_end], axis=1)
             #save also cluster, animal id, AP and ML global coordinates
             sta_zoom_all.append(sta_zs_zoom)
             sta_zoom_all_notzscore.append(sta_zoom)
+            sta_zoom_all_shuffled.append(sta_zoom_shuffled)
             sta_animal_id.append(animal)
             sta_cluster_size.append(np.shape(sta_zs_zoom)[0])
             sta_ap.append(cluster_coord[count_c, 0])
@@ -121,22 +124,29 @@ for var in var_names:
     if sort_type == 'ML':
         sta_zs_zoom_all_sort = []
         sta_zoom_all_sort = []
+        sta_shuffled_zoom_all_sort = []
         for i in sort_ml:
             sta_zs_zoom_all_sort.append(sta_zoom_all[i])
             sta_zoom_all_sort.append(sta_zoom_all_notzscore[i])
+            sta_shuffled_zoom_all_sort.append(sta_zoom_all_shuffled[i])
     if sort_type == 'AP':
         sta_zs_zoom_all_sort = []
         sta_zoom_all_sort = []
+        sta_shuffled_zoom_all_sort = []
         for i in sort_ap:
             sta_zs_zoom_all_sort.append(sta_zoom_all[i])
             sta_zoom_all_sort.append(sta_zoom_all_notzscore[i])
+            sta_shuffled_zoom_all_sort.append(sta_zoom_all_shuffled[i])
     if sort_type == 'none':
         sta_zs_zoom_all_sort = sta_zoom_all
         sta_zoom_all_sort = sta_zoom_all_notzscore
+        sta_shuffled_zoom_all_sort = sta_zoom_all_shuffled
     sta_zoom_all_concat = np.concatenate(sta_zs_zoom_all_sort)
     sta_zoom_all_concat_notzscored = np.concatenate(sta_zoom_all_sort)
+    sta_zoom_all_concat_shuffled = np.concatenate(sta_shuffled_zoom_all_sort)
     sta_zoom_all_concat_vars.append(sta_zoom_all_concat)
     sta_zoom_all_concat_vars_notzscored.append(sta_zoom_all_concat_notzscored)
+    sta_zoom_all_concat_vars_shuffled.append(sta_zoom_all_concat_shuffled)
     sta_zoom_all_cluster_size.append(np.cumsum(np.array(sta_cluster_size)))
 
 #ANIMALS SUMMARY HEATMAP
@@ -160,7 +170,7 @@ for count_v, var in enumerate(var_names):
     cbar.ax.tick_params(labelsize=16)
     ax[count_v].set_title(var, fontsize=16)
 plt.savefig(os.path.join(save_path,
-                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_sort_'+sort_type), dpi=mscope.my_dpi)
+                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_zscored_sort_'+sort_type), dpi=mscope.my_dpi)
 
 #ROIS SUMMARY PEAKS AND THROUGHS PIE CHART
 labels = ['Significant\nincreases\n>2 STD', '\nSignificant\ndecreases\n<2 STD', '']
@@ -179,18 +189,15 @@ centre_circle = plt.Circle((0, 0), 0.70, fc='white')
 fig2 = plt.gcf()
 fig2.gca().add_artist(centre_circle)
 plt.savefig(os.path.join(save_path,
-                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_quantification'), dpi=mscope.my_dpi)
+                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_zscored_quantification'), dpi=mscope.my_dpi)
 
 fig, ax = plt.subplots(1, len(var_names), figsize=(20, 10), tight_layout='True')
 for count_v, var in enumerate(var_names):
-    idx_notsig = np.where((sta_zoom_all_concat_vars[count_v] < 2) & (sta_zoom_all_concat_vars[count_v] > -2))
-    sta_zoom_notzscore_sig = sta_zoom_all_concat_vars_notzscored[count_v].copy()
-    sta_zoom_notzscore_sig[idx_notsig] = np.nan
-    hm = sns.heatmap(sta_zoom_notzscore_sig, vmax=np.nanpercentile(sta_zoom_notzscore_sig, 99.5),
-                vmin=np.nanpercentile(sta_zoom_notzscore_sig, 0.5), cmap='coolwarm', ax=ax[count_v])
-    ax[count_v].set_xticks(np.array([0, np.where(xaxis == 0)[0][0]-xaxis_start, np.shape(sta_zoom_notzscore_sig)[1]]))
+    hm = sns.heatmap(sta_zoom_all_concat_vars_notzscored[count_v], vmax=np.nanpercentile(sta_zoom_all_concat_vars_notzscored[count_v], 99.5),
+                vmin=np.nanpercentile(sta_zoom_all_concat_vars_notzscored[count_v], 0.5), cmap='coolwarm', ax=ax[count_v])
+    ax[count_v].set_xticks(np.array([0, np.where(xaxis == 0)[0][0]-xaxis_start, np.shape(sta_zoom_all_concat_vars[count_v])[1]]))
     ax[count_v].set_xticklabels([str(xaxis[xaxis_start]), '0', str(np.round(xaxis[xaxis_end], 2))], fontsize=20)
-    ax[count_v].axvline(x=np.where(xaxis==0)[0][0]-xaxis_start, color='black', linewidth=2)
+    ax[count_v].axvline(x=np.where(xaxis==0)[0][0]-xaxis_start, color='white', linewidth=2)
     ax[count_v].set_yticks(sta_zoom_all_cluster_size[count_v])
     ax[count_v].set_xlabel('Time around event (s)', fontsize=20)
     ax[count_v].tick_params(axis='both', which='major', labelsize=16)
@@ -204,4 +211,51 @@ for count_v, var in enumerate(var_names):
     cbar.ax.tick_params(labelsize=16)
     ax[count_v].set_title(var, fontsize=16)
 plt.savefig(os.path.join(save_path,
-                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_sort_notzscored_'+sort_type), dpi=mscope.my_dpi)
+                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_notzscored_sort_'+sort_type), dpi=mscope.my_dpi)
+
+fig, ax = plt.subplots(1, len(var_names), figsize=(20, 10), tight_layout='True')
+for count_v, var in enumerate(var_names):
+    hm = sns.heatmap(sta_zoom_all_concat_vars_shuffled[count_v], vmax=np.nanpercentile(sta_zoom_all_concat_vars_shuffled[count_v], 99.5),
+                vmin=np.nanpercentile(sta_zoom_all_concat_vars_shuffled[count_v], 0.5), cmap='coolwarm', ax=ax[count_v])
+    ax[count_v].set_xticks(np.array([0, np.where(xaxis == 0)[0][0]-xaxis_start, np.shape(sta_zoom_all_concat_vars[count_v])[1]]))
+    ax[count_v].set_xticklabels([str(xaxis[xaxis_start]), '0', str(np.round(xaxis[xaxis_end], 2))], fontsize=20)
+    ax[count_v].axvline(x=np.where(xaxis==0)[0][0]-xaxis_start, color='white', linewidth=2)
+    ax[count_v].set_yticks(sta_zoom_all_cluster_size[count_v])
+    ax[count_v].set_xlabel('Time around event (s)', fontsize=20)
+    ax[count_v].tick_params(axis='both', which='major', labelsize=16)
+    if sort_type == 'ML':
+        ax[count_v].set_yticklabels(list(map(str, np.round(np.sort(sta_ml), 2))), fontsize=12, rotation=45)
+    if sort_type == 'AP':
+        ax[count_v].set_yticklabels(list(map(str, np.round(np.sort(sta_ap), 2))), fontsize=12, rotation=45)
+    if sort_type == 'none':
+        ax[count_v].set_ylabel('   '.join(sta_animal_id[::-1]), fontsize=12)
+    cbar = hm.collections[0].colorbar
+    cbar.ax.tick_params(labelsize=16)
+    ax[count_v].set_title(var, fontsize=16)
+plt.savefig(os.path.join(save_path,
+                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_shuffled_sort_'+sort_type), dpi=mscope.my_dpi)
+
+fig, ax = plt.subplots(1, len(var_names), figsize=(20, 10), tight_layout='True')
+for count_v, var in enumerate(var_names):
+    idx_notsig = np.where((sta_zoom_all_concat_vars[count_v] < 2) & (sta_zoom_all_concat_vars[count_v] > -2))
+    sta_zoom_notzscore_sig = sta_zoom_all_concat_vars_notzscored[count_v].copy()
+    sta_zoom_notzscore_sig[idx_notsig] = np.nan
+    hm = sns.heatmap(sta_zoom_notzscore_sig, vmax=np.nanpercentile(sta_zoom_notzscore_sig, 99.5),
+                vmin=np.nanpercentile(sta_zoom_notzscore_sig, 0.5), cmap='coolwarm', ax=ax[count_v])
+    ax[count_v].set_xticks(np.array([0, np.where(xaxis == 0)[0][0]-xaxis_start, np.shape(sta_zoom_all_concat_vars[count_v])[1]]))
+    ax[count_v].set_xticklabels([str(xaxis[xaxis_start]), '0', str(np.round(xaxis[xaxis_end], 2))], fontsize=20)
+    ax[count_v].axvline(x=np.where(xaxis==0)[0][0]-xaxis_start, color='white', linewidth=2)
+    ax[count_v].set_yticks(sta_zoom_all_cluster_size[count_v])
+    ax[count_v].set_xlabel('Time around event (s)', fontsize=20)
+    ax[count_v].tick_params(axis='both', which='major', labelsize=16)
+    if sort_type == 'ML':
+        ax[count_v].set_yticklabels(list(map(str, np.round(np.sort(sta_ml), 2))), fontsize=12, rotation=45)
+    if sort_type == 'AP':
+        ax[count_v].set_yticklabels(list(map(str, np.round(np.sort(sta_ap), 2))), fontsize=12, rotation=45)
+    if sort_type == 'none':
+        ax[count_v].set_ylabel('   '.join(sta_animal_id[::-1]), fontsize=12)
+    cbar = hm.collections[0].colorbar
+    cbar.ax.tick_params(labelsize=16)
+    ax[count_v].set_title(var, fontsize=16)
+plt.savefig(os.path.join(save_path,
+                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_notzscored_sig_sort_'+sort_type), dpi=mscope.my_dpi)

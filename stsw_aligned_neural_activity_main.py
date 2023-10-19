@@ -29,6 +29,7 @@ paws = ['FR', 'HR', 'FL', 'HL']
 align = 'sw'
 temporal_dimension = 'phase'
 s = 1
+roi = 70
 
 for align, temporal_dimension in [['sw', 'phase'], ['stride', 'phase'], ['sw', 'time']]:
     for s in range(len(session_data)-1):
@@ -50,16 +51,13 @@ for align, temporal_dimension in [['sw', 'phase'], ['stride', 'phase'], ['sw', '
         animal = mscope.get_animal_id()
         session = loco.get_session_id()
         [_, _, _, df_extract_rawtrace_detrended, df_events_extract_rawtrace, _, _, _, trials,
-         clusters_rois, colors_cluster, colors_session, _, _, frames_dFF] = mscope.load_processed_files()
+          clusters_rois, colors_cluster, colors_session, _, _, frames_dFF] = mscope.load_processed_files()
         [_, _, frames_loco, _, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
         [trials_ses, trials_ses_name, _, _, _, _] = mscope.get_session_data(trials, session_type, animal, session)
-        # Sub-divide experimental blocks
-        if session_type == 'split':
-            split_blocks = nxb.split_expblocks(trials_ses)
-        else:
-            split_blocks = trials_ses
         # Sort ROIs in the dataframe of neural activity by cluster
         df_spikes, cluster_transition_idx = nxb.sort_rois_clust(df_events_extract_rawtrace, clusters_rois)
+        # Compute spontaneous firing rate for each ROI
+        basal_firing_rate = np.mean(nxb.get_firing_rate(df_spikes), axis = 0)
         # Flatten the list of ROIs 'clusters_rois'
         rois_sorted = []
         for i in range(len(clusters_rois)):
@@ -145,24 +143,21 @@ for align, temporal_dimension in [['sw', 'phase'], ['stride', 'phase'], ['sw', '
             spikes_count[paw] = spikes_count_allrois
 
         # Compute firing rate and spike probability
-        firing_rate = {}
-        spike_prob = {}
+        firing_rate_allpaws = {}
         for p, paw in enumerate(spikes_count.keys()):
             phase = [final_tracks_trials_phase[tr_idx][0, p] for tr_idx, _ in enumerate(trials)] # Here issues when plotting in time: time spent in each time bin, not phase bin!
             firing_rate_allrois = []
-            spike_prob_allrois = []
             for n in range(len(spikes_count[paw])):
-                fr, prob = blna.neural_activity_bin(spikes_count[paw][n], phase, bins)
-                firing_rate_allrois.append(fr)
-                spike_prob_allrois.append(prob)
-            firing_rate[paw] = firing_rate_allrois
-            spike_prob[paw] = spike_prob_allrois
-            
+                firing_rate_roi, _ = blna.neural_activity_bin(spikes_count[paw][n], phase, bins)
+                mean_subtracted_fr = firing_rate_roi - basal_firing_rate[n]
+                firing_rate_allrois.append(mean_subtracted_fr)
+            firing_rate_allpaws[paw] = firing_rate_allrois
+        
+        
         # Plot raster, firing rate and P(CS) in time or phase for each ROI
         print(f'Plotting {align}-locked neural activity {temporal_dimension} {animal} {session_id}')
-        # for n in range(len(spikes_timing['FR'])): 
-        for n in [13]:
-            spikes_timing_roi = {key: spikes_timing[key][n] for key in spikes_timing.keys()}
-            spike_prob_roi = {key: spike_prob[key][n] for key in spike_prob.keys()}
-            firing_rate_roi = {key: firing_rate[key][n] for key in firing_rate.keys()}
-            blna.plot_behav_locked_activity_rois(spikes_timing_roi, firing_rate_roi, spike_prob_roi, bins, trials_ses, colors_session, animal, session_id, rois_sorted[n], align, save_plot, temporal_dimension)
+        for n in range(len(spikes_timing['FR'])): 
+        for n in [roi]:
+            spikes_timing_roi_allpaws = {key: spikes_timing[key][n] for key in spikes_timing.keys()}
+            firing_rate_roi_allpaws = {key: firing_rate[key][n] for key in firing_rate.keys()}
+            blna.plot_behav_locked_activity_rois(spikes_timing_roi_allpaws, firing_rate_roi_allpaws, bins, trials_ses, colors_session, animal, session_id, rois_sorted[n], align, save_plot, temporal_dimension)

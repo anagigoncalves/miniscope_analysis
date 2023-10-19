@@ -20,6 +20,17 @@ class behav_locked_neural_activity:
         self.sr = 30
         self.my_dpi = 128 #resolution for plotting
         self.font_size = 15
+    
+    
+    def split_expblocks(self, trials_ses):
+        '''Sub-divide experimental blocks'''
+        block_halflen = (trials_ses[1][1] - trials_ses[1][0]+1)//2
+        split_blocks = np.array(([trials_ses[0][0]-1, trials_ses[0][1]], 
+                                 [trials_ses[1][0]-1, trials_ses[1][0]-1 + block_halflen], 
+                                 [trials_ses[1][0]-1 + block_halflen, trials_ses[1][1]], 
+                                 [trials_ses[2][0]-1, trials_ses[2][0]-1 + block_halflen], 
+                                 [trials_ses[2][0]-1 + block_halflen, trials_ses[2][1]]))
+        return split_blocks
 
     
     def get_stsw(self, st_strides_trials, sw_strides_trials, p):
@@ -114,22 +125,23 @@ class behav_locked_neural_activity:
             firing_rate[tr] = spikes_count/time_bin # Compute firing rate
             spike_prob[tr] = (spikes_count/np.sum(spikes_count))/time_bin # Compute spike probability (normalized by time)
         return firing_rate, spike_prob
-    
-        
-    def plot_behav_locked_activity_rois(self, spikes_timing, firing_rate, spike_prob, bins, trials_ses, colors_session, animal, session_id, roi, align, save_plot, temporal_dimension):
+
+
+    def plot_behav_locked_activity_rois(self, spikes_timing, firing_rate, bins, trials_ses, colors_session, animal, session_id, roi, align, save_plot, temporal_dimension):
         ''' Plot st/sw-aligned neural activity for each ROI: rasters, firing rate heatmap, P(CS)'''
 
         trials = np.arange(0, trials_ses[-1, -1])
+        if session_id == 'tied':
+            split_blocks = trials_ses
+        else:
+            split_blocks = self.split_expblocks(trials_ses)
         
         # Create tick labels for x-axis
         if temporal_dimension == 'phase':
-            if align == 'st':
-                x_tick_labels = ['sw', 'st', 'sw']
-                x_ticks = [0, (len(bins)-1)/2, len(bins)-1]
-            elif align == 'sw':
+            if align == 'sw':
                 x_tick_labels = ['st', 'sw', 'st']
                 x_ticks = [0, (len(bins)-1)/2, len(bins)-1]
-            elif align == 'stride':
+            else:
                 x_tick_labels = ['st', 'st']
                 x_ticks = [0, len(bins)-1]
         elif temporal_dimension == 'time':
@@ -140,45 +152,39 @@ class behav_locked_neural_activity:
         fig, axs = plt.subplots(3, 4, figsize = (30, 15))
         for p, paw in enumerate(spikes_timing.keys()):
             axs[0, p].set_title(paw, fontsize = self.font_size)
-            cumul_strides = 0
-            for tr in range(len(trials)):
-                if tr in trials_ses[0:2,1]:
-                    axs[0, p].axhline(y=cumul_strides, color='crimson')
-                for _, timing in enumerate(spikes_timing[paw][tr]):
-                    axs[0, p].scatter(timing, np.ones(len(timing))*cumul_strides, c = 'dimgrey', marker = '.', s = 15)
-                    cumul_strides += 1
+            spikes_timing_allstrides = [ts for tr in spikes_timing[paw] for ts in tr]
+            stride_idx = [np.full_like(ts, idx) for idx, ts in enumerate(spikes_timing_allstrides)]
+            axs[0, p].scatter(np.concatenate(spikes_timing_allstrides), np.concatenate(stride_idx), c = 'dimgrey', marker = '.', s = 15)
             axs[0, p].set_ylabel('Strides', fontsize = self.font_size)
             axs[0, p].set(xticklabels=[])
             axs[0, p].tick_params(bottom=False)
             axs[0, p].spines['top'].set_visible(False)
             axs[0, p].spines['right'].set_visible(False)
             axs[0, p].set_xlim(bins[0], bins[-1])
-            if temporal_dimension == 'phase':
-                if align == 'sw':
-                    axs[0, p].axvline(x = (bins[-1]+0.01)/2, color='crimson', linestyle='--')
-                elif align == 'st':
-                    axs[0, p].axvline(x = 0, color='crimson', linestyle='--')     
+            for b in trials_ses[:-1, 1]:
+                axs[0, p].axhline(sum(len(tr) for tr in spikes_timing[paw][:b]), color='crimson')
+            if temporal_dimension == 'phase' and align == 'sw':
+                axs[0, p].axvline(x = (bins[-1]+0.01)/2, color='crimson', linestyle='--')  
             elif temporal_dimension == 'time':
                 axs[0, p].axvline(x = 0, color='crimson', linestyle='--')
         
             # Firing rate heatmap and P(CS) by trial for each ROI
-            for tr in range(len(trials)):       
-                # if np.any(trials_ses-1 == tr):
-                if tr in [0, 4, 6, 14, 16, 24]:
-                    axs[2, p].plot(np.mean(spike_prob[paw][tr:tr+1], axis = 0), c = colors_session[tr+1], linewidth = 2.5)
-                    # axs[2, p].plot(spike_prob[paw][tr], c = colors_session[tr+1], linewidth = 2.5)
+            for tr in range(len(trials)): 
+                axs[2, p].plot(firing_rate[paw][tr], c = 'gray', linewidth = 1, alpha = 0.3)
+            for start, end in split_blocks:
+                axs[2, p].plot(np.mean(firing_rate[paw][start:end], axis = 0), c = colors_session[start+1], linewidth = 3)
             sns.heatmap(np.flipud(firing_rate[paw]), cmap = 'viridis', cbar = False, vmin = 0, vmax = 6, ax = axs[1, p])
             for i in range(len(trials_ses)-1):
                 axs[1, p].axhline(y=trials_ses[-1, 1]-trials_ses[i, 1], color='white')
             axs[1, p].set_ylabel('Trials', fontsize = self.font_size)
-            axs[2, p].set_ylabel('P(CS)', fontsize = self.font_size)
+            axs[2, p].set_ylabel('Firing rate (Hz)', fontsize = self.font_size)
             axs[1, p].set(yticklabels=[])
             axs[1, p].tick_params(left=False)
             axs[1, p].set(xticklabels=[])
             axs[1, p].tick_params(bottom=False)
             axs[2, p].spines['top'].set_visible(False)
             axs[2, p].spines['right'].set_visible(False)
-            axs[2, p].set_ylim(0, 0.08)
+            axs[2, p].set_ylim(0, 7)
             axs[2, p].set_xlim(0, len(bins)-1)
             axs[2, p].set_xticks(x_ticks)
             axs[2, p].set_xticklabels(x_tick_labels, fontsize = self.font_size)
@@ -187,6 +193,8 @@ class behav_locked_neural_activity:
                 axs[1, p].axvline(x=(len(bins)-1)/2, color='white', linestyle='--')
                 axs[2, p].axvline(x=(len(bins)-1)/2, color='k', linestyle='--')
         fig.suptitle(f'{align}-locked neuronal activity {animal} {roi} {session_id}', fontsize = self.font_size)
+        
+        # Save
         if save_plot:
             if not os.path.exists(os.path.join(self.save_path, f'{align}-locked neural activity {temporal_dimension} {animal} {session_id}')):
                 os.mkdir(os.path.join(self.save_path, f'{align}-locked neural activity {temporal_dimension} {animal} {session_id}'))
@@ -194,21 +202,21 @@ class behav_locked_neural_activity:
         plt.close()
 
 
-    def plot__behav_locked_activity_popul(self, firing_rate, trials_ses):
-        ''' Plot heatmap of behavior-locked firing rate for the whole population '''
-        fig, axs = plt.subplots(len(trials_ses.flatten()), 4)
-        for p, paw in enumerate(firing_rate.keys()):
-            axs[0, p].set_title(paw, fontsize = self.font_size)
-            # for tr, _ in enumerate(trials_ses.flatten()-1):
-            for tr_idx, tr in enumerate([0, 4, 6, 14, 16, 24]):
-                firing_rate_block = []
-                for n in range(len(firing_rate[paw])):
-                    # firing_rate_block.append(firing_rate[paw][n][tr])
-                    firing_rate_block.append(np.mean(firing_rate[paw][n][tr:tr+1], axis = 0))
-                # sns.heatmap(firing_rate_block, cmap = 'viridis', cbar = False, vmin = 0, vmax = 6, ax = axs[tr, p])
-                sns.heatmap(firing_rate_block, cmap = 'viridis', cbar = False, vmin = 0, vmax = 6, ax = axs[tr_idx, p])
-                # axs[tr, p].axvline(x=len(firing_rate[paw][0][0])/2, c = 'white', linestyle = '--')
-                axs[tr_idx, p].axvline(x=len(firing_rate[paw][0][0])/2, c = 'white', linestyle = '--')
+    # def plot__behav_locked_activity_popul(self, firing_rate, trials_ses):
+    #     ''' Plot heatmap of behavior-locked firing rate for the whole population '''
+    #     fig, axs = plt.subplots(len(trials_ses.flatten()), 4)
+    #     for p, paw in enumerate(firing_rate.keys()):
+    #         axs[0, p].set_title(paw, fontsize = self.font_size)
+    #         # for tr, _ in enumerate(trials_ses.flatten()-1):
+    #         for tr_idx, tr in enumerate([0, 4, 6, 14, 16, 24]):
+    #             firing_rate_block = []
+    #             for n in range(len(firing_rate[paw])):
+    #                 # firing_rate_block.append(firing_rate[paw][n][tr])
+    #                 firing_rate_block.append(np.mean(firing_rate[paw][n][tr:tr+1], axis = 0))
+    #             # sns.heatmap(firing_rate_block, cmap = 'viridis', cbar = False, vmin = 0, vmax = 6, ax = axs[tr, p])
+    #             sns.heatmap(firing_rate_block, cmap = 'viridis', cbar = False, vmin = 0, vmax = 6, ax = axs[tr_idx, p])
+    #             # axs[tr, p].axvline(x=len(firing_rate[paw][0][0])/2, c = 'white', linestyle = '--')
+    #             axs[tr_idx, p].axvline(x=len(firing_rate[paw][0][0])/2, c = 'white', linestyle = '--')
 
 
     def get_mean_behav_stride(self, behavior, on_idx, off_idx, trials):

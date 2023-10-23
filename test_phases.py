@@ -14,7 +14,7 @@ import locomotion_class
 path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel(path_session_data + '\\session_data_split_S1.xlsx')
 load_path = path_session_data + '\\Analysis on population data\\STA bodyvars\\split ipsi fast S1\\'
-save_path = 'J:\\Miniscope processed files\\Analysis on population data\\Phase difference behavior\\'
+save_path = 'J:\\Miniscope processed files\\Phase difference behavior\\'
 N_trials = 26
 
 paws_2 = ['FR', 'HR', 'FL', 'HL']
@@ -22,6 +22,12 @@ phase_diff_fr = np.zeros((np.shape(session_data)[0], N_trials, 4))
 phase_diff_hl = np.zeros((np.shape(session_data)[0], N_trials, 4))
 phase_diff_fr[:] = np.nan
 phase_diff_hl[:] = np.nan
+paw_diff_fr_fl = np.zeros((np.shape(session_data)[0], N_trials))
+paw_diff_fr_fl[:] = np.nan
+paw_amp_fr = np.zeros((np.shape(session_data)[0], N_trials))
+paw_amp_fr[:] = np.nan
+paw_amp_fl = np.zeros((np.shape(session_data)[0], N_trials))
+paw_amp_fl[:] = np.nan
 for session_data_idx in range(np.shape(session_data)[0]):
     ses_info = session_data.iloc[session_data_idx, :]
     date = ses_info[3]
@@ -62,6 +68,8 @@ for session_data_idx in range(np.shape(session_data)[0]):
         sw_strides_trials.append(sw_pts_mat)
     final_tracks_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials, 'st-sw-st')
 
+    displ_diff_front = mscope.paw_diff(final_tracks_trials, 0, 2)
+
     if animal == 'MC8855':
         trials_new = trials + 3
         trials_idx = np.where(np.in1d(np.arange(N_trials+1), trials_new))[0]
@@ -74,6 +82,15 @@ for session_data_idx in range(np.shape(session_data)[0]):
         for count_t, t in enumerate(trials_idx):
             phase_diff_fr[session_data_idx, t-1, p] = np.rad2deg(np.nanmean(paw_diff_fr_trials[count_t]))
             phase_diff_hl[session_data_idx, t-1, p] = np.rad2deg(np.nanmean(paw_diff_hl_trials[count_t]))
+    for count_t, t in enumerate(trials_idx):
+        paw_diff_fr_fl[session_data_idx, t-1] = np.nanmean(displ_diff_front[count_t])
+        paw_amp_fr[session_data_idx, t-1] = np.nanmean(st_strides_trials[count_t][0][:, 0, 1]-sw_strides_trials[count_t][0][:, 0, 1])
+        paw_amp_fl[session_data_idx, t-1] = np.nanmean(st_strides_trials[count_t][2][:, 0, 1]-sw_strides_trials[count_t][2][:, 0, 1])
+
+paw_diff_fr_fl_animal_mean = np.nanmean(paw_diff_fr_fl, axis=0)
+paw_amp_fr_animal_mean = np.nanmean(paw_amp_fr, axis=0)
+paw_amp_fl_animal_mean = np.nanmean(paw_amp_fl, axis=0)
+phase_diff_fl_fr_animal_mean = np.nanmean(phase_diff_fr[:, :, 2], axis=0)
 
 ae_idx = 16
 colors_paws = ['red', 'magenta', 'blue', 'cyan']

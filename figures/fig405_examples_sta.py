@@ -13,9 +13,9 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
-load_path = path_session_data + '\\Analysis on population data\\STA bodyvars\\split contra fast S1\\'
+load_path = path_session_data + '\\Analysis on population data\\STA phase diff st-sw-st\\split contra fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\405 control\\'
-var_name = 'Body acceleration'
+var_name = 'FL-FR-phase'
 window = np.arange(-330, 330 + 1)  # Samples
 iter_n = 100 # Number of iterations of CS timestamps random shuffling
 protocol_type = 'split'

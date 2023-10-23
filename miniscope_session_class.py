@@ -408,6 +408,14 @@ class miniscope_session:
                                       8: oranges(19),
                                       9: oranges(16), 10: oranges(13), 11: oranges(10), 12: oranges(6), 13: purples(23), 14: purples(19),
                                       15: purples(16), 16: purples(13), 17: purples(10), 18: purples(6)}
+                if len(trials) == 26:
+                    colors_session = {1: greys(23), 2: greys(21), 3: greys(19), 4: greys(17), 5: greys(15), 6: greys(13),
+                    7: greys(12), 8: greys(10), 9: greys(8), 10: greys(6), 11: greys(4), 12: greys(2),
+                    13: purples(23), 14: purples(21), 15: purples(19), 16: purples(17), 17: purples(15), 18: purples(
+                        13),
+                    19: purples(11), 20: purples(9),
+                    21: oranges(23), 22: oranges(19), 23: oranges(16), 24: oranges(13), 25: oranges(10), 26: oranges(
+                        6)}
             if session_type == 'split':
                 if len(trials) == 23 and animal == 'MC8855':
                     colors_session = {1: greys(12), 2: greys(7), 3: greys(4), 4: reds(23), 5: reds(21), 6: reds(19), 7: reds(17), 8: reds(15),
@@ -443,6 +451,14 @@ class miniscope_session:
                                       9: oranges(16), 10: oranges(13), 11: oranges(10), 12: oranges(6), 13: purples(23),
                                       14: purples(19),
                                       15: purples(16), 16: purples(13), 17: purples(10), 18: purples(6)}
+                if len(trials) == 26:
+                    colors_session = {1: greys(23), 2: greys(21), 3: greys(19), 4: greys(17), 5: greys(15), 6: greys(13),
+                    7: greys(12), 8: greys(10), 9: greys(8), 10: greys(6), 11: greys(4), 12: greys(2),
+                    13: purples(23), 14: purples(21), 15: purples(19), 16: purples(17), 17: purples(15), 18: purples(
+                        13),
+                    19: purples(11), 20: purples(9),
+                    21: oranges(23), 22: oranges(19), 23: oranges(16), 24: oranges(13), 25: oranges(10), 26: oranges(
+                        6)}
             if session_type == 'split':
                 if len(trials) == 23:
                     colors_session = {1: greys(12), 2: greys(7), 3: greys(4), 4: reds(23), 5: reds(21), 6: reds(19),
@@ -2853,270 +2869,22 @@ class miniscope_session:
                                              'event_count_loco_cluster_' + str(roi_plot)), dpi=self.my_dpi)
         return event_count_clean
 
-    def events_stride(self, df_events, st_strides_trials, sw_pts_trials, trials, paw, roi_plot, align, save_data):
-        """Align CS to stance, swing or stride period. It outputs the CS indexes for each
-        time period
-        Inputs:
-            df_events: dataframe with events
-            st_strides_trials: list of trials with matrix with stance points
-            sw_pts_trials: list of trials with matrix with swing points
-            trials: list of trials
-            paw (str): 'FR','HR','FL','HL'
-            roi_plot (int): roi number
-            align (str): period to align - 'stance','swing','stride'
-            save_data: boolean"""
-        int_find = ''.join(x for x in df_events.columns[2] if x.isdigit())
-        int_find_idx = df_events.columns[2].find(int_find)
-        if df_events.columns[2][:int_find_idx] == 'ROI':
-            df_type = 'ROI'
-        else:
-            df_type = 'cluster'
-        idx_nr = df_type + str(roi_plot)
-        if paw == 'FR':
-            p = 0  # paw of tracking
-        if paw == 'HR':
-            p = 1
-        if paw == 'FL':
-            p = 2
-        if paw == 'HL':
-            p = 3
-        nr_strides = np.zeros(len(st_strides_trials))
-        for t in range(len(st_strides_trials)):
-            nr_strides[t] = np.shape(st_strides_trials[t][p])[0]
-        maximum_nrstrides = np.int64(np.max(nr_strides))
-        cs_stride = np.zeros((maximum_nrstrides, len(st_strides_trials)))
-        cs_stride[:] = np.nan
-        for count_t, t in enumerate(trials):
-            if align == 'stride':
-                excursion_beg = st_strides_trials[count_t][p][:, 0, 4] / self.sr_loco
-                excursion_end = st_strides_trials[count_t][p][:, 1, 4] / self.sr_loco
-            if align == 'stance':
-                excursion_beg = st_strides_trials[count_t][p][:, 0, 4] / self.sr_loco
-                excursion_end = sw_pts_trials[count_t][p][:, 0, 4] / self.sr_loco
-            if align == 'swing':
-                excursion_beg = sw_pts_trials[count_t][p][:, 0, 4] / self.sr_loco
-                excursion_end = st_strides_trials[count_t][p][:, 1, 4] / self.sr_loco
-            events = np.array(
-                df_events.loc[(df_events['trial'] == t) & (df_events[idx_nr] == 1), 'time'])
-            for s in range(len(excursion_beg)):
-                cs_idx = np.where((events >= excursion_beg[s]) & (events <= excursion_end[s]))[0]
-                if len(cs_idx) > 0:
-                    cs_stride[s, count_t] = len(cs_idx)
-                if len(cs_idx) == 0:
-                    cs_stride[s, count_t] = 0
-        df_cs_stride = pd.DataFrame(cs_stride, columns=np.arange(1, len(st_strides_trials) + 1))
-        if save_data:
-            if df_type == 'ROI':
-                df_cs_stride.to_csv(os.path.join(self.path, 'processed files', 'df_cs_stride_' + paw + 'ROIs.csv'),
-                                    sep=',', index=False)
-            if df_type == 'cluster':
-                df_cs_stride.to_csv(os.path.join(self.path, 'processed files', 'df_cs_stride_' + paw + 'clusters.csv'),
-                                    sep=',', index=False)
-        return df_cs_stride
-
-    def event_probability_plot(self, df_cs_stride, df_events, traces_type, colors_session, paw, roi_plot, plot_data,
-                               print_plots):
-        """Compute event probability for CSs aligned to stride period
-        (swing, stance or stride)
-        Inputs:
-            df_cs_stride: dataframe with number of events per stride
-            df_events: dataframe with events
-            traces_type: (str) raw or deconv
-            colors_session: (list) colors of the session trials
-            paw: (str) FR, FL, HR or HL
-            roi_plot: (str) ROI to plot
-            plot_data: boolean"""
-        int_find = ''.join(x for x in df_events.columns[2] if x.isdigit())
-        int_find_idx = df_events.columns[2].find(int_find)
-        if df_events.columns[2][:int_find_idx] == 'ROI':
-            df_type = 'ROI'
-        else:
-            df_type = 'cluster'
-        trials = np.array(df_cs_stride.columns)
-        if plot_data:
-            fig, ax = plt.subplots(figsize=(15, 5), tight_layout=True)
-            count_t = 0
-            event_probability = np.zeros(len(trials))
-            for t in trials:
-                plt.bar(t - 0.5, np.count_nonzero(df_cs_stride[t] > 0) / np.count_nonzero(~np.isnan(df_cs_stride[t])),
-                        width=1, color=colors_session[t], edgecolor='white')
-                event_probability[count_t] = np.count_nonzero(df_cs_stride[t] > 0) / np.count_nonzero(
-                    ~np.isnan(df_cs_stride[t]))
-                count_t += 1
-            ax.set_xticks(np.arange(0.5, len(trials) + 0.5))
-            ax.set_xticklabels(list(map(str, trials)))
-            plt.xlim([0, len(trials) + 1])
-            plt.ylabel('Probability of strides with CS', fontsize=self.fsize)
-            plt.xlabel('Trials', fontsize=self.fsize)
-            plt.title('Probability of ' + paw + ' strides with CS for ' + df_type + str(roi_plot), fontsize=self.fsize)
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
-            plt.xticks(fontsize=self.fsize - 4)
-            plt.yticks(fontsize=self.fsize - 4)
-            if print_plots:
-                if not os.path.exists(os.path.join(self.path, 'images', 'events', traces_type)):
-                    os.mkdir(os.path.join(self.path, 'images', 'events', traces_type))
-                if df_type == 'ROI':
-                    if not os.path.exists(
-                            os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot))):
-                        os.mkdir(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot)))
-                    plt.savefig(os.path.join(self.path, 'images', 'events', traces_type, 'ROI' + str(roi_plot),
-                                             'event_prob_roi_' + str(roi_plot) + '_' + paw), dpi=self.my_dpi)
-                if df_type == 'cluster':
-                    if not os.path.exists(
-                            os.path.join(self.path, 'images', 'cluster', traces_type, 'Cluster' + str(roi_plot))):
-                        os.mkdir(os.path.join(self.path, 'images', 'cluster', traces_type, 'Cluster' + str(roi_plot)))
-                    plt.savefig(os.path.join(self.path, 'images', 'cluster', traces_type, 'Cluster' + str(roi_plot),
-                                             'event_prob_cluster_' + str(roi_plot) + '_' + paw), dpi=self.my_dpi)
-            return event_probability
-
-    def raw_signal_align_st_sw(self, df_rawtrace, st_strides_trials, sw_strides_trials, time_window, paw, roi_plot,
-                               align, session_type, trials_ses, plot_data):
-        """Align raw calcium signal to stance, swing or stride period. It outputs the matrix of aligned data
-        Inputs:
-            df_rawtrace: dataframe with signal
-            st_strides_trials: list of trials with matrix with stance points
-            sw_strides_trials: list of trials with matrix with swing points
-            time_window: (float) with time_window around event in s
-            paw (str): 'FR','HR','FL','HL'
-            roi_plot (int): roi number
-            align (str): period to align - 'stance','swing'
-            session_type. (str) split or tied
-            trials_ses: relevant trials for the session to compute transition lines
-            plot_data: boolean"""
-        df_rawtrace_norm = self.norm_traces(df_rawtrace, 'min_max', 'trial')
-        if align == 'stance':
-            align_str = 'st'
-        if align == 'swing':
-            align_str = 'sw'
-        if paw == 'FR':
-            p = 0  # paw of tracking
-        if paw == 'HR':
-            p = 1
-        if paw == 'FL':
-            p = 2
-        if paw == 'HL':
-            p = 3
-        event_stride_list = []
-        trial_length_strides = np.zeros(len(st_strides_trials))
-        for t in np.arange(1, len(st_strides_trials) + 1):
-            if align == 'stance':
-                align_time = st_strides_trials[t - 1][p][:, 0, -1] / self.sr_loco
-            if align == 'swing':
-                align_time = sw_strides_trials[t - 1][p][:, 0, -1] / self.sr_loco
-            trial_length_strides[t - 1] = len(align_time)
-            event_stride_arr = np.zeros((len(align_time), np.int64(time_window * self.sr * 2)))
-            for count_s, s1 in enumerate(align_time):
-                data_events = df_rawtrace_norm[
-                    (df_rawtrace_norm['time'].between(s1 - time_window, s1 + time_window)) & (
-                            df_rawtrace_norm['trial'] == t)]
-                if len(data_events) == time_window * self.sr * 2:
-                    event_stride_arr[count_s, :] = np.array(data_events['ROI' + str(roi_plot)])
-            event_stride_list.append(event_stride_arr)
-        event_stride_all = np.vstack(event_stride_list)
-        trial_length_strides_cumsum = np.cumsum(trial_length_strides)
-        fig, ax = plt.subplots(figsize=(10, 20), tight_layout=True)
-        sns.heatmap(event_stride_all)
-        ax.vlines(time_window * self.sr, *ax.get_ylim(), color='white', linestyle='dashed')
-        if session_type == 'split':
-            ax.hlines([trial_length_strides_cumsum[trials_ses[0]], trial_length_strides_cumsum[trials_ses[2]]],
-                      *ax.get_xlim(), color='white', linewidth=0.5)
-        if session_type == 'tied':
-            for t in trials_ses[:-1]:
-                ax.hlines([trial_length_strides_cumsum[t - 1]], *ax.get_xlim(), color='white', linewidth=0.5)
-        ax.set_yticks(np.arange(0, np.shape(event_stride_all)[0], 250))
-        ax.set_yticklabels(list(map(str, np.arange(0, np.shape(event_stride_all)[0], 250))))
-        ax.set_xticklabels(list(map(str, np.round(np.arange(-time_window, time_window, 0.02), 2))), rotation=45)
-        ax.set_xlabel('Time (s)', fontsize=self.fsize - 4)
-        ax.set_ylabel('Stride number', fontsize=self.fsize - 4)
-        ax.set_title(paw + ' ' + align_str + ' raw signal', fontsize=self.fsize - 4)
-        ax.spines['right'].set_visible(False)
-        ax.spines['top'].set_visible(False)
-        plt.xticks(fontsize=self.fsize - 12)
-        plt.yticks(fontsize=self.fsize - 12)
-        if plot_data:
-            if not os.path.exists(os.path.join(self.path, 'images', 'raw signal')):
-                os.mkdir(os.path.join(self.path, 'images', 'raw signal'))
-            if not os.path.exists(os.path.join(self.path, 'images', 'raw signal', 'ROI' + str(roi_plot))):
-                os.mkdir(os.path.join(self.path, 'images', 'raw signal', 'ROI' + str(roi_plot)))
-            plt.savefig(os.path.join(self.path, 'images', 'raw signal', 'ROI' + str(roi_plot),
-                                     'rawsignal_' + align + '_' + paw + '_window_' + str(time_window).replace('.',
-                                                                                                              ',') + '_roi_' + str(
-                                         roi_plot)),
-                        dpi=self.my_dpi)
-        return event_stride_all
-
     @staticmethod
-    def event_continuous_sym(df_events, st_strides_trials, trials, p1, roi):
-        """Get the event times of a stride of a certain paw for one ROI/cluster.
-        Inputs:
-        df_events: (dataframe) with the events for each ROI/cluster and trials
-        st_strides_trials: list with strides for all trials
-        trials: trial list
-        p1: reference paw to get events (FR, HR, FL, HL)"""
-        if p1 == 'FR':
-            p1_idx = 0
-        if p1 == 'HR':
-            p1_idx = 1
-        if p1 == 'FL':
-            p1_idx = 2
-        if p1 == 'HL':
-            p1_idx = 3
-        int_find = ''.join(x for x in df_events.columns[2] if x.isdigit())
-        int_find_idx = df_events.columns[2].find(int_find)
-        if df_events.columns[2][:int_find_idx] == 'ROI':
-            df_type = 'ROI'
-        else:
-            df_type = 'cluster'
-        idx_nr = df_type + str(roi)
-        event_all = []
-        event_all_time = []
-        cumulative_idx = []
-        for count_t, t in enumerate(trials):
-            trial_index = np.where(trials == t)[0][0]
-            strides_p1 = st_strides_trials[trial_index][p1_idx]
-            # in ms to be comparable to stride structure
-            event_times_trial = np.array(
-                df_events.iloc[np.where(df_events.loc[df_events['trial'] == t, idx_nr])[0], 1] * 1000)
-            param_time = np.zeros(np.shape(strides_p1)[0])
-            param_time[:] = np.nan
-            for s in range(np.shape(strides_p1)[0]):
-                event_idx_stride = \
-                np.where((event_times_trial > strides_p1[s, 0, 0]) & (event_times_trial < strides_p1[s, 1, 0]))[0]
-                if len(event_idx_stride) > 0:
-                    event_idx_stride = event_idx_stride[0]
-                    event_all.append(event_times_trial[event_idx_stride] / 1000)
-                else:
-                    event_all.append(np.nan)
-                param_time[s] = strides_p1[s, 0, 0] / 1000
-                if count_t == 0 and s == 0:
-                    cumulative_idx.append(1)
-                else:
-                    cumulative_idx.append(cumulative_idx[-1] + 1)
-            if count_t > 0:  # cumulative time
-                event_all_time.extend(param_time + df_events.loc[df_events['trial'] == t, 'time'].iloc[-1])
-            else:
-                event_all_time.extend(param_time)
-        event_all_array = np.array(event_all)[~np.isnan(event_all)]
-        event_all_time_array = np.array(event_all_time)[~np.isnan(event_all)]
-        cumulative_idx_array = np.array(cumulative_idx)[~np.isnan(event_all)]
-        return cumulative_idx_array, event_all_time_array, event_all_array
-
-    @staticmethod
-    def event_swst_stride(df_events, st_strides_trials, sw_strides_trials, align, trials, p1, roi, time_window, traj):
-        #TODO missing phase raster - put spikes in phase on a stride in phase, plot raster st-st for example with spikes in phase in between
-        """Get the event times for each stride of a certain paw for one ROI/cluster.
-        Can get the events in phase
+    def event_swst_stride(df_events, st_strides_trials, sw_strides_trials, final_tracks_phase, bcam_time, dim, align, trials, p1, roi, time_window):
+        """Get the event times aligned to swing or stance of a certain paw for one ROI/cluster.
+        If align is phase you can get the calcium event behavioral phase.
         Inputs:
         df_events: (dataframe) with the events for each ROI/cluster and trials
         st_strides_trials: list with strides for all trials st to st
         sw_strides_trials: list with strides for all trials sw to sw
+        final_tracks_phase: list with the paw positions transformed in phase
+        bcam_time: list of timestamps of behavioral camera
+        dim: (str) time or phase
         align: (str) st or sw
         trials: trial list
         p1: reference paw to get events (FR, HR, FL, HL)
-        roi: roi number (int)
-        time_window: (float) window in seconds
-        traj: (str) time or phase"""
+        roi: (str) ROI1 or cluster1
+        time_window: (float) window in seconds"""
         if align == 'st':
             data_strides = st_strides_trials
         if align == 'sw':
@@ -3129,41 +2897,41 @@ class miniscope_session:
             p1_idx = 2
         if p1 == 'HL':
             p1_idx = 3
-        int_find = ''.join(x for x in df_events.columns[2] if x.isdigit())
-        int_find_idx = df_events.columns[2].find(int_find)
-        if df_events.columns[2][:int_find_idx] == 'ROI':
-            df_type = 'ROI'
-        else:
-            df_type = 'cluster'
-        idx_nr = df_type + str(roi)
         events_stride_trial = []
         cumulative_idx = []
         trial_id = []
         for count_t, trial in enumerate(trials):
             t = np.where(trials == trial)[0][0]
-            df_trial = df_events.loc[df_events['trial'] == trial, [idx_nr, 'time']].reset_index()
+            df_trial = df_events.loc[df_events['trial'] == trial, [roi, 'time']].reset_index()
             event_times_trial = np.array(df_trial.iloc[np.where(df_trial.iloc[:, 1])[0], 2]) * 1000
             events_stride_list = []
             for s in range(np.shape(data_strides[t][p1_idx])[0]):
-                # st_on = np.int64(data_strides[t][p1_idx][s, 0, -1])
-                # st_off = np.int64(data_strides[t][p1_idx][s, 1, -1])
                 event_on_time = data_strides[t][p1_idx][s, 0, 0]
-                # st_off_time = data_strides[t][p1_idx][s, 1, 0]
-                # event_idx_stride = np.where((event_times_trial > st_on_time) & (event_times_trial < st_off_time))[0]
-                event_idx_stride = np.where((event_times_trial > event_on_time - (time_window * 1000)) & (
-                        event_times_trial < event_on_time + (time_window * 1000)))[0]
+                if dim == 'time':
+                    event_idx_stride = np.where((event_times_trial > event_on_time - (time_window * 1000)) & (
+                            event_times_trial < event_on_time + (time_window * 1000)))[0]
+                if dim == 'phase':
+                    st_on_time = data_strides[t][p1_idx][s, 0, 0]
+                    st_off_time = data_strides[t][p1_idx][s, 1, 0]
+                    event_idx_stride = np.where((event_times_trial > st_on_time) & (event_times_trial < st_off_time))[0]
                 if len(event_idx_stride) > 0:
-                    event_stride = event_times_trial[event_idx_stride] - event_on_time
+                    if dim == 'time':
+                        event_stride = event_times_trial[event_idx_stride] - event_on_time
+                    if dim == 'phase':
+                        event_stride = [] #is a list because it can be more than 1
+                        for i in event_idx_stride:
+                            event_stride_bcam_time = np.argmin(np.abs(
+                                (event_times_trial[i] / 1000) - bcam_time[
+                                    t]))  # find closest behavioral timestamp
+                            event_stride.append(final_tracks_phase[t][0, p1_idx, event_stride_bcam_time])
                     for count_i, i in enumerate(event_stride):
                         events_stride_list.append(i)
                         if count_t == 0 and s == 0:
                             cumulative_idx.append(1)
-                        if count_i == 0: #if its the first event its the next stride
+                        if count_i == 0:  # if its the first event its the next stride
                             cumulative_idx.append(cumulative_idx[-1] + 1)
-                        if count_i > 0: #if its the 2nd, 3rd event its the same stride as first event
+                        if count_i > 0:  # if its the 2nd, 3rd event its the same stride as first event
                             cumulative_idx.append(cumulative_idx[-1])
-                    # if traj == 'phase':
-                    #     event_stride = event_stride / (st_off_time - st_on_time)
                 else:
                     event_stride = np.nan
                     events_stride_list.append(event_stride)
@@ -3171,45 +2939,40 @@ class miniscope_session:
                         cumulative_idx.append(1)
                     else:
                         cumulative_idx.append(cumulative_idx[-1] + 1)
-                # paw_phase = final_tracks_trials_phase[t][0, p, st_on:st_off]
-                # paw_time = final_tracks_trials[t][0, p, st_on:st_off]
-                # fig, ax = plt.subplots(2, 1, tight_layout=True)
-                # ax = ax.ravel()
-                # ax[0].plot(np.linspace(0, 1, len(paw_phase)), paw_phase, color='black')
-                # ax[0].axvline(event_stride, color='gray')
-                # ax[0].set_xlim([0, 1])
-                # ax[1].plot(bcam_time[t][st_on:st_off], (paw_time-np.min(paw_time))/(np.max(paw_time)-np.min(paw_time)), color='black')
-                # ax[1].axvline((event_stride + st_on_time)/1000, color='gray')
-                # ax[1].set_xlim([bcam_time[t][st_on], bcam_time[t][st_off]])
             events_stride_trial.extend(events_stride_list)
             trial_id.extend(np.repeat(trial, len(events_stride_list)))
         return np.array(cumulative_idx), np.array(trial_id), np.array(events_stride_trial)
 
-    def total_strides_trial(self, st_strides_trials, sw_strides_trials, align, paw):
-        """Computes the cumulative sum of the strides in each trial
+    def firing_rate_swst(self, events_stride_trial, trial_id, final_tracks_phase, trials, bins):
+        """Compute firing rate of CS around the locomotor events (can do this in phase or time).
         Inputs:
-            st_strides_trials: list of trials with matrix with stance points
-            sw_strides_trials: list of trials with matrix with swing points
-            align (str): period to align - 'stance','swing'
-            paw (str): 'FR','HR','FL','HL'
-        """
-        if paw == 'FR':
-            p = 0  # paw of tracking
-        if paw == 'HR':
-            p = 1
-        if paw == 'FL':
-            p = 2
-        if paw == 'HL':
-            p = 3
-        trial_length_strides = np.zeros(len(st_strides_trials))
-        for t in np.arange(1, len(st_strides_trials) + 1):
-            if align == 'stance':
-                align_time = st_strides_trials[t - 1][p][:, 0, -1] / self.sr_loco
-            if align == 'swing':
-                align_time = sw_strides_trials[t - 1][p][:, 0, -1] / self.sr_loco
-            trial_length_strides[t - 1] = len(align_time)
-        trial_length_strides_cumsum = np.cumsum(trial_length_strides)
-        return trial_length_strides_cumsum
+            event_stride_trial: list with the time/%phase of CS aligned to locomotor event
+            trial_id: trial identification of each row of events_stride_trial
+            final_tracks_phase: list of paw excursions in phase
+            trials: list of trials in the session
+            bins: vector of time or phase bins"""
+        spikes_count_tr = []
+        for count_t, trial in enumerate(trials):
+            spikes_count = []
+            dataset = events_stride_trial[trial_id == trial]
+            for value in dataset:
+                bin_count = np.zeros((len(bins) - 1))
+                if value >= bins[0] and value <= bins[-1] and np.isnan(value) == False:
+                    bin_idx = np.digitize(value, bins, right=True) - 1
+                    bin_count[bin_idx] += 1
+                    spikes_count.append(bin_count)
+                else:
+                    spikes_count.append(bin_count)
+            spikes_count_tr.append(spikes_count)
+        firing_rate = np.zeros((len(trials), len(bins) - 1))
+        for tr in range(len(trials)):
+            phase_paw = final_tracks_phase[tr][0, 3, :]
+            spikes_count = np.sum(np.vstack(spikes_count_tr[tr]), axis=0)  # Sum spikes in each bin
+            frames_bin, _ = np.histogram(phase_paw[~np.isnan(phase_paw)],
+                                         bins=len(bins) - 1)  # Compute time spent in each bin
+            time_bin = frames_bin * (1 / self.sr_loco)
+            firing_rate[tr] = spikes_count / time_bin  # Compute firing rate
+        return firing_rate
 
     def event_corridor_distribution(self, df_events, final_tracks_trials, bcam_time, roi, paw, trials_analysis,
                                     pixel_step, traces_type, plot_data, print_plots):

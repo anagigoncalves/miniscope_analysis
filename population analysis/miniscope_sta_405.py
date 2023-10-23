@@ -12,15 +12,15 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 path_session_data = 'J:\\Miniscope processed files'
-save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA paw spatial diff\\split contra fast S1\\'
-sta_type = 'paw_diff'
+save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA phase diff st-sw-st\\split contra fast S1\\'
+sta_type = 'phase_diff'
 window = np.arange(-330, 330 + 1)  # Samples
 iter_n = 100 # Number of iterations of CS timestamps random shuffling
 
 # path inputs
-path = 'J:\\Miniscope processed files\\TM RAW FILES\\split contra fast\\MC13420\\2022_05_31\\'
-path_loco = 'J:\\Miniscope processed files\\TM TRACKING FILES\\split contra fast S1 310522\\'
-protocol = 'split contra fast'
+path = 'J:\\Miniscope processed files\\TM RAW FILES\\split contra fast 405\\MC13420\\2022_05_31\\'
+path_loco = 'J:\\Miniscope processed files\\TM TRACKING FILES\\split contra fast 405 nm S2 310522\\'
+protocol = 'split contra fast 405'
 # path = 'J:\\Miniscope processed files\\TM RAW FILES\\split contra fast\\MC13419\\2022_05_31\\'
 # path_loco = 'J:\\Miniscope processed files\\TM TRACKING FILES\\split contra fast S1 310522\\'
 # protocol = 'split contra fast'

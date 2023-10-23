@@ -14,7 +14,7 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
-load_path = path_session_data + '\\Analysis on population data\\STA paw spatial diff\\split contra fast S1\\'
+load_path = path_session_data + '\\Analysis on population data\\STA phase diff st-sw-st\\split contra fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\405 control\\'
 protocol_type = 'split'
 cond_name = ['baseline', 'early split', 'late split', 'early washout', 'late washout']
@@ -23,7 +23,7 @@ zoom_in = np.array([-1, 0.25])
 xaxis = window / 330
 xaxis_start = np.where(xaxis >= zoom_in[0])[0][0]
 xaxis_end = np.where(xaxis >= zoom_in[1])[0][0]
-var_name = 'FR-FL'
+var_name = 'FL-FR-phase'
 animals = ['MC13420'] #MC13419 has very few ROIs
 
 fov_coords = np.array([[6.27, 0.53],
@@ -116,6 +116,7 @@ fig, ax = plt.subplots(1, np.shape(sta_zoom_all_480_sort)[1], figsize=(25, 10), 
 for t in range(np.shape(sta_zoom_all_480_sort)[1]):
     hm = sns.heatmap(sta_zoom_all_480_sort[:, t, :], vmax=np.nanpercentile(sta_zoom_all_480_sort[:, t, :], 99.5),
                 vmin=np.nanpercentile(sta_zoom_all_480_sort[:, t, :], 0.5), cmap='coolwarm', ax=ax[t])
+    ax[t].axvline(x=np.where(xaxis == 0)[0][0] - xaxis_start, color='white', linewidth=2)
     ax[t].set_xticks(np.array([0, np.where(xaxis == 0)[0][0]-xaxis_start, np.shape(sta_zoom_all_480_sort[:, t, :])[1]]))
     ax[t].set_xticklabels([str(xaxis[xaxis_start]), '0', str(np.round(xaxis[xaxis_end], 2))], fontsize=20)
     ax[t].set_yticks(np.arange(0, np.shape(sta_zoom_all_480_sort[t])[0], 50))
@@ -131,12 +132,13 @@ for t in range(np.shape(sta_zoom_all_480_sort)[1]):
     cbar.ax.tick_params(labelsize=16)
     ax[t].set_title(cond_name[t], fontsize=16)
 plt.savefig(os.path.join(save_path,
-                         'sta_pawdiff_FR-FL_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary'), dpi=mscope.my_dpi)
+                         'sta_pawdiff_' + var_name + '_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary'), dpi=mscope.my_dpi)
 
 fig, ax = plt.subplots(1, np.shape(sta_zoom_all_405_sort)[1], figsize=(25, 10), tight_layout='True', sharey=True)
 for t in range(np.shape(sta_zoom_all_405_sort)[1]):
     hm = sns.heatmap(sta_zoom_all_405_sort[:, t, :], vmax=np.nanpercentile(sta_zoom_all_405_sort[:, t, :], 99.5),
                 vmin=np.nanpercentile(sta_zoom_all_405_sort[:, t, :], 0.5), cmap='coolwarm', ax=ax[t])
+    ax[t].axvline(x=np.where(xaxis == 0)[0][0] - xaxis_start, color='white', linewidth=2)
     ax[t].set_xticks(np.array([0, np.where(xaxis == 0)[0][0]-xaxis_start, np.shape(sta_zoom_all_405_sort[:, t, :])[1]]))
     ax[t].set_xticklabels([str(xaxis[xaxis_start]), '0', str(np.round(xaxis[xaxis_end], 2))], fontsize=20)
     ax[t].set_yticks(np.arange(0, np.shape(sta_zoom_all_480_sort[t])[0], 50))
@@ -152,4 +154,4 @@ for t in range(np.shape(sta_zoom_all_405_sort)[1]):
     cbar.ax.tick_params(labelsize=16)
     ax[t].set_title(cond_name[t], fontsize=16)
 plt.savefig(os.path.join(save_path,
-                         'sta_pawdiff_FR-FL_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_405'), dpi=mscope.my_dpi)
+                         'sta_pawdiff_' + var_name + '_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_405'), dpi=mscope.my_dpi)

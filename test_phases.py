@@ -28,6 +28,10 @@ paw_amp_fr = np.zeros((np.shape(session_data)[0], N_trials))
 paw_amp_fr[:] = np.nan
 paw_amp_fl = np.zeros((np.shape(session_data)[0], N_trials))
 paw_amp_fl[:] = np.nan
+stride_duration_fr = np.zeros((np.shape(session_data)[0], N_trials))
+stride_duration_fr[:] = np.nan
+stride_duration_fl = np.zeros((np.shape(session_data)[0], N_trials))
+stride_duration_fl[:] = np.nan
 for session_data_idx in range(np.shape(session_data)[0]):
     ses_info = session_data.iloc[session_data_idx, :]
     date = ses_info[3]
@@ -62,10 +66,16 @@ for session_data_idx in range(np.shape(session_data)[0]):
     for count_trial, f in enumerate(filelist):
         [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter] = loco.read_h5(f, 0.9, np.int64(
             frames_loco[count_trial]))
+        paws_rel = loco.get_paws_rel(final_tracks, 'X')
         [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
         final_tracks_trials.append(final_tracks)
         st_strides_trials.append(st_strides_mat)
         sw_strides_trials.append(sw_pts_mat)
+        stride_duration = loco.compute_gait_param(bodycenter,final_tracks,paws_rel,st_strides_mat,sw_pts_mat,'stride_duration')
+        stride_duration_FR_trial = stride_duration[0]
+        stride_duration_FL_trial = stride_duration[2]
+        stride_duration_fr[session_data_idx, count_trial] = np.nanmean(stride_duration_FR_trial)
+        stride_duration_fl[session_data_idx, count_trial] = np.nanmean(stride_duration_FL_trial)
     final_tracks_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials, 'st-sw-st')
 
     displ_diff_front = mscope.paw_diff(final_tracks_trials, 0, 2)
@@ -91,6 +101,8 @@ paw_diff_fr_fl_animal_mean = np.nanmean(paw_diff_fr_fl, axis=0)
 paw_amp_fr_animal_mean = np.nanmean(paw_amp_fr, axis=0)
 paw_amp_fl_animal_mean = np.nanmean(paw_amp_fl, axis=0)
 phase_diff_fl_fr_animal_mean = np.nanmean(phase_diff_fr[:, :, 2], axis=0)
+stride_duration_FR_animal_mean = np.nanmean(stride_duration_fr, axis=0)
+stride_duration_FL_animal_mean = np.nanmean(stride_duration_fl, axis=0)
 
 ae_idx = 16
 colors_paws = ['red', 'magenta', 'blue', 'cyan']

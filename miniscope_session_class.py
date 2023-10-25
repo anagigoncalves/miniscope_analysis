@@ -2943,14 +2943,15 @@ class miniscope_session:
             trial_id.extend(np.repeat(trial, len(events_stride_list)))
         return np.array(cumulative_idx), np.array(trial_id), np.array(events_stride_trial)
 
-    def firing_rate_swst(self, events_stride_trial, trial_id, final_tracks_phase, trials, bins):
+    def firing_rate_swst(self, events_stride_trial, trial_id, final_tracks_phase, trials, bins, align_dimension):
         """Compute firing rate of CS around the locomotor events (can do this in phase or time).
         Inputs:
             event_stride_trial: list with the time/%phase of CS aligned to locomotor event
             trial_id: trial identification of each row of events_stride_trial
             final_tracks_phase: list of paw excursions in phase
             trials: list of trials in the session
-            bins: vector of time or phase bins"""
+            bins: vector of time or phase bins
+            align_dimension: (str) phase or time"""
         spikes_count_tr = []
         for count_t, trial in enumerate(trials):
             spikes_count = []
@@ -2965,14 +2966,21 @@ class miniscope_session:
                     spikes_count.append(bin_count)
             spikes_count_tr.append(spikes_count)
         firing_rate = np.zeros((len(trials), len(bins) - 1))
+        spike_prob = np.zeros((len(trials), len(bins) - 1))
         for tr in range(len(trials)):
             phase_paw = final_tracks_phase[tr][0, 3, :]
             spikes_count = np.sum(np.vstack(spikes_count_tr[tr]), axis=0)  # Sum spikes in each bin
             frames_bin, _ = np.histogram(phase_paw[~np.isnan(phase_paw)],
                                          bins=len(bins) - 1)  # Compute time spent in each bin
             time_bin = frames_bin * (1 / self.sr_loco)
-            firing_rate[tr] = spikes_count / time_bin  # Compute firing rate
-        return firing_rate
+            if align_dimension == 'phase':
+                firing_rate[tr] = spikes_count / time_bin  # Compute firing rate
+                spike_prob[tr] = (spikes_count / np.sum(spikes_count)) / time_bin
+            if align_dimension == 'time':
+                time_bin = np.round(bins[1] - bins[0], 4)
+                firing_rate[tr] = spikes_count / time_bin  # Compute firing rate
+                spike_prob[tr] = (spikes_count / np.sum(spikes_count)) / time_bin
+        return firing_rate, spike_prob
 
     def event_corridor_distribution(self, df_events, final_tracks_trials, bcam_time, roi, paw, trials_analysis,
                                     pixel_step, traces_type, plot_data, print_plots):

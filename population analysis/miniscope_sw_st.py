@@ -13,11 +13,11 @@ import miniscope_session_class
 import locomotion_class
 path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_tied_S1.xlsx')
-save_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters sw time\\tied baseline S1\\'
+save_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\tied baseline S1\\'
 paws = ['FR', 'HR', 'FL', 'HL']
 paw_colors = ['red', 'magenta', 'blue', 'cyan']
-align_event = 'sw'
-align_dimension = 'time'
+align_event = 'st'
+align_dimension = 'phase'
 if align_dimension == 'phase':
     bins = np.arange(0, 1.01, 0.05)  # 5 deg
     align_event = 'st' #is always stance
@@ -45,7 +45,7 @@ for s in range(len(session_data)):
     session = loco.get_session_id()
     [df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames, trials,
      clusters_rois, colors_cluster, colors_session, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
-    colors_session = mscope.colors_session(animal, session_type, trials, 0)
+    colors_session = mscope.colors_session(animal, session_type, trials, 1)
     [trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
     [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
@@ -72,24 +72,28 @@ for s in range(len(session_data)):
     trial_id_rois = []
     events_stride_trial_rois = []
     firing_rate_rois = []
+    spike_prob_rois = []
     for roi in roi_list:
         cumulative_idx_all_paws = []
         trial_id_all_paws = []
         events_stride_trial_all_paws = []
         firing_rate_all_paws = []
+        spike_prob_all_paws = []
         for count_p, paw in enumerate(paws):
             [cumulative_idx_paw, trial_id_paw, events_stride_trial_paw] = mscope.event_swst_stride(df_events_extract_rawtrace,
             st_strides_trials, sw_strides_trials, final_tracks_phase, bcam_time, align_dimension, align_event,
             trials, paw, roi, np.abs(bins[0]))
-            firing_rate_paw = mscope.firing_rate_swst(events_stride_trial_paw, trial_id_paw, final_tracks_phase, trials, bins_fr)
+            firing_rate_paw, spike_prob_paw = mscope.firing_rate_swst(events_stride_trial_paw, trial_id_paw, final_tracks_phase, trials, bins_fr, align_dimension)
             cumulative_idx_all_paws.append(cumulative_idx_paw)
             trial_id_all_paws.append(trial_id_paw)
             events_stride_trial_all_paws.append(events_stride_trial_paw)
             firing_rate_all_paws.append(firing_rate_paw)
+            spike_prob_all_paws.append(spike_prob_paw)
         cumulative_idx_rois.append(cumulative_idx_all_paws)
         trial_id_rois.append(trial_id_all_paws)
         events_stride_trial_rois.append(events_stride_trial_all_paws)
         firing_rate_rois.append(firing_rate_all_paws)
+        spike_prob_rois.append(spike_prob_all_paws)
 
     np.save(os.path.join(save_path, animal + ' ' + ses_info[0],
                          'raster_events_stride_trial_rois'), events_stride_trial_rois, allow_pickle=True)
@@ -99,6 +103,8 @@ for s in range(len(session_data)):
                          'raster_cumulative_idx_rois'), cumulative_idx_rois, allow_pickle=True)
     np.save(os.path.join(save_path, animal + ' ' + ses_info[0],
                          'raster_firing_rate_rois'), firing_rate_rois, allow_pickle=True)
+    np.save(os.path.join(save_path, animal + ' ' + ses_info[0],
+                         'raster_spike_prob_rois'), spike_prob_rois, allow_pickle=True)
 
     # Rasterplot divided by block and sorted by time for each ROI
     for count_roi, roi in enumerate(roi_list):
@@ -139,6 +145,45 @@ for s in range(len(session_data)):
             ax[2, count_p].set_xlabel('Time (ms)', fontsize=mscope.fsize - 8)
             ax[2, count_p].set_ylabel('Aligned to ' + str(align_event), fontsize=mscope.fsize - 8)
         plt.savefig(os.path.join(save_path, animal + ' ' + ses_info[0], 'raster_' + align_dimension + '_' +
+                                 align_event + '_' + roi), dpi=mscope.my_dpi)
+
+        fig, ax = plt.subplots(3, 4, figsize=(20, 15), tight_layout=True)
+        for count_p, paw in enumerate(paws):
+            idx_nan = np.where(~np.isnan(events_stride_trial_rois[count_roi][count_p]))[0]
+            ax[0, count_p].scatter(events_stride_trial_rois[count_roi][count_p][idx_nan],
+                                   cumulative_idx_rois[count_roi][count_p][idx_nan], s=1, color='black')
+            if align_dimension == 'phase':
+                ax[0, count_p].axvline(x=0.5, color='black')
+            if align_dimension == 'time':
+                ax[0, count_p].axvline(x=0, color='black')
+            ax[0, count_p].axhline(y=np.where(trial_id_rois[count_roi][count_p] == trials_ses[0, 1])[0][-1], color='black', linestyle='dashed')
+            ax[0, count_p].axhline(y=np.where(trial_id_rois[count_roi][count_p] == trials_ses[1, 1])[0][-1], color='black', linestyle='dashed')
+            ax[0, count_p].set_title(paw + ' paw', color=paw_colors[count_p], fontsize=mscope.fsize - 6)
+            ax[0, count_p].spines['right'].set_visible(False)
+            ax[0, count_p].spines['top'].set_visible(False)
+            ax[0, count_p].tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
+            sns.heatmap(firing_rate_rois[count_roi][count_p], cmap='viridis', cbar=None,
+            vmin=np.nanmin(firing_rate_rois[count_roi]), vmax=np.nanmax(firing_rate_rois[count_roi]), ax=ax[1, count_p])
+            ax[1, count_p].invert_yaxis()
+            ax[1, count_p].set_yticks(np.arange(0, len(trials)))
+            ax[1, count_p].set_xticklabels(list(map(str, np.round(bins[:-1], 2))), rotation=45)
+            ax[1, count_p].set_yticklabels(list(map(str, trials)), rotation=45)
+            ax[1, count_p].axvline(x=np.int64(len(bins[::-1])/2), color='white')
+            ax[1, count_p].axhline(y=trials_ses[0, 1], color='white', linestyle='dashed')
+            ax[1, count_p].axhline(y=trials_ses[1, 1], color='white', linestyle='dashed')
+            for count_t, t in enumerate(trials):
+                ax[2, count_p].plot(bins[:-1], spike_prob_rois[count_roi][count_p][count_t, :], color=colors_session[t])
+            if align_dimension == 'phase':
+                ax[2, count_p].axvline(x=0.5, color='black')
+            if align_dimension == 'time':
+                ax[2, count_p].axvline(x=0, color='black')
+            ax[2, count_p].set_ylim([np.nanmin(spike_prob_rois[count_roi]), np.nanmax(spike_prob_rois[count_roi])])
+            ax[2, count_p].spines['right'].set_visible(False)
+            ax[2, count_p].spines['top'].set_visible(False)
+            ax[2, count_p].tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
+            ax[2, count_p].set_xlabel('Time (ms)', fontsize=mscope.fsize - 8)
+            ax[2, count_p].set_ylabel('Aligned to ' + str(align_event), fontsize=mscope.fsize - 8)
+        plt.savefig(os.path.join(save_path, animal + ' ' + ses_info[0], 'raster_prob_' + align_dimension + '_' +
                                  align_event + '_' + roi), dpi=mscope.my_dpi)
         plt.close('all')
 

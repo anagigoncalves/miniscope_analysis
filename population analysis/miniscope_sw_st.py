@@ -12,8 +12,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_tied_S1.xlsx')
-save_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\tied baseline S1\\'
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
+save_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split ipsi fast S1\\'
 paws = ['FR', 'HR', 'FL', 'HL']
 paw_colors = ['red', 'magenta', 'blue', 'cyan']
 align_event = 'st'
@@ -185,5 +185,46 @@ for s in range(len(session_data)):
             ax[2, count_p].set_ylabel('Aligned to ' + str(align_event), fontsize=mscope.fsize - 8)
         plt.savefig(os.path.join(save_path, animal + ' ' + ses_info[0], 'raster_prob_' + align_dimension + '_' +
                                  align_event + '_' + roi), dpi=mscope.my_dpi)
+
+        fig, ax = plt.subplots(3, 4, figsize=(20, 15), tight_layout=True)
+        for count_p, paw in enumerate(paws):
+            idx_nan = np.where(~np.isnan(events_stride_trial_rois[count_roi][count_p]))[0]
+            ax[0, count_p].scatter(events_stride_trial_rois[count_roi][count_p][idx_nan],
+                                   cumulative_idx_rois[count_roi][count_p][idx_nan], s=1, color='black')
+            if align_dimension == 'phase':
+                ax[0, count_p].axvline(x=0.5, color='black')
+            if align_dimension == 'time':
+                ax[0, count_p].axvline(x=0, color='black')
+            ax[0, count_p].axhline(y=np.where(trial_id_rois[count_roi][count_p] == trials_ses[0, 1])[0][-1], color='black', linestyle='dashed')
+            ax[0, count_p].axhline(y=np.where(trial_id_rois[count_roi][count_p] == trials_ses[1, 1])[0][-1], color='black', linestyle='dashed')
+            ax[0, count_p].set_title(paw + ' paw', color=paw_colors[count_p], fontsize=mscope.fsize - 6)
+            ax[0, count_p].spines['right'].set_visible(False)
+            ax[0, count_p].spines['top'].set_visible(False)
+            ax[0, count_p].tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
+            sns.heatmap(firing_rate_rois[count_roi][count_p], cmap='viridis', cbar=None,
+            vmin=np.nanmin(firing_rate_rois[count_roi]), vmax=np.nanmax(firing_rate_rois[count_roi]), ax=ax[1, count_p])
+            ax[1, count_p].invert_yaxis()
+            ax[1, count_p].set_yticks(np.arange(0, len(trials)))
+            ax[1, count_p].set_xticklabels(list(map(str, np.round(bins[:-1], 2))), rotation=45)
+            ax[1, count_p].set_yticklabels(list(map(str, trials)), rotation=45)
+            ax[1, count_p].axvline(x=np.int64(len(bins[::-1])/2), color='white')
+            ax[1, count_p].axhline(y=trials_ses[0, 1], color='white', linestyle='dashed')
+            ax[1, count_p].axhline(y=trials_ses[1, 1], color='white', linestyle='dashed')
+            for count_t, t in enumerate(trials):
+                ax[2, count_p].plot(bins[:-1], np.nanmean(firing_rate_rois[count_roi][count_p], axis=0), color='black')
+            if align_dimension == 'phase':
+                ax[2, count_p].axvline(x=0.5, color='black')
+            if align_dimension == 'time':
+                ax[2, count_p].axvline(x=0, color='black')
+            ax[2, count_p].set_ylim([np.nanmin(np.nanmean(firing_rate_rois[count_roi][count_p], axis=0)),
+                np.nanmax(np.nanmean(firing_rate_rois[count_roi][count_p], axis=0))])
+            ax[2, count_p].spines['right'].set_visible(False)
+            ax[2, count_p].spines['top'].set_visible(False)
+            ax[2, count_p].tick_params(axis='both', which='major', labelsize=mscope.fsize - 10)
+            ax[2, count_p].set_xlabel('Time (ms)', fontsize=mscope.fsize - 8)
+            ax[2, count_p].set_ylabel('Aligned to ' + str(align_event), fontsize=mscope.fsize - 8)
+        plt.savefig(os.path.join(save_path, animal + ' ' + ses_info[0], 'raster_mean_fr_' + align_dimension + '_' +
+                                 align_event + '_' + roi), dpi=mscope.my_dpi)
+
         plt.close('all')
 

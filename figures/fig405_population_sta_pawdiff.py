@@ -66,7 +66,7 @@ for animal in animals:
 
     sta = np.load(
         os.path.join(load_path, animal + ' split contra fast',
-                     'sta_bodyvars_' + var_name.replace(' ', '_') + '.npy'))
+                     'sta_bodyvars_' + var_name.replace(' ', '_') + '_shuffled.npy'))
     # load 405 STA data
     sta_405 = np.load(
         os.path.join(load_path, animal + ' split contra fast 405', 'sta_bodyvars_' + var_name.replace(' ', '_') + '.npy'))

@@ -2,7 +2,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-import scipy.signal as sp
+import seaborn as sns
 import pandas as pd
 import warnings
 warnings.filterwarnings('ignore')
@@ -10,9 +10,14 @@ warnings.filterwarnings('ignore')
 # import classes
 os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 # path inputs
-path = 'J:\\Miniscope processed files\\TM RAW FILES\\split contra fast 405\\MC13420\\2022_05_31\\'
-path_loco = 'J:\\Miniscope processed files\\TM TRACKING FILES\\split contra fast 405 nm S2 310522\\'
-protocol = 'split contra fast 405'
+path = 'J:\\Miniscope processed files\\TM RAW FILES\\split contra fast\\MC13420\\2022_05_31\\'
+path_loco = 'J:\\Miniscope processed files\\TM TRACKING FILES\\split contra fast S1 310522\\'
+session = 1
+protocol = 'split contra fast'
+# path = 'J:\\Miniscope processed files\\TM RAW FILES\\split contra fast 405\\MC13420\\2022_05_31\\'
+# path_loco = 'J:\\Miniscope processed files\\TM TRACKING FILES\\split contra fast 405nm S2 310522\\'
+# session = 2
+# protocol = 'split contra fast 405'
 save_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split contra fast S1\\'
 paws = ['FR', 'HR', 'FL', 'HL']
 paw_colors = ['red', 'magenta', 'blue', 'cyan']
@@ -36,7 +41,6 @@ loco = locomotion_class.loco_class(path_loco)
 
 # Session data and inputs
 animal = mscope.get_animal_id()
-session = loco.get_session_id()
 df_extract_rawtrace_detrended = pd.read_csv(
     os.path.join(mscope.path, 'processed files', 'df_extract_rawtrace_detrended.csv'))
 df_events_extract_rawtrace = pd.read_csv(

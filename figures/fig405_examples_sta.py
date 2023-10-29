@@ -148,7 +148,7 @@ if protocol_type == 'tied':
             bs_idx = trials_ses_name_405.index('slow speed')
             trial_start_idx = trials_idx_405[np.where(trials_405 == trials_ses_405[bs_idx, 0])[0][0]]
             trial_end_idx = trials_idx_405[np.where(trials_405 == trials_ses_405[bs_idx, 1])[0][0]]
-            sta_zs_zoom_405[:, 0, :] = np.nanmean(sta_405[:, trial_start_idx:trial_end_idx, xaxis_start:xaxis_end], axis=1)
+            sta_zoom_405[:, 0, :] = np.nanmean(sta_405[:, trial_start_idx:trial_end_idx, xaxis_start:xaxis_end], axis=1)
         if trials_ses_name_405[count_c] == 'fast speed':
             bs_idx = trials_ses_name_405.index('fast speed')
             trial_start_idx = trials_idx_405[np.where(trials_405 == trials_ses_405[bs_idx, 0])[0][0]]
@@ -180,3 +180,17 @@ ax.tick_params(axis='both', which='major', labelsize=18)
 plt.savefig(os.path.join(save_path,
                          'sta_bodyvars_' + var_name.replace(' ', '_') + '_' + animal +
                          '_' + 'split_contra_fast' + '_roi' + str(roi_plot + 1) + '_summary_405'), dpi=mscope.my_dpi)
+
+# Body acceleration distribution
+sta_dist_bodyacc = np.load('J:\\Miniscope processed files\\Analysis on population data\\STA bodyvars\\split contra fast S1\\MC13420 split contra fast\\sta_bodyvars_distribution_dist.npy')[2]
+sta_dist_bodyacc_405 = np.load('J:\\Miniscope processed files\\Analysis on population data\\STA bodyvars\\split contra fast S1\\MC13420 split contra fast 405\\sta_bodyvars_distribution_dist.npy')[2]
+
+fig, ax = plt.subplots(tight_layout=True, figsize=(5,5))
+ax.hist(sta_dist_bodyacc, bins=100, color='gray')
+ax.hist(sta_dist_bodyacc_405, bins=100, color='crimson', alpha=0.5)
+ax.set_xlabel('Body acceleration', fontsize=16)
+ax.set_ylabel('Counts', fontsize=16)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.tick_params(axis='both', which='major', labelsize=14)
+plt.savefig('J:\\Thesis\\for figures\\fig2\\bodyvars\\bodyvars_distribution_480(gray)_405(red)', dpi=mscope.my_dpi)

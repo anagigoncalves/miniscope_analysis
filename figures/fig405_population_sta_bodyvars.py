@@ -68,12 +68,12 @@ for var in var_names:
 
         sta = np.load(
             os.path.join(load_path, animal + ' split contra fast',
-                         'sta_bodyvars_' + var.replace(' ', '_') + '.npy'))
+                         'sta_bodyvars_' + var.replace(' ', '_') + '_shuffled.npy'))
         sta_zoom_480 = np.nanmean(sta[:, :, xaxis_start:xaxis_end], axis=1)
 
         #load 405 STA data
         sta_405 = np.load(
-            os.path.join(load_path, animal + ' split contra fast 405', 'sta_bodyvars_' + var.replace(' ', '_') + '.npy'))
+            os.path.join(load_path, animal + ' split contra fast 405', 'sta_bodyvars_' + var.replace(' ', '_') + '_shuffled.npy'))
         sta_zoom_405 = np.nanmean(sta_405[:, :, xaxis_start:xaxis_end], axis=1)
         sta_480_animals.append(sta_zoom_480)
         sta_405_animals.append(sta_zoom_405)
@@ -131,7 +131,7 @@ for count_v, var in enumerate(var_names):
     cbar.ax.tick_params(labelsize=16)
     ax[count_v].set_title(var, fontsize=16)
 plt.savefig(os.path.join(save_path,
-                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary'), dpi=mscope.my_dpi)
+                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_shuffled'), dpi=mscope.my_dpi)
 
 fig, ax = plt.subplots(1, len(var_names), figsize=(20, 10), tight_layout='True')
 for count_v, var in enumerate(var_names):
@@ -153,4 +153,4 @@ for count_v, var in enumerate(var_names):
     cbar.ax.tick_params(labelsize=16)
     ax[count_v].set_title(var, fontsize=16)
 plt.savefig(os.path.join(save_path,
-                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_405'), dpi=mscope.my_dpi)
+                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_405_shuffled'), dpi=mscope.my_dpi)

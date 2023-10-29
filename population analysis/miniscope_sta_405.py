@@ -12,16 +12,16 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 path_session_data = 'J:\\Miniscope processed files'
-save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA phase diff st-sw-st\\split contra fast S1\\'
-sta_type = 'phase_diff'
+save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA bodyvars\\split contra fast S1\\'
+sta_type = 'bodyvars'
 window = np.arange(-330, 330 + 1)  # Samples
 iter_n = 100 # Number of iterations of CS timestamps random shuffling
 
 # path inputs
 path = 'J:\\Miniscope processed files\\TM RAW FILES\\split contra fast 405\\MC13420\\2022_05_31\\'
-path_loco = 'J:\\Miniscope processed files\\TM TRACKING FILES\\split contra fast 405 nm S2 310522\\'
+path_loco = 'J:\\Miniscope processed files\\TM TRACKING FILES\\split contra fast 405nm S2 310522\\'
 protocol = 'split contra fast 405'
-# path = 'J:\\Miniscope processed files\\TM RAW FILES\\split contra fast\\MC13419\\2022_05_31\\'
+# path = 'J:\\Miniscope processed files\\TM RAW FILES\\split contra fast\\MC13420\\2022_05_31\\'
 # path_loco = 'J:\\Miniscope processed files\\TM TRACKING FILES\\split contra fast S1 310522\\'
 # protocol = 'split contra fast'
 session_type = path.split('\\')[-4].split(' ')[0]
@@ -102,11 +102,17 @@ if sta_type == 'phase_diff':
     keys=list(ind_vars.keys())
 
 # Loop through independent variables to compute and plot STAs of each one
+time_0_idx = np.where(window==-33)[0][0]
+sta_dist_vars = []
 for var in range(len(ind_vars)):
     var_name = keys[var]
     variable = ind_vars[var_name]
     # Compute spike-triggered average (STA) of kinematic variables
     sta_allrois, signal_chunks_allrois = mscope.sta(df_events_extract_rawtrace, variable, bcam_time, window, trials)
+    sta_dist = []
+    for count_r in range(len(sta_allrois)):
+        sta_dist.extend(sta_allrois[count_r][:, time_0_idx])
+    sta_dist_vars.append(sta_dist)
     # Standardize observed STA on STA computed with shuffled data
     # Shuffle CS timestamps
     shuffled_spikes_ts = mscope.shuffle_spikes_ts(df_events_extract_rawtrace, iter_n)
@@ -135,3 +141,5 @@ for var in range(len(ind_vars)):
         'sta_bodyvars_' + var_name.replace(' ', '_') + '_trials_ses.npy'), trials_ses)
     np.save(os.path.join(save_path, animal + ' ' + protocol,
         'sta_bodyvars_' + var_name.replace(' ', '_') + '_trials_ses_name.npy'), trials_ses_name)
+np.save(os.path.join(save_path, animal + ' ' + protocol,
+        'sta_bodyvars_distribution_dist.npy'), sta_dist_vars)

@@ -4,6 +4,7 @@ import matplotlib as mp
 import os
 import pandas as pd
 from sklearn.decomposition import PCA
+from mpl_toolkits import mplot3d
 
 # Input data
 load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\tied baseline S1\\'
@@ -22,7 +23,8 @@ if align_dimension == 'phase':
 if align_dimension == 'time':
     bins = np.arange(-0.125, 0.126, 0.0125) # 12.5 ms
     bins_fr = bins*1000
-paw_colors = ['red', 'magenta', 'blue', 'cyan']
+# paw_colors = ['red', 'magenta', 'blue', 'cyan']
+paw_colors = ['#e52c27', '#ad4397', '#3854a4', '#6fccdf']
 paws = ['FR', 'HR', 'FL', 'HL']
 greys = mp.cm.get_cmap('Greys', 14)
 reds = mp.cm.get_cmap('Reds', 23)
@@ -36,20 +38,88 @@ def zscoring(data):
     return data_zscore
 
 # Loop across animals for trial average
-firing_rate_mean_trials_concat_paws = []
-firing_rate_mean_trials_concat_paws_animalid = []
+firing_rate_mean_trials_paws_list = []
 for p in range(len(paws)):
     firing_rate_mean_trials_paw = []
     firing_rate_mean_trials_paw_animalid = []
     for count_a, animal in enumerate(animals):
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
-        #firing_rate_mean_trials_paw.append(zscoring(np.nanmean(firing_rate_animal[:, p, :, :], axis=1)))
-        firing_rate_mean_trials_paw.append(np.nanmean(firing_rate_animal[:, p, :, :], axis=1))
+        firing_rate_mean_trials_paw.append(zscoring(np.nanmean(firing_rate_animal[:, p, :, :], axis=1)))
         firing_rate_mean_trials_paw_animalid.append(np.repeat(count_a, np.shape(firing_rate_animal)[0]))
     firing_rate_mean_trials_paw_concat = np.vstack(firing_rate_mean_trials_paw)
-    firing_rate_mean_trials_paw_animalid_concat = np.concatenate(firing_rate_mean_trials_paw_animalid)
-    firing_rate_mean_trials_concat_paws.append(firing_rate_mean_trials_paw_concat)
-    firing_rate_mean_trials_concat_paws_animalid.append(firing_rate_mean_trials_paw_animalid_concat)
+    # list of array of FR x time for each paw
+    firing_rate_mean_trials_paws_list.append(firing_rate_mean_trials_paw_concat)
+    # Paw concatenation FR x (timexpaws)
+    if p == 0:
+        firing_rate_animal_trials_concat_paws = firing_rate_mean_trials_paw_concat
+    else:
+        firing_rate_animal_trials_concat_paws = np.concatenate(
+            (firing_rate_animal_trials_concat_paws, firing_rate_mean_trials_paw_concat), axis=1)
+
+### Population activity cluster around sw or st - mean activity across trials
+# PCA on concatenated space FR x (time x paws)
+comp = 9
+pca_fr_paws = PCA(n_components=comp)
+pca_fit_fr_paws = pca_fr_paws.fit(firing_rate_animal_trials_concat_paws)
+pca_fit_fr_paws_scores = pca_fr_paws.fit_transform(firing_rate_animal_trials_concat_paws)
+
+# Project mean firing rate activity for each paw in the reference PC space
+pca_fit_fr_single_paws = []
+for count_p in range(len(paws)):
+    pca_fit_fr_single_paws.append(np.dot(firing_rate_mean_trials_paws_list[count_p].T, pca_fit_fr_paws_scores).T)
+
+# Explained variance for each component
+fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
+ax.scatter(np.arange(1, comp+1), np.cumsum(pca_fit_fr_paws.explained_variance_ratio_),
+    color='black', s=20)
+ax.set_title('Explained variance\nratio of components', fontsize=20)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.set_ylim([0, 1])
+ax.tick_params(axis='both', which='major', labelsize=16)
+ax.set_ylabel('Cumulative explained\nvariance ratio', fontsize=16)
+ax.set_xlabel('Component number', fontsize=16)
+plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_' + align_event + '_' + align_dimension + '_explained_variance'), dpi=256)
+
+# First PCs over time
+fig, ax = plt.subplots(2, 2, tight_layout=True, figsize=(10, 7), sharey=True)
+ax = ax.ravel()
+for c in range(4):
+    for count_p in range(len(paws)):
+        ax[c].plot(bins_fr[:-1], pca_fit_fr_single_paws[count_p][c, :], color=paw_colors[count_p], linewidth=2)
+        ax[c].set_title('Component ' + str(c+1), fontsize=16)
+        ax[c].spines['right'].set_visible(False)
+        ax[c].spines['top'].set_visible(False)
+        ax[c].tick_params(axis='both', which='major', labelsize=14)
+        # ax[c].set_ylabel('Firing rate (Hz) z-scored', fontsize=14)
+        if align_dimension == 'time':
+            ax[c].set_xlabel('Time (ms)', fontsize=14)
+            ax[c].axvline(x=0, color='black')
+        if align_dimension == 'phase':
+            ax[c].set_xlabel('% Phase', fontsize=14)
+            ax[c].axvline(x=0.5, color='black')
+        # ax[c].set_ylim([-0.45, 0.65])
+plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_components'), dpi=256)
+
+# Trajectories in PC space
+fig = plt.figure()
+ax = plt.axes(projection ='3d')
+for count_p in range(len(paws)):
+    ax.plot3D(pca_fit_fr_single_paws[count_p][0, :], pca_fit_fr_single_paws[count_p][1, :],
+            pca_fit_fr_single_paws[count_p][2, :], color=paw_colors[count_p], linewidth=2)
+    ax.scatter(pca_fit_fr_single_paws[count_p][0, 10], pca_fit_fr_single_paws[count_p][1, 10],
+            pca_fit_fr_single_paws[count_p][2, 10], color=paw_colors[count_p], s=60)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.tick_params(axis='both', which='major', labelsize=14)
+ax.set_xlabel('PC1', fontsize=14)
+ax.set_ylabel('PC2', fontsize=14)
+ax.set_zlabel('PC3', fontsize=14)
+ax.view_init(10, 0)
+ax.grid(False)
+plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_trajectories'), dpi=256)
+
+# ### Population activity cluster around sw or st - mean activity for each trial
 
 # # Loop across animals for trial concatenation
 # firing_rate_trials_separated_all_paws = []
@@ -80,7 +150,9 @@ for p in range(len(paws)):
 #             firing_rate_animal_crop_trial_2nd_dim = np.reshape(firing_rate_animal_crop, (np.shape(firing_rate_animal_crop)[0],
 #                 (np.shape(firing_rate_animal_crop)[1] * np.shape(firing_rate_animal_crop)[2])))
 #         if count_a == 0:
+#             # FR x trials x Time 3d array
 #             firing_rate_animal_trials_roi_concat = firing_rate_animal_crop
+#             # FR x (trials x Time) 2d array
 #             firing_rate_animal_trials_roi_concat_reshape = firing_rate_animal_crop_trial_2nd_dim
 #         else:
 #             firing_rate_animal_trials_roi_concat = np.concatenate((firing_rate_animal_trials_roi_concat, firing_rate_animal_crop), axis=0)
@@ -91,127 +163,139 @@ for p in range(len(paws)):
 #     firing_rate_trials_separated_all_paws.append(firing_rate_animal_trials_roi_concat)
 #     firing_rate_cluster_id_paws.append(firing_rate_cluster_id)
 #     firing_rate_animal_id_paws.append(firing_rate_animal_id)
-#
-# Population activity cluster around sw or st
-comp = 9
-pca_fit_fr_paws = []
-pcomp_fr_paws = []
-for p in range(4):
-    pca_fr = PCA(n_components=comp)
-    pca_fit_fr = pca_fr.fit(firing_rate_mean_trials_concat_paws[p])
-    pcomp_fr = pca_fr.fit_transform(firing_rate_mean_trials_concat_paws[p])
-    pca_fit_fr_paws.append(pca_fit_fr)
-    pcomp_fr_paws.append(pcomp_fr)
 
-# explained variance for each component
-fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
-for count_p in range(len(paws)):
-    ax.scatter(np.arange(1, comp+1), np.cumsum(pca_fit_fr_paws[count_p].explained_variance_ratio_),
-    color=paw_colors[count_p], label=paws[count_p], s=20)
-    ax.set_title('Explained variance\nratio of components', fontsize=20)
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.tick_params(axis='both', which='major', labelsize=16)
-    ax.set_ylabel('Cumulative explained\nvariance ratio', fontsize=16)
-    ax.set_xlabel('Component number', fontsize=16)
-ax.legend(frameon=False, fontsize=16, loc='lower right')
-plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_' + align_event + '_' + align_dimension + '_explained_variance'), dpi=256)
-
-# First PCs over time
-fig, ax = plt.subplots(2, 2, tight_layout=True, figsize=(10, 10), sharey=True)
-ax = ax.ravel()
-for count_p in range(len(paws)):
-    for c in range(4):
-        ax[c].plot(bins_fr[:-1], pca_fit_fr_paws[count_p].components_[c, :], color=paw_colors[count_p], linewidth=2)
-        ax[c].set_title('Component ' + str(c+1), fontsize=16)
-        ax[c].spines['right'].set_visible(False)
-        ax[c].spines['top'].set_visible(False)
-        ax[c].tick_params(axis='both', which='major', labelsize=14)
-        #ax[c].set_ylabel('Firing rate (Hz) z-scored', fontsize=14)
-        ax[c].set_ylabel('Firing rate (Hz)', fontsize=14)
-        if align_dimension == 'time':
-            ax[c].set_xlabel('Time (ms)', fontsize=14)
-            ax[c].axvline(x=0, color='black')
-        if align_dimension == 'phase':
-            ax[c].set_xlabel('% Phase', fontsize=14)
-            ax[c].axvline(x=0.5, color='black')
-        ax[c].set_ylim([-0.45, 0.65])
-plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_components'), dpi=256)
-
-# Explained variance ratio for each component across the four paws
-fig, ax = plt.subplots(2, 2, tight_layout=True, figsize=(10, 7), sharey=True)
-ax = ax.ravel()
-for c in range(4):
-    for count_p in range(len(paws)):
-        ax[c].bar(count_p, pca_fit_fr_paws[count_p].explained_variance_ratio_[c], color=paw_colors[count_p])
-        ax[c].set_xticks(np.arange(4))
-        ax[c].set_xticklabels(paws)
-        ax[c].set_title('Component ' + str(c+1), fontsize=14)
-        ax[c].spines['right'].set_visible(False)
-        ax[c].spines['top'].set_visible(False)
-        ax[c].tick_params(axis='both', which='major', labelsize=12)
-        ax[c].set_ylabel('Explained variance\nratio', fontsize=12)
-plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_explained_variance_component'), dpi=256)
-
-# clusters in two dimensions colorcoded by animals/clusters of animals for FR paw PCA
-paw = 2
-dim1 = np.array([0, 0, 0, 1, 1, 2])
-dim2 = np.array([1, 2, 3, 2, 3, 3])
-dim1_name = ['PC1', 'PC1', 'PC1', 'PC2', 'PC2', 'PC3']
-dim2_name = ['PC2', 'PC3', 'PC4', 'PC3', 'PC4', 'PC4']
-fig, ax = plt.subplots(3, 2, tight_layout=True, figsize=(25, 15), sharey=True, sharex = True)
-ax = ax.ravel()
-for count_p in range(len(dim1)):
-    scatter = ax[count_p].scatter(pcomp_fr_paws[paw][:, dim1[count_p]], pcomp_fr_paws[paw][:, dim2[count_p]], s=20,
-        c=firing_rate_mean_trials_concat_paws_animalid[paw], cmap='tab10')
-    ax[count_p].spines['right'].set_visible(False)
-    ax[count_p].spines['top'].set_visible(False)
-    ax[count_p].tick_params(axis='both', which='major', labelsize=14)
-    ax[count_p].set_ylabel(dim1_name[count_p], fontsize=14)
-    ax[count_p].set_xlabel(dim2_name[count_p], fontsize=14)
-    ax[count_p].legend(handles = scatter.legend_elements()[0], labels=animals, frameon=False, fontsize=12)
-fig.suptitle('Clustering of ROIs across first 2 PCs\n', fontsize=20)
-plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_scores_FRpaw'), dpi=256)
-
-# # # Population activity between trials
-# p = 0
+# p = 0 # do for FR paw
 # comp = 9
-# animal = 'MC10221'
-# cluster = 3
-# animal_id = np.array(firing_rate_animal_id_paws[p])
-# cluster_id = np.array(firing_rate_cluster_id_paws[p])
-# animal_id_idx = np.where(animal_id==animal)[0]
-# rois_plot_cluster = animal_id_idx[np.where(cluster_id[animal_id_idx]==cluster)[0]]
-# pca_fr_trial_concat = PCA(n_components=comp)
-# pca_fit_all_trials_concat_fr = pca_fr_trial_concat.fit(firing_rate_trials_together_all_paws[p][rois_plot_cluster, :])
-# pcomp_all_trials_concat_fr = pca_fr_trial_concat.fit_transform(firing_rate_trials_together_all_paws[p][rois_plot_cluster, :])
-# fig, ax = plt.subplots(2, 2, tight_layout=True, figsize=(10, 7))
-# ax = ax.ravel()
-# for c in range(4):
-#     data = np.reshape(pca_fit_all_trials_concat_fr.components_[c, :], (len(trials), len(bins)-1))
-#     for count_t, t in enumerate(np.array([3, 4, 13, 14, 20])):
-#         ax[c].plot(bins[:-1], data[count_t, :], color=colors_session[t], linewidth=2)
-#     ax[c].set_title('Component ' + str(c + 1), fontsize=16)
-#     ax[c].spines['right'].set_visible(False)
-#     ax[c].spines['top'].set_visible(False)
-#     ax[c].tick_params(axis='both', which='major', labelsize=14)
-#     ax[c].set_ylabel('Firing rate (Hz)', fontsize=14)
-#     if align_dimension == 'time':
-#         ax[c].set_xlabel('Time (ms)', fontsize=14)
-#         ax[c].axvline(x=0, color='black')
-#     if align_dimension == 'phase':
-#         ax[c].set_xlabel('% Phase', fontsize=14)
-#         ax[c].axvline(x=0.5, color='black')
+# sel_trials = np.array([2, 3, 12, 13]) #for plotting
+# pca_fr_trials = PCA(n_components=comp)
+# pca_fit_fr_trials = pca_fr_trials.fit(firing_rate_trials_together_all_paws[p])
+# pca_fit_fr_trials_scores = pca_fr_trials.fit_transform(firing_rate_trials_together_all_paws[p])
 #
-# # Explained variance ratio for each component across the four paws
-# fig, ax = plt.subplots(2, 2, tight_layout=True, figsize=(10, 5), sharey=True)
+# # Project mean firing rate activity for each trial in the reference PC space
+# pca_fit_fr_single_trials = []
+# for t in range(20):
+#     pca_fit_fr_single_trials.append(np.dot(firing_rate_trials_separated_all_paws[p][:, t, :].T, pca_fit_fr_trials_scores).T)
+#
+# # Explained variance for each component
+# fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
+# ax.scatter(np.arange(1, comp+1), np.cumsum(pca_fit_fr_trials.explained_variance_ratio_),
+#     color='black', s=20)
+# ax.set_title('Explained variance\nratio of components', fontsize=20)
+# ax.spines['right'].set_visible(False)
+# ax.spines['top'].set_visible(False)
+# ax.set_ylim([0, 1])
+# ax.tick_params(axis='both', which='major', labelsize=16)
+# ax.set_ylabel('Cumulative explained\nvariance ratio', fontsize=16)
+# ax.set_xlabel('Component number', fontsize=16)
+# plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_trialPC_' + align_event + '_' + align_dimension + '_explained_variance'), dpi=256)
+#
+# # First PCs over time
+# fig, ax = plt.subplots(2, 2, tight_layout=True, figsize=(10, 7), sharey=True)
 # ax = ax.ravel()
 # for c in range(4):
-#     for count_p in range(len(paws)):
-#         ax[c].bar(count_p, pca_fit_all_trials_concat_fr.explained_variance_ratio_[c], color=paw_colors[count_p])
-#         ax[c].set_xticklabels(paws)
-#         ax[c].set_title('Component ' + str(c+1), fontsize=14)
+#     for count_t in sel_trials:
+#         ax[c].plot(bins_fr[:-1], pca_fit_fr_single_trials[count_t][c, :], color=colors_session[count_t+1], linewidth=2)
+#         ax[c].set_title('Component ' + str(c+1), fontsize=16)
 #         ax[c].spines['right'].set_visible(False)
 #         ax[c].spines['top'].set_visible(False)
-#         ax[c].tick_params(axis='both', which='major', labelsize=12)
-#         ax[c].set_ylabel('Explained variance\nratio', fontsize=12)
+#         ax[c].tick_params(axis='both', which='major', labelsize=14)
+#         # ax[c].set_ylabel('Firing rate (Hz) z-scored', fontsize=14)
+#         if align_dimension == 'time':
+#             ax[c].set_xlabel('Time (ms)', fontsize=14)
+#             ax[c].axvline(x=0, color='black')
+#         if align_dimension == 'phase':
+#             ax[c].set_xlabel('% Phase', fontsize=14)
+#             ax[c].axvline(x=0.5, color='black')
+#         # ax[c].set_ylim([-0.45, 0.65])
+# plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_trialPC_' + align_event + '_' + align_dimension + '_components'), dpi=256)
+#
+# # Trajectories in PC space
+# fig = plt.figure()
+# ax = plt.axes(projection ='3d')
+# for count_t in sel_trials:
+#     ax.plot3D(pca_fit_fr_single_trials[count_t][0, :], pca_fit_fr_single_trials[count_t][1, :],
+#             pca_fit_fr_single_trials[count_t][2, :], color=colors_session[count_t+1], linewidth=2)
+#     ax.scatter(pca_fit_fr_single_trials[count_t][0, 10], pca_fit_fr_single_trials[count_t][1, 10],
+#             pca_fit_fr_single_trials[count_t][2, 10], color=colors_session[count_t+1], s=60)
+# ax.spines['right'].set_visible(False)
+# ax.spines['top'].set_visible(False)
+# ax.tick_params(axis='both', which='major', labelsize=14)
+# ax.set_xlabel('PC1', fontsize=14)
+# ax.set_ylabel('PC2', fontsize=14)
+# ax.set_zlabel('PC3', fontsize=14)
+# ax.view_init(10, 60)
+# ax.grid(False)
+# plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_trialPC_' + align_event + '_' + align_dimension + '_trajectories'), dpi=256)
+
+# ### Population activity cluster around sw or st - mean activity for each trial for one cluster
+# p = 0 # do for FR paw
+# comp = 9
+# sel_trials = np.array([2, 3, 12, 13]) #for plotting
+# animal = 'MC9513'
+# cluster_plot = 1
+# animal_id = np.array(firing_rate_animal_id_paws[p])
+# cluster_id = np.array(firing_rate_cluster_id_paws[p])
+# animal_id_idx = np.where(animal_id == animal)[0]
+# rois_plot_cluster = animal_id_idx[np.where(cluster_id[animal_id_idx]==cluster_plot)[0]]
+# pca_fr_trials_animal = PCA(n_components=comp)
+# pca_fit_fr_trials_animal = pca_fr_trials.fit(firing_rate_trials_together_all_paws[p][rois_plot_cluster, :])
+# pca_fit_fr_trials_animal_scores = pca_fr_trials.fit_transform(firing_rate_trials_together_all_paws[p][rois_plot_cluster, :])
+#
+# # Project mean firing rate activity for each trial in the reference PC space
+# pca_fit_fr_single_trials_animal = []
+# for t in range(20):
+#     pca_fit_fr_single_trials_animal.append(np.dot(firing_rate_trials_separated_all_paws[p][rois_plot_cluster, t, :].T, pca_fit_fr_trials_animal_scores).T)
+#
+# # Explained variance for each component
+# fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
+# ax.scatter(np.arange(1, comp+1), np.cumsum(pca_fit_fr_trials_animal.explained_variance_ratio_),
+#     color='black', s=20)
+# ax.set_title('Explained variance\nratio of components', fontsize=20)
+# ax.spines['right'].set_visible(False)
+# ax.spines['top'].set_visible(False)
+# ax.set_ylim([0, 1])
+# ax.tick_params(axis='both', which='major', labelsize=16)
+# ax.set_ylabel('Cumulative explained\nvariance ratio', fontsize=16)
+# ax.set_xlabel('Component number', fontsize=16)
+# plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_trialPC_' + animal + 'cluster' + str(cluster_plot) + '_' + align_event + '_' + align_dimension + '_explained_variance'), dpi=256)
+#
+# # First PCs over time
+# fig, ax = plt.subplots(2, 2, tight_layout=True, figsize=(10, 7), sharey=True)
+# ax = ax.ravel()
+# for c in range(4):
+#     for count_t in sel_trials:
+#         ax[c].plot(bins_fr[:-1], pca_fit_fr_single_trials_animal[count_t][c, :], color=colors_session[count_t+1], linewidth=2)
+#         ax[c].set_title('Component ' + str(c+1), fontsize=16)
+#         ax[c].spines['right'].set_visible(False)
+#         ax[c].spines['top'].set_visible(False)
+#         ax[c].tick_params(axis='both', which='major', labelsize=14)
+#         # ax[c].set_ylabel('Firing rate (Hz) z-scored', fontsize=14)
+#         if align_dimension == 'time':
+#             ax[c].set_xlabel('Time (ms)', fontsize=14)
+#             ax[c].axvline(x=0, color='black')
+#         if align_dimension == 'phase':
+#             ax[c].set_xlabel('% Phase', fontsize=14)
+#             ax[c].axvline(x=0.5, color='black')
+#         # ax[c].set_ylim([-0.45, 0.65])
+# plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_trialPC_' + animal + 'cluster' + str(cluster_plot) + '_' + align_event + '_' + align_dimension + '_components'), dpi=256)
+#
+# # Trajectories in PC space
+# fig = plt.figure()
+# ax = plt.axes(projection ='3d')
+# for count_t in sel_trials:
+#     ax.plot3D(pca_fit_fr_single_trials_animal[count_t][0, :], pca_fit_fr_single_trials_animal[count_t][1, :],
+#             pca_fit_fr_single_trials_animal[count_t][2, :], color=colors_session[count_t+1], linewidth=2)
+#     ax.scatter(pca_fit_fr_single_trials_animal[count_t][0, 10], pca_fit_fr_single_trials_animal[count_t][1, 10],
+#             pca_fit_fr_single_trials_animal[count_t][2, 10], color=colors_session[count_t+1], s=60)
+# ax.spines['right'].set_visible(False)
+# ax.spines['top'].set_visible(False)
+# ax.tick_params(axis='both', which='major', labelsize=14)
+# ax.set_xlabel('PC1', fontsize=14)
+# ax.set_ylabel('PC2', fontsize=14)
+# ax.set_zlabel('PC3', fontsize=14)
+# ax.view_init(10, 60)
+# ax.grid(False)
+# plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_trialPC_' + animal + 'cluster' + str(cluster_plot) + '_' + align_event + '_' + align_dimension + '_trajectories'), dpi=256)
+#
+#
+#

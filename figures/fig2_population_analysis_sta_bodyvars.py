@@ -14,11 +14,11 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(path_session_data +'\\session_data_split_S2.xlsx')
-load_path = path_session_data + '\\Analysis on population data\\STA bodyvars\\split contra fast S1\\'
+session_data = pd.read_excel(path_session_data +'\\session_data_split_S1.xlsx')
+load_path = path_session_data + '\\Analysis on population data\\STA bodyvars\\split ipsi fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig2\\'
 protocol_type = 'split'
-sort_type = 'AP'
+sort_type = 'ML'
 window = np.arange(-330, 330 + 1)  # Samples
 zoom_in = np.array([-1, 0.25])
 xaxis = window / 330

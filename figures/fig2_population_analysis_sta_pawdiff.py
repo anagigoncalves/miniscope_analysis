@@ -15,10 +15,10 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(path_session_data + '\\session_data_tied_S1.xlsx')
-load_path = path_session_data + '\\Analysis on population data\\STA phase diff st-sw-st\\tied baseline S1\\'
+session_data = pd.read_excel(path_session_data + '\\session_data_split_S1.xlsx')
+load_path = path_session_data + '\\Analysis on population data\\STA paw spatial diff\\split ipsi fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig2\\'
-protocol_type = 'tied'
+protocol_type = 'split'
 if protocol_type == 'tied':
     cond_name = ['slow', 'baseline', 'fast']
     colors_cond = ['purple', 'black', 'orange']

@@ -7,10 +7,10 @@ import random
 #Inputs
 sr = 330
 t_duration = 60 #seconds
+perc_st = 0.7 #st is 60% and sw is 40%
 prob = 1  #probability of CS appearing in that stride phase
 CS_event_rel = 'st' #simulate CS in relation to stance or swing
-phase_CS = 0
-st_sw_duration = (1/5) #duration of st or sw - TODO consider do sw shorter than stance and speed related
+phase_CS = 0.4
 time = np.arange(0, t_duration, np.round(1/sr, 3))
 
 # Data from miniscope animals
@@ -33,20 +33,20 @@ phase_diff_fl_fr_animal_mean = np.array([181.27298684, 180.46992716, 182.5670364
        186.72161682, 185.93987271, 184.41329946, 183.21268408,
        184.47233419, 185.18845036, 183.91960814, 183.48726242,
        182.47289277, 181.16993711])
-stride_duration_FR_animal_mean = np.array([262.59966213, 258.83056846, 250.35115508, 245.48481809,
-       252.10526452, 246.77460565, 253.24943937, 249.65872664,
-       243.21659825, 247.94367525, 255.6984879 , 253.69733965,
-       242.4141943 , 244.95247433, 241.49739555, 238.30842356,
-       247.76400132, 246.2284467 , 241.81067067, 240.33743843,
-       239.02831916, 240.96793861, 238.71959802, 238.33637308,
-       238.36555365, 241.69790416])/1000
-stride_duration_FL_animal_mean = np.array([259.74207514, 255.74025122, 251.42505321, 250.266686  ,
-       252.11203934, 248.47164422, 261.86130181, 256.55147511,
-       253.70455189, 257.02428366, 259.08048576, 258.27457992,
-       249.56143705, 251.58238765, 251.5433237 , 247.80578048,
-       246.86977707, 243.86014852, 244.47132958, 241.21778191,
-       242.53594099, 240.87716117, 232.51720829, 243.06868127,
-       236.95934412, 243.06940889])/1000
+stride_duration_FR_animal_mean = np.array([260.47623196, 258.83680978, 248.06943894, 250.76929551,
+       253.73187119, 251.79532854, 254.32028896, 252.44593078,
+       242.2999942 , 248.91962184, 255.00236758, 253.92926191,
+       243.17615799, 244.53474746, 241.40847354, 238.07666085,
+       247.79090887, 242.87185755, 237.35537803, 240.43425882,
+       241.27779062, 245.39726824, 239.99794985, 239.69678298,
+       236.75312147, 240.09727469])/1000
+stride_duration_FL_animal_mean = np.array([258.30410515, 254.4785933 , 249.57838918, 252.07082031,
+       253.32700591, 252.43565415, 263.90141307, 258.8776439 ,
+       251.7573455 , 256.68616564, 257.13986932, 258.72892728,
+       251.92688721, 253.94335987, 253.41267416, 248.48890088,
+       246.46030123, 240.50806374, 240.6034778 , 241.48755477,
+       244.28620107, 245.31700752, 234.70793216, 243.58109248,
+       235.18463102, 239.98313738])/1000
 
 trial_name = ['baseline', 'early split', 'late split', 'early washout', 'late washout']
 greys = mp.cm.get_cmap('Greys', 14)
@@ -72,17 +72,22 @@ freq_FR_bs = np.nanmean(stride_duration_FR_animal_mean[:6])
 freq_FR = np.array([1/freq_FR_bs, 1/stride_duration_FR_animal_mean[6], 1/stride_duration_FR_animal_mean[15],
                     1/stride_duration_FR_animal_mean[16], 1/stride_duration_FR_animal_mean[25]])
 freq_FL_bs = np.nanmean(stride_duration_FL_animal_mean[:6]) 
-freq_FL = np.array([1/freq_FR_bs, 1/stride_duration_FL_animal_mean[6], 1/stride_duration_FL_animal_mean[15],
+freq_FL = np.array([1/freq_FL_bs, 1/stride_duration_FL_animal_mean[6], 1/stride_duration_FL_animal_mean[15],
                     1/stride_duration_FL_animal_mean[16], 1/stride_duration_FL_animal_mean[25]])
 paw_diff = np.zeros((len(phase), len(time)))
 FR = np.zeros((len(phase), len(time)))
+FR[:] = np.nan
 FL = np.zeros((len(phase), len(time)))
+FL[:] = np.nan
 paw_diff_mean = np.zeros((len(phase)))
 for t in range(len(phase)):
-    FR[t, :] = amp_FR[t]*np.sin(2*np.pi*freq_FR[t]*time)
-    FL[t, :] = amp_FL[t]*np.sin(2*np.pi*freq_FL[t]*time+phase[t])
+    x_FR = 2*np.pi*freq_FR[t]*time
+    x_FL = 2*np.pi*freq_FL[t]*time+phase[t]
+    FR[t, :] = amp_FR[t]*np.sin(x_FR+(0.6*np.sin(x_FR)))
+    FL[t, :] = amp_FL[t]*np.sin(x_FL+(0.6*np.sin(x_FL)))
     paw_diff[t, :] = FR[t, :]-FL[t, :]
-    paw_diff_mean[t] = np.mean(paw_diff[t, :])
+    paw_diff_mean[t] = np.nanmean(paw_diff[t, :])
+
 
 fig, ax = plt.subplots(1, 5, figsize=(20, 5), tight_layout=True, sharey=True)
 ax = ax.ravel()
@@ -90,7 +95,7 @@ for t in range(len(phase)):
     ax[t].plot(time, FR[t, :], color='red' , label = 'FR')
     ax[t].plot(time, FL[t, :], color='blue', label = 'FL')
     ax[t].plot(time, paw_diff[t, :], color='black', label = 'FR-FL')
-    ax[t].set_xlim([10, 10.5])
+    ax[t].set_xlim([12, 12.7])
     ax[t].set_title('\n' + trial_name[t])
     ax[t].set_xlabel('Time (s)', fontsize=14)
     ax[t].set_ylabel('Paw position (mm)', fontsize=14)
@@ -115,9 +120,10 @@ for t in range(len(phase)):
     if CS_event_rel == 'st':
         event_cs_initial = random.sample(list(st_FR), np.int64(len(st_FR)*prob))
     if CS_event_rel == 'sw':
-        event_cs_initial = random.sample(list(st_FR), np.int64(len(sw_FR)*prob))
-    event_cs = event_cs_initial + np.int64((phase_CS*st_sw_duration)*330)
-    event_cs_trials.append(event_cs)
+        event_cs_initial = random.sample(list(sw_FR), np.int64(len(sw_FR)*prob))
+    event_cs = event_cs_initial + np.int64((phase_CS*(1/freq_FR[t]))*330)
+    event_cs_corr = np.delete(event_cs, np.where(event_cs>np.shape(FR)[1])[0])
+    event_cs_trials.append(event_cs_corr)
     
     # do STA
     sta_paw_diff = np.zeros((len(event_cs), 2*window))
@@ -136,7 +142,7 @@ for t in range(len(phase)):
     ax[t].plot(time, paw_diff[t, :], color='darkgray', label = 'FR-FL')
     for e in event_cs_trials[t]:
         ax[t].axvline(time[e], color='black')
-    ax[t].set_xlim([10, 10.5])
+    ax[t].set_xlim([12, 12.7])
     ax[t].set_title('\n' + trial_name[t])
     ax[t].set_xlabel('Time (s)', fontsize=14)
     ax[t].set_ylabel('Paw position (mm)', fontsize=14)

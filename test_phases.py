@@ -58,6 +58,12 @@ for session_data_idx in range(np.shape(session_data)[0]):
     [coord_ext_reference_ses, idx_roi_cluster_ordered_reference_ses, coord_ext_overlap, clusters_rois_overlap] = \
         mscope.get_rois_aligned_reference_cluster(df_events_extract_rawtrace, coord_ext, animal)
 
+    if animal == 'MC8855':
+        trials_new = trials + 3
+        trials_idx = np.where(np.in1d(np.arange(N_trials+1), trials_new))[0]
+    else:
+        trials_idx = np.where(np.in1d(np.arange(N_trials+1), trials))[0]
+
     # PLOT STEP-LENGTH SYMMETRY
     filelist = loco.get_track_files(animal, session)
     final_tracks_trials = []
@@ -74,17 +80,11 @@ for session_data_idx in range(np.shape(session_data)[0]):
         stride_duration = loco.compute_gait_param(bodycenter,final_tracks,paws_rel,st_strides_mat,sw_pts_mat,'stride_duration')
         stride_duration_FR_trial = stride_duration[0]
         stride_duration_FL_trial = stride_duration[2]
-        stride_duration_fr[session_data_idx, count_trial] = np.nanmean(stride_duration_FR_trial)
-        stride_duration_fl[session_data_idx, count_trial] = np.nanmean(stride_duration_FL_trial)
+        stride_duration_fr[session_data_idx, trials_idx[count_trial]-1] = np.nanmean(stride_duration_FR_trial)
+        stride_duration_fl[session_data_idx, trials_idx[count_trial]-1] = np.nanmean(stride_duration_FL_trial)
     final_tracks_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials, 'st-sw-st')
 
     displ_diff_front = mscope.paw_diff(final_tracks_trials, 0, 2)
-
-    if animal == 'MC8855':
-        trials_new = trials + 3
-        trials_idx = np.where(np.in1d(np.arange(N_trials+1), trials_new))[0]
-    else:
-        trials_idx = np.where(np.in1d(np.arange(N_trials+1), trials))[0]
 
     for p in range(len(paws_2)):
         paw_diff_fr_trials = loco.phase_diff(final_tracks_phase, paws_2[p], 'FR', 'X')

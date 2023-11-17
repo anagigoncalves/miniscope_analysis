@@ -2,6 +2,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import pandas as pd
 import warnings
 warnings.filterwarnings('ignore')
@@ -92,31 +93,9 @@ def get_colors_plot(animal_name, color_animals):
     return color_plot
 
 animals = ['MC8855', 'MC9194', 'MC10221', 'MC9513', 'MC9226']
-fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True, sharey=True)
-for i in range(len(event_count_loco_split_all)):
-    plt.scatter(3 + np.random.rand(), event_count_loco_split_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
-    plt.scatter(5 + np.random.rand(), event_count_loco_washout_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
-    plt.scatter(1 + np.random.rand(), event_count_loco_baseline_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
-for count_a, a in enumerate(animals):
-    animal_idx = np.where(np.isin(event_count_loco_animals, a))[0]
-    split_values = []
-    washout_values = []
-    bs_values = []
-    for i in animal_idx:
-        split_values.append(event_count_loco_split_all[i])
-        washout_values.append(event_count_loco_washout_all[i])
-        bs_values.append(event_count_loco_baseline_all[i])
-    plt.plot(np.array([1.5, 3.5, 5.5]), np.array([np.mean(split_values), np.mean(bs_values), np.mean(washout_values)]), linewidth=4, color=color_animals[count_a])
-ax.set_xticks([1.5, 3.5, 5.5])
-ax.set_xticklabels(['baseline', 'split', 'washout'])
-ax.set_xlabel('Trial type', fontsize=mscope.fsize - 4)
-ax.set_ylabel('FR forward locomotion', fontsize=mscope.fsize - 4)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 6)
-plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_phases_S2'), dpi=mscope.my_dpi)
-
-fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True, sharey=True)
+animals_figure = ['Animal 1', 'Animal 2', 'Animal 3', 'Animal 4', 'Animal 5']
+fig, ax = plt.subplots(figsize=(10, 10), tight_layout=True, sharey=True)
+labels = []
 for count_a, a in enumerate(animals):
     animal_idx = np.where(np.isin(event_count_loco_animals, a))[0]
     split_values = []
@@ -130,9 +109,11 @@ for count_a, a in enumerate(animals):
     violin_parts = plt.violinplot(animal_values, positions=[0 + count_a, 6 + count_a, 12 + count_a])
     for pc in violin_parts['bodies']:
         pc.set_color(color_animals[count_a])
+    labels.append((mpatches.Patch(color=color_animals[count_a]), animals_figure[count_a]))
     violin_parts['cbars'].set_color(color_animals[count_a])
     violin_parts['cmins'].set_color(color_animals[count_a])
     violin_parts['cmaxes'].set_color(color_animals[count_a])
+ax.legend(*zip(*labels), frameon=False, fontsize=16)
 ax.set_xticks([3, 9, 15])
 ax.set_xticklabels(['baseline', 'split', 'washout'])
 ax.set_xlabel('Trial type', fontsize=mscope.fsize - 4)
@@ -140,31 +121,8 @@ ax.set_ylabel('Firing rate during\nforward locomotion', fontsize=mscope.fsize - 
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 6)
-plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_phases_S2_violin'), dpi=mscope.my_dpi)
-
-fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True, sharey=True)
-for i in range(len(event_count_loco_split_all)):
-    plt.scatter(3 + np.random.rand(), event_count_loco_ie_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
-    plt.scatter(5 + np.random.rand(), event_count_loco_ae_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
-    plt.scatter(1 + np.random.rand(), event_count_loco_baseline_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
-for count_a, a in enumerate(animals):
-    animal_idx = np.where(np.isin(event_count_loco_animals, a))[0]
-    split_values = []
-    washout_values = []
-    bs_values = []
-    for i in animal_idx:
-        split_values.append(event_count_loco_ie_all[i])
-        washout_values.append(event_count_loco_ae_all[i])
-        bs_values.append(event_count_loco_baseline_all[i])
-    plt.plot(np.array([1.5, 3.5, 5.5]), np.array([np.mean(split_values), np.mean(bs_values), np.mean(washout_values)]), linewidth=4, color=color_animals[count_a])
-ax.set_xticks([1.5, 3.5, 5.5])
-ax.set_xticklabels(['baseline', 'initial error', 'after-effect'])
-ax.set_xlabel('Trial type', fontsize=mscope.fsize - 4)
-ax.set_ylabel('Firing rate during\nforward locomotion', fontsize=mscope.fsize - 4)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 6)
-plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_initial_error_after_effect_S2'), dpi=mscope.my_dpi)
+# plt.savefig('J:\\Thesis\\figuresChapter2\\animal_legend', dpi=mscope.my_dpi)
+plt.savefig('J:\\Thesis\\figuresChapter2\\animal_legend.svg', dpi=mscope.my_dpi)
 
 split_all = []
 washout_all = []
@@ -182,21 +140,99 @@ split_notnan = split_all_arr[~np.isnan(split_all_arr)]
 washout_notnan = washout_all_arr[~np.isnan(washout_all_arr)]
 bs_notnan = bs_all_arr[~np.isnan(bs_all_arr)]
 plot_values = [bs_notnan, split_notnan, washout_notnan]
-color_plots = ['black', 'red', 'blue']
+color_plots = ['black', 'black', 'black']
 fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True, sharey=True)
 violin_parts = plt.violinplot(plot_values, positions=[1, 2 ,3])
 for count_pc, pc in enumerate(violin_parts['bodies']):
     pc.set_color(color_plots[count_pc])
-violin_parts['cbars'].set_color(color_plots)
-violin_parts['cmins'].set_color(color_plots)
-violin_parts['cmaxes'].set_color(color_plots)
+violin_parts['cbars'].set_color((1, 1, 1, 0))
+violin_parts['cmins'].set_color((1, 1, 1, 0))
+violin_parts['cmaxes'].set_color((1, 1, 1, 0))
+plt.scatter([1, 2, 3], np.nanmean(np.array(plot_values), axis=1), s=60, color='black', zorder=0)
 ax.set_xticks([1, 2, 3])
 ax.set_xticklabels(['baseline', 'split', 'washout'])
-ax.set_xlabel('Speed', fontsize=mscope.fsize - 4)
 ax.set_ylabel('Firing rate during\nforward locomotion', fontsize=mscope.fsize - 4)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 4)
-plt.savefig(os.path.join(path_session_data, 'rois_fr_forwardloco_split_phases_S2_violin_pooled'), dpi=mscope.my_dpi)
+plt.savefig('J:\\Thesis\\figuresChapter2\\FR_distribution_split_ipsi_S1', dpi=mscope.my_dpi)
+plt.savefig('J:\\Thesis\\figuresChapter2\\FR_distribution_split_ipsi_S1.svg', dpi=mscope.my_dpi)
+
+
+# animals = ['MC8855', 'MC9194', 'MC10221', 'MC9513', 'MC9226']
+# fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True, sharey=True)
+# for i in range(len(event_count_loco_split_all)):
+#     plt.scatter(3 + np.random.rand(), event_count_loco_split_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
+#     plt.scatter(5 + np.random.rand(), event_count_loco_washout_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
+#     plt.scatter(1 + np.random.rand(), event_count_loco_baseline_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
+# for count_a, a in enumerate(animals):
+#     animal_idx = np.where(np.isin(event_count_loco_animals, a))[0]
+#     split_values = []
+#     washout_values = []
+#     bs_values = []
+#     for i in animal_idx:
+#         split_values.append(event_count_loco_split_all[i])
+#         washout_values.append(event_count_loco_washout_all[i])
+#         bs_values.append(event_count_loco_baseline_all[i])
+#     plt.plot(np.array([1.5, 3.5, 5.5]), np.array([np.mean(split_values), np.mean(bs_values), np.mean(washout_values)]), linewidth=4, color=color_animals[count_a])
+# ax.set_xticks([1.5, 3.5, 5.5])
+# ax.set_xticklabels(['baseline', 'split', 'washout'])
+# ax.set_xlabel('Trial type', fontsize=mscope.fsize - 4)
+# ax.set_ylabel('FR forward locomotion', fontsize=mscope.fsize - 4)
+# ax.spines['right'].set_visible(False)
+# ax.spines['top'].set_visible(False)
+# ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 6)
+# plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_phases_S2'), dpi=mscope.my_dpi)
+#
+# fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True, sharey=True)
+# for count_a, a in enumerate(animals):
+#     animal_idx = np.where(np.isin(event_count_loco_animals, a))[0]
+#     split_values = []
+#     washout_values = []
+#     bs_values = []
+#     for i in animal_idx:
+#         split_values.append(event_count_loco_split_all[i])
+#         washout_values.append(event_count_loco_washout_all[i])
+#         bs_values.append(event_count_loco_baseline_all[i])
+#     animal_values = [bs_values, split_values, washout_values]
+#     violin_parts = plt.violinplot(animal_values, positions=[0 + count_a, 6 + count_a, 12 + count_a])
+#     for pc in violin_parts['bodies']:
+#         pc.set_color(color_animals[count_a])
+#     violin_parts['cbars'].set_color(color_animals[count_a])
+#     violin_parts['cmins'].set_color(color_animals[count_a])
+#     violin_parts['cmaxes'].set_color(color_animals[count_a])
+# ax.set_xticks([3, 9, 15])
+# ax.set_xticklabels(['baseline', 'split', 'washout'])
+# ax.set_xlabel('Trial type', fontsize=mscope.fsize - 4)
+# ax.set_ylabel('Firing rate during\nforward locomotion', fontsize=mscope.fsize - 4)
+# ax.spines['right'].set_visible(False)
+# ax.spines['top'].set_visible(False)
+# ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 6)
+# plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_phases_S2_violin'), dpi=mscope.my_dpi)
+#
+# fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True, sharey=True)
+# for i in range(len(event_count_loco_split_all)):
+#     plt.scatter(3 + np.random.rand(), event_count_loco_ie_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
+#     plt.scatter(5 + np.random.rand(), event_count_loco_ae_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
+#     plt.scatter(1 + np.random.rand(), event_count_loco_baseline_all[i], s=5, color=get_colors_plot(event_count_loco_animals[i], color_animals))
+# for count_a, a in enumerate(animals):
+#     animal_idx = np.where(np.isin(event_count_loco_animals, a))[0]
+#     split_values = []
+#     washout_values = []
+#     bs_values = []
+#     for i in animal_idx:
+#         split_values.append(event_count_loco_ie_all[i])
+#         washout_values.append(event_count_loco_ae_all[i])
+#         bs_values.append(event_count_loco_baseline_all[i])
+#     plt.plot(np.array([1.5, 3.5, 5.5]), np.array([np.mean(split_values), np.mean(bs_values), np.mean(washout_values)]), linewidth=4, color=color_animals[count_a])
+# ax.set_xticks([1.5, 3.5, 5.5])
+# ax.set_xticklabels(['baseline', 'initial error', 'after-effect'])
+# ax.set_xlabel('Trial type', fontsize=mscope.fsize - 4)
+# ax.set_ylabel('Firing rate during\nforward locomotion', fontsize=mscope.fsize - 4)
+# ax.spines['right'].set_visible(False)
+# ax.spines['top'].set_visible(False)
+# ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 6)
+# plt.savefig(os.path.join(path_session_data, 'roi_fr_forwardloco_split_initial_error_after_effect_S2'), dpi=mscope.my_dpi)
+
 
 

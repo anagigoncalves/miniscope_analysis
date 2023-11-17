@@ -62,18 +62,20 @@ cmap = plt.get_cmap('magma')
 color_animals = [cmap(i) for i in np.linspace(0, 1, 6)]
 #order
 #MC8855, MC9194, MC10221, MC9513, MC9226
-fig, ax = plt.subplots(figsize=(10, 10), tight_layout=True, sharey=True)
+fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True, sharey=True)
 for a in range(len(color_animals)-1):
     plt.scatter(corr_data_all[a][:, 0], corr_data_all[a][:, 1], s=15, color=color_animals[a])
     z = np.polyfit(corr_data_all[a][:, 0], corr_data_all[a][:, 1], 1)
     p = np.poly1d(z)
     plt.plot(corr_data_all[a][:, 0], p(corr_data_all[a][:, 0]), linewidth=3, color=color_animals[a])
-ax.set_xlabel('Mediolateral distance (um)', fontsize=mscope.fsize - 2)
+ax.set_xlabel('Mediolateral distance (\u03BCm)', fontsize=mscope.fsize - 2)
 ax.set_ylabel('Correlation between ROIs', fontsize=mscope.fsize - 2)
 # ax.legend(['MC8855', 'MC9194', 'MC10221', 'MC9513', 'MC9226'], fontsize=mscope.fsize - 4, frameon=False)
-ax.legend(['Animal 1', 'Animal 2', 'Animal 3', 'Animal 4', 'Animal 5'], fontsize=mscope.fsize - 2, frameon=False)
+# ax.legend(['Animal 1', 'Animal 2', 'Animal 3', 'Animal 4', 'Animal 5'], fontsize=mscope.fsize - 2, frameon=False)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 2)
-plt.savefig(os.path.join(path_session_data, 'corr_rois_mediolateral_distance_population_legend'), dpi=mscope.my_dpi)
+plt.savefig('J:\\Thesis\\figuresChapter2\\rois_correlation_distance', dpi=mscope.my_dpi)
+# plt.savefig('J:\\Thesis\\figuresChapter2\\rois_correlation_distance.svg', dpi=mscope.my_dpi)
+# plt.savefig(os.path.join(path_session_data, 'corr_rois_mediolateral_distance_population_legend'), dpi=mscope.my_dpi)
 

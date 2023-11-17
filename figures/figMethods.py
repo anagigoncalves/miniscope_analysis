@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import matplotlib as mpl
-#CLTM FULL LEFT AND RIGHT ARE SWITCHED
 path_save = 'J:\\Thesis\\for methods\\'
 version_mscope = 'v4'
 plot_data = 1
@@ -56,8 +55,8 @@ plt.xticks(fontsize=20)
 plt.yticks(fontsize=20)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
-plt.savefig(path_save + 'example_events', dpi=mscope.my_dpi)
-# plt.savefig(path_save + 'example_events.svg', format='svg', dpi=mscope.my_dpi)
+# plt.savefig(path_save + 'example_events', dpi=mscope.my_dpi)
+plt.savefig(path_save + 'example_events.svg', format='svg', dpi=mscope.my_dpi)
 
 # Plot about Miniscope LED power
 software_val = np.array([0, 10, 20, 30, 40, 50, 60, 70])
@@ -89,10 +88,11 @@ labeled_data = pd.read_csv(os.path.join(project_path, animal_folder, csv_name), 
 img_path = os.path.join('labeled-data', animal_folder, img_name)
 coord_row = np.where(labeled_data.iloc[:, 0] == img_path)[0][0]
 coords = labeled_data.iloc[coord_row, 1:].astype(float)
-colors_features = ['orange', 'orange', 'lightgray', 'lightgray', 'sienna', 'sienna', 'red', 'blue', 'magenta',
-    'cyan', 'red', 'blue', 'magenta', 'cyan', 'red', 'blue', 'magenta', 'cyan', 'red', 'blue', 'magenta', 'cyan']
+colors_features = ['orange', 'orange', 'lightgray', 'lightgray', 'sienna', 'sienna', '#e52c27', '#3854a4',
+    '#6fccdf', '#ad4397', '#e52c27', '#3854a4', '#ad4397', '#6fccdf', '#e52c27', '#3854a4', '#6fccdf', '#ad4397',
+                   '#e52c27', '#3854a4', '#6fccdf', '#ad4397']
 colors_features_full = colors_features + ['green'] * 30
-cmap_cbar = mpl.colors.ListedColormap(['orange', 'lightgray', 'sienna', 'red', 'blue', 'magenta', 'cyan', 'green'])
+cmap_cbar = mpl.colors.ListedColormap(['orange', 'lightgray', 'sienna', '#e52c27', '#3854a4', '#ad4397', '#6fccdf', 'green'])
 bounds = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 boundslabel = ['nose', 'ear', 'bodycenter', 'FR', 'FL', 'HR', 'HL', 'tail']
 norm = mpl.colors.BoundaryNorm(bounds, cmap_cbar.N)
@@ -100,11 +100,13 @@ fig1, ax1 = plt.subplots(figsize=(25, 15), tight_layout=True)
 im_plot = plt.imshow(im)
 for count_i, i in enumerate(np.arange(0, len(coords), 2)):
     plt.scatter(coords[i], coords[i+1], s=dotsize, color=colors_features_full[count_i])
-plt.savefig(path_save + 'cl_tm_full.svg', format='svg', dpi=256)
+plt.savefig(path_save + 'cl_tm_full',dpi=256)
+# plt.savefig(path_save + 'cl_tm_full.svg', format='svg', dpi=256)
 fig2, ax2 = plt.subplots(figsize=(5,1))
 cb2 = mpl.colorbar.ColorbarBase(ax2, cmap=cmap_cbar, norm=norm,
             ticks=bounds, spacing='proportional', orientation='horizontal')
-plt.savefig(path_save + 'cl_tm_full_cbar.svg', format='svg', dpi=256)
+plt.savefig(path_save + 'cl_tm_full_cbar', dpi=256)
+# plt.savefig(path_save + 'cl_tm_full_cbar.svg', format='svg', dpi=256)
 
 project_path = 'C:\\Users\\Ana\\Documents\\PhD\\Projects\\DeepLocoTM_MdV_Miniscopes\\tmLOCO-dd-2019-08-29\\labeled-data\\'
 animal_folder = 'MC7354_25_80_1_tied_0,350_0,350_1_10'
@@ -117,10 +119,10 @@ labeled_data = pd.read_csv(os.path.join(project_path, animal_folder, csv_name), 
 img_path = os.path.join('labeled-data', animal_folder, img_name)
 coord_row = np.where(labeled_data.iloc[:, 0] == img_path)[0][0]
 coords = labeled_data.iloc[coord_row, 1:].astype(float)
-colors_features = ['orange', 'orange', 'lightgray', 'lightgray', 'sienna', 'sienna', 'red', 'blue', 'magenta',
-    'cyan', 'red', 'blue', 'magenta', 'cyan', 'red', 'blue', 'magenta', 'cyan', 'red', 'blue', 'magenta', 'cyan']
+colors_features = ['orange', 'orange', 'lightgray', 'lightgray', 'sienna', 'sienna', '#e52c27', '#3854a4', '#ad4397',
+    '#6fccdf', '#e52c27', '#3854a4', '#ad4397', '#6fccdf', '#e52c27', '#3854a4', '#ad4397', '#6fccdf', '#e52c27', '#3854a4', '#ad4397', '#6fccdf']
 colors_features_full = colors_features + ['green'] * 30
-cmap_cbar = mpl.colors.ListedColormap(['orange', 'lightgray', 'sienna', 'red', 'blue', 'magenta', 'cyan', 'green'])
+cmap_cbar = mpl.colors.ListedColormap(['orange', 'lightgray', 'sienna', '#e52c27', '#3854a4', '#ad4397', '#6fccdf', 'green'])
 bounds = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 boundslabel = ['nose', 'ear', 'bodycenter', 'FR', 'FL', 'HR', 'HL', 'tail']
 norm = mpl.colors.BoundaryNorm(bounds, cmap_cbar.N)
@@ -128,16 +130,19 @@ fig1, ax1 = plt.subplots(figsize=(25, 15), tight_layout=True)
 im_plot = plt.imshow(im)
 for count_i, i in enumerate(np.arange(0, len(coords), 2)):
     plt.scatter(coords[i], coords[i+1], s=dotsize, color=colors_features_full[count_i])
-plt.savefig(path_save + 'miniscope_tm_full.svg', format='svg', dpi=256)
+plt.savefig(path_save + 'miniscope_tm_full', dpi=256)
+# plt.savefig(path_save + 'miniscope_tm_full.svg', format='svg', dpi=256)
 fig1, ax1 = plt.subplots(figsize=(25, 15), tight_layout=True)
 im_plot = plt.imshow(im)
 for count_i, i in enumerate(np.arange(0, len(coords), 2)):
     plt.scatter(coords[i], coords[i+1], s=dotsize, color=colors_features_full[count_i])
-plt.savefig(path_save + 'miniscope_tm_full.png', format='png', dpi=256)
+# plt.savefig(path_save + 'miniscope_tm_full.png', format='png', dpi=256)
+plt.savefig(path_save + 'miniscope_tm_full.svg', format='svg', dpi=256)
 fig2, ax2 = plt.subplots(figsize=(5,1))
 cb2 = mpl.colorbar.ColorbarBase(ax2, cmap=cmap_cbar, norm=norm,
             ticks=bounds, spacing='proportional', orientation='horizontal')
-plt.savefig(path_save + 'miniscope_tm_cbar.svg', format='svg', dpi=256)
+plt.savefig(path_save + 'miniscope_tm_cbar', dpi=256)
+# plt.savefig(path_save + 'miniscope_tm_cbar.svg', format='svg', dpi=256)
 
 project_path = 'C:\\Users\\Ana\\Documents\\PhD\\Projects\\DeepLocoTM_MdV_Miniscope_ClosedLoop-AnaG-2023-04-02-MOBILE\\labeled-data\\'
 animal_folder = 'MC16848_149_22_0.275_0.275_tied_1_8_crop'
@@ -149,8 +154,8 @@ labeled_data = pd.read_csv(os.path.join(project_path, animal_folder, csv_name), 
 img_path = os.path.join('labeled-data', animal_folder, img_name)
 coord_row = np.where(labeled_data.iloc[:, 0] == img_path)[0][0]
 coords = labeled_data.iloc[coord_row, 1:].astype(float)
-colors_features = ['red', 'magenta', 'blue', 'cyan']
-cmap_cbar = mpl.colors.ListedColormap(['red', 'magenta', 'blue', 'cyan'])
+colors_features = ['#e52c27', '#ad4397', '#3854a4', '#6fccdf']
+cmap_cbar = mpl.colors.ListedColormap(['#e52c27', '#ad4397', '#3854a4', '#6fccdf'])
 bounds = [1, 2, 3, 4, 5]
 boundslabel = ['FR', 'HR', 'FL', 'HL']
 norm = mpl.colors.BoundaryNorm(bounds, cmap_cbar.N)
@@ -158,11 +163,13 @@ fig1, ax1 = plt.subplots(figsize=(25, 15), tight_layout=True)
 im_plot = plt.imshow(im)
 for count_i, i in enumerate(np.arange(0, len(coords), 2)):
     plt.scatter(coords[i], coords[i+1], s=dotsize, color=colors_features[count_i])
-plt.savefig(path_save + 'cltm_crop.svg', format='svg', dpi=256)
+plt.savefig(path_save + 'cltm_crop', dpi=256)
+# plt.savefig(path_save + 'cltm_crop.svg', format='svg', dpi=256)
 fig2, ax2 = plt.subplots(figsize=(5,1))
 cb2 = mpl.colorbar.ColorbarBase(ax2, cmap=cmap_cbar, norm=norm,
             ticks=bounds, spacing='proportional', orientation='horizontal')
-plt.savefig(path_save + '\cltm_crop_cbar.svg', format='svg', dpi=256)
+plt.savefig(path_save + '\cltm_crop_cbar', dpi=256)
+# plt.savefig(path_save + '\cltm_crop_cbar.svg', format='svg', dpi=256)
 
 project_path = 'C:\\Users\\Ana\\Documents\\PhD\\Projects\\DeepLocoTM_ClosedLoop-Tailbase-Alice-2023-05-23-MOBILE\\labeled-data\\'
 animal_folder = 'MC16850_148_24_0.275_0.275_tied_1_17_crop'
@@ -174,8 +181,8 @@ labeled_data = pd.read_csv(os.path.join(project_path, animal_folder, csv_name), 
 img_path = os.path.join('labeled-data', animal_folder, img_name)
 coord_row = np.where(labeled_data.iloc[:, 2] == img_name)[0][0]
 coords = labeled_data.iloc[coord_row, 3:].astype(float)
-colors_features = ['red', 'magenta', 'blue', 'cyan', 'green']
-cmap_cbar = mpl.colors.ListedColormap(['red', 'magenta', 'blue', 'cyan', 'green'])
+colors_features = ['#e52c27', '#ad4397', '#3854a4', '#6fccdf', 'green']
+cmap_cbar = mpl.colors.ListedColormap(['#e52c27', '#ad4397', '#3854a4', '#6fccdf', 'green'])
 bounds = [1, 2, 3, 4, 5, 6]
 boundslabel = ['FR', 'HR', 'FL', 'HL', 'Tailbase']
 norm = mpl.colors.BoundaryNorm(bounds, cmap_cbar.N)
@@ -183,8 +190,10 @@ fig1, ax1 = plt.subplots(figsize=(25, 15), tight_layout=True)
 im_plot = plt.imshow(im)
 for count_i, i in enumerate(np.arange(0, len(coords), 2)):
     plt.scatter(coords[i], coords[i+1], s=dotsize, color=colors_features[count_i])
-plt.savefig(path_save + 'cltm_crop_tailbase.svg', format='svg', dpi=256)
+plt.savefig(path_save + 'cltm_crop_tailbase', dpi=256)
+# plt.savefig(path_save + 'cltm_crop_tailbase.svg', format='svg', dpi=256)
 fig2, ax2 = plt.subplots(figsize=(5,1))
 cb2 = mpl.colorbar.ColorbarBase(ax2, cmap=cmap_cbar, norm=norm,
             ticks=bounds, spacing='proportional', orientation='horizontal')
-plt.savefig(path_save + 'cltm_crop_tailbase_cbar.svg', format='svg', dpi=256)
+plt.savefig(path_save + 'cltm_crop_tailbase_cbar', dpi=256)
+# plt.savefig(path_save + 'cltm_crop_tailbase_cbar.svg', format='svg', dpi=256)

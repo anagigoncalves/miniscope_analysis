@@ -44,7 +44,7 @@ class loco_class:
         self.sr_F = 30
         self.my_dpi = 96 #resolution for plotting
         self.floor = 152*self.pixel_to_mm #Dana's setup
-        # floor = 155*pixel_to_mm #Jovin's setup    
+        # self.floor = 152*self.pixel_to_mm #Jovin's setup
 
     @staticmethod
     def inpaint_nans(A):

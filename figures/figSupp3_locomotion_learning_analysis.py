@@ -4,12 +4,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
+import scipy
 import warnings
 warnings.filterwarnings('ignore')
 
 version_mscope = 'v4'
 plot_data = 1
-print_plots = 1
+print_plots = 0
 paw_colors = ['red', 'magenta', 'blue', 'cyan']
 paws = ['FR', 'HR', 'FL', 'HL']
 fsize = 24
@@ -20,7 +21,7 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_ipsi.xlsx') # animals that did split right fast in S1
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx') # animals that did split right fast in S1
 if not os.path.exists(path_session_data+'\\split-belt locomotion analysis'):
     os.mkdir(path_session_data+'\\split-belt locomotion analysis')
 swing_x_rel_all = []
@@ -142,7 +143,7 @@ for s in range(len(session_data)):
 # Get control data
 control_path = 'J:\\Miniscope processed files\\Non-miniscope locomotion data\\Treadmill adaptation\\grouped output'
 main_miniscope_path = 'J:\\Miniscope processed files\\split-belt locomotion analysis\\'
-folders_animals = os.listdir(main_miniscope_path)
+folders_animals = [filename for filename in os.listdir(main_miniscope_path) if filename.startswith("M")]
 # Group the data
 param_split = ['coo', 'step_length', 'double_support', 'coo_stance', 'swing_length']
 param_split_miniscope_values = np.zeros((len(param_split), len(folders_animals), 23))
@@ -170,10 +171,12 @@ for count_a, a in enumerate(folders_animals):
 
 max_rect = np.array([2, 4, 8, 6, 12.5])
 min_rect = np.array([-6, -10, -5, -2, -1])
+param_split_name = ['Center of oscillation\n symmetry (mm)', 'Step length symmetry\n(mm)', 'Percentage of double\nsupport symmetry', 'Center of oscillation\n stance symmetry (mm)',
+        'Swing length\nsymmetry (mm)']
 # Plot learning curves
 for p in range(np.shape(param_split)[0]):
     param_split_miniscope_values_mean = np.nanmean(param_split_miniscope_values[p, :, :], axis=0)
-    param_split_miniscope_values_std = np.nanstd(param_split_miniscope_values[p, :, :], axis=0)/np.sqrt(np.shape(param_split_miniscope_values)[1])
+    param_split_miniscope_values_std = np.nanstd(param_split_miniscope_values[p, :, :], axis=0)
     fig, ax = plt.subplots(figsize=(5, 10), tight_layout=True)
     rectangle = plt.Rectangle((3 + 0.5, min_rect[p]), 10,
                               max_rect[p] - min_rect[p],
@@ -182,91 +185,154 @@ for p in range(np.shape(param_split)[0]):
     plt.hlines(0, 1, len(param_split_miniscope_values_mean), colors='grey', linestyles='--')
     plt.plot(np.linspace(1, len(param_split_control_values[p, 0, :]), len(param_split_control_values[p, 0, :])), np.nanmean(param_split_control_values[p, :, :], axis=0), linewidth=2, color='black')
     plt.fill_between(np.linspace(1, len(param_split_miniscope_values_mean), len(param_split_miniscope_values_mean)),
-             np.nanmean(param_split_control_values[p, :, :], axis=0)-(np.nanstd(param_split_control_values[p, :, :], axis=0)/np.sqrt(np.shape(param_split_control_values)[1])),
-                     np.nanmean(param_split_control_values[p, :, :], axis=0)+(np.nanstd(param_split_control_values[p, :, :], axis=0)/np.sqrt(np.shape(param_split_control_values)[1])), alpha=0.3, color='black')
+             np.nanmean(param_split_control_values[p, :, :], axis=0)-np.nanstd(param_split_control_values[p, :, :], axis=0),
+                     np.nanmean(param_split_control_values[p, :, :], axis=0)+np.nanstd(param_split_control_values[p, :, :], axis=0), alpha=0.3, color='black')
     plt.plot(np.linspace(1, len(param_split_miniscope_values_mean), len(param_split_miniscope_values_mean)), param_split_miniscope_values_mean, linewidth=2, color='darkviolet')
     plt.fill_between(np.linspace(1, len(param_split_miniscope_values_mean), len(param_split_miniscope_values_mean)),
              param_split_miniscope_values_mean-param_split_miniscope_values_std,
                      param_split_miniscope_values_mean+param_split_miniscope_values_std, alpha=0.3, color='darkviolet')
     ax.set_xlabel('Trial', fontsize=20)
-    ax.set_ylabel(param_split[p].replace('_', ' '), fontsize=20)
+    ax.set_ylabel(param_split_name[p].replace('_', ' '), fontsize=20)
     if p == 2:
         plt.gca().invert_yaxis()
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
-    if print_plots:
-        if not os.path.exists(path_save):
-            os.mkdir(path_save)
-        plt.savefig(path_session_data+'\\split-belt locomotion analysis\\' + param_split[p] + '_sym_bs', dpi=128)
+    # if print_plots:
+    #     if not os.path.exists(path_save):
+    #         os.mkdir(path_save)
+    #     plt.savefig(path_session_data+'\\split-belt locomotion analysis\\' + param_split[p] + '_sym_bs', dpi=128)
+    plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_' + param_split[p] + '_sym_bs', dpi=256)
+    plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_' + param_split[p] + '_sym_bs.svg', dpi=256)
+plt.close('all')
+# Create dataframe for learning quantifications
+group_id = []
+ae_amp = []
+delta_split = []
+param = []
+for count_p, p in enumerate(param_split):
+    group_control_len = np.shape(param_split_control_values)[1]
+    group_id.extend(np.repeat(0, group_control_len))
+    ae_amp.extend(np.abs(param_split_control_values[count_p, :, 13]))
+    delta_split.extend(np.abs(param_split_control_values[count_p, :, 3])-np.abs(param_split_control_values[count_p, :, 12]))
+    param.extend(np.repeat(p, group_control_len))
+    group_miniscope_len = np.shape(param_split_miniscope_values)[1]
+    group_id.extend(np.repeat(1, group_miniscope_len))
+    ae_amp.extend(np.abs(param_split_miniscope_values[count_p, :, 13]))
+    delta_split.extend(np.abs(param_split_miniscope_values[count_p, :, 3])-np.abs(param_split_miniscope_values[count_p, :, 12]))
+    param.extend(np.repeat(p, group_miniscope_len))
+split_quant_df = pd.DataFrame({'param': param, 'group': group_id, 'after-effect': ae_amp, 'delta-split':delta_split})
 
-# plot stance speed
-fig, ax = plt.subplots(figsize=(5, 10), tight_layout=True)
-rectangle = plt.Rectangle((3 + 0.5, -0.3), 10, 0.2, fc='dimgrey', alpha=0.3)
-plt.gca().add_patch(rectangle)
-for p in range(4):
-    ax.plot(np.linspace(1, len(stance_speed_miniscope_values[0, p, :]), len(stance_speed_miniscope_values[0, p, :])),
-            np.nanmean(stance_speed_miniscope_values[:, p, :], axis=0), color=paw_colors[p],
-               linewidth=2)
-    ax.fill_between(np.linspace(1, len(stance_speed_miniscope_values[0, p, :]), len(stance_speed_miniscope_values[0, p, :])),
-            np.nanmean(stance_speed_miniscope_values[:, p, :], axis=0)-(np.nanstd(stance_speed_miniscope_values[:, p, :], axis=0)/np.sqrt(np.shape(stance_speed_miniscope_values)[0])),
-    np.nanmean(stance_speed_miniscope_values[:, p, :], axis=0)+(np.nanstd(stance_speed_miniscope_values[:, p, :], axis=0)/np.sqrt(np.shape(stance_speed_miniscope_values)[0])), color=paw_colors[p],
-               alpha=0.3)
+param_split_name_ae = ['Center of oscillation\nafter-effect symmetry (mm)', 'Step length\nafter-effect symmetry(mm)', 'Percentage of double support\nafter-effect symmetry', 'Center of oscillation\n stance after-effect symmetry (mm)',
+        'Swing length\nafter-effect symmetry (mm)']
+for p in range(np.shape(param_split)[0]):
+    fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+    sns.boxplot(x='group', y='after-effect', data=split_quant_df.loc[split_quant_df['param'] == param_split[p]],
+                medianprops=dict(color='black'), palette={0: 'darkgrey', 1: 'darkviolet'}, showfliers = False)
+    ax.set_xticklabels(['Animals without\nminiscopes', 'Animals with\nminiscopes'])
+    ax.set_xlabel('')
+    ax.set_ylabel(param_split_name_ae[p], fontsize=16)
+    ax.tick_params(axis='both', which='major', labelsize=16)
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
-    ax.set_xlabel('Trial', fontsize=20)
-    ax.set_ylabel('Stance speed', fontsize=20)
-    ax.tick_params(axis='x', labelsize=16)
-    ax.tick_params(axis='y', labelsize=16)
-if print_plots:
-    if not os.path.exists(path_save):
-        os.mkdir(path_save)
-    plt.savefig(path_session_data+'\\split-belt locomotion analysis\\' + 'stance_speed_miniscopes', dpi=96)
+    plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_' + param_split[p] + 'after_effect_quantification', dpi=256)
+    plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_' + param_split[p] + 'after_effect_quantification.svg', dpi=256)
+    ###### STATS #######
+    # Mann-Whitney on param means
+    print(param_split[p])
+    data_stats = split_quant_df.loc[split_quant_df['param'] == param_split[p]]
+    stats_mannwhitney_ae = scipy.stats.mannwhitneyu(data_stats.loc[data_stats['group']==0, 'after-effect'], data_stats.loc[data_stats['group']==1, 'after-effect'], method='exact')
+    print(stats_mannwhitney_ae)
 
-fig, ax = plt.subplots(figsize=(5, 10), tight_layout=True)
-rectangle = plt.Rectangle((3 + 0.5, -0.3), 10, 0.2, fc='dimgrey', alpha=0.3)
-plt.gca().add_patch(rectangle)
-for p in range(4):
-    ax.plot(np.linspace(1, len(stance_speed_control_values[p, 0, :]), len(stance_speed_control_values[p, 0, :])),
-            np.nanmean(stance_speed_control_values[p, :, :], axis=0), color=paw_colors[p],
-               linewidth=2)
-    ax.fill_between(np.linspace(1, len(stance_speed_control_values[p, 0, :]), len(stance_speed_control_values[p, 0, :])),
-            np.nanmean(stance_speed_control_values[p, :, :], axis=0)-(np.nanstd(stance_speed_control_values[p, :, :], axis=0)/np.sqrt(np.shape(stance_speed_control_values)[1])),
-    np.nanmean(stance_speed_control_values[p, :, :], axis=0)+(np.nanstd(stance_speed_control_values[p, :, :], axis=0)/np.sqrt(np.shape(stance_speed_control_values)[1])), color=paw_colors[p],
-               alpha=0.3)
+param_split_name_delta = ['Change over split of\ncenter of oscillation symmetry (mm)', 'Change over split of\nstep length symmetry (mm)', 'Change over split of\npercentage of double support symmetry', 'Change over split of\ncenter of oscillation stance symmetry (mm)',
+        'Change over split of\nswing length symmetry (mm)']
+for p in range(np.shape(param_split)[0]):
+    fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+    sns.boxplot(x='group', y='delta-split', data=split_quant_df.loc[split_quant_df['param'] == param_split[p]],
+                medianprops=dict(color='black'), palette={0: 'darkgrey', 1: 'darkviolet'}, showfliers = False)
+    ax.set_xticklabels(['Animals without\nminiscopes', 'Animals with\nminiscopes'])
+    ax.set_xlabel('')
+    ax.set_ylabel(param_split_name_delta[p], fontsize=16)
+    ax.tick_params(axis='both', which='major', labelsize=16)
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
-    ax.set_xlabel('Trial', fontsize=20)
-    ax.set_ylabel('Stance speed', fontsize=20)
-    ax.tick_params(axis='x', labelsize=16)
-    ax.tick_params(axis='y', labelsize=16)
-if print_plots:
-    if not os.path.exists(path_save):
-        os.mkdir(path_save)
-    plt.savefig(path_session_data+'\\split-belt locomotion analysis\\' + 'stance_speed_control', dpi=96)
+    plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_' + param_split[p] + 'delta_split_quantification', dpi=256)
+    plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_' + param_split[p] + 'delta_split_quantification.svg', dpi=256)
+    ###### STATS #######
+    # Mann-Whitney on param means
+    print(param_split[p])
+    data_stats = split_quant_df.loc[split_quant_df['param'] == param_split[p]]
+    stats_mannwhitney_ds = scipy.stats.mannwhitneyu(data_stats.loc[data_stats['group']==0, 'delta-split'], data_stats.loc[data_stats['group']==1, 'delta-split'], method='exact')
+    print(stats_mannwhitney_ds)
+plt.close('all')
 
-param_split_miniscope_values_mean = np.nanmean(sl_all_miniscope_values, axis=0)
-param_split_miniscope_values_std = np.nanstd(sl_all_miniscope_values, axis=0)/np.sqrt(np.shape(sl_all_miniscope_values)[1])
-fig, ax = plt.subplots(figsize=(5, 10), tight_layout=True)
-rectangle = plt.Rectangle((6 + 0.5, -8), 10,
-                          10.5,
-                          fc='dimgrey', alpha=0.3)
-plt.gca().add_patch(rectangle)
-plt.hlines(0, 1, len(param_split_miniscope_values_mean), colors='grey', linestyles='--')
-plt.plot(np.linspace(1, len(param_split_miniscope_values_mean), len(param_split_miniscope_values_mean)), param_split_miniscope_values_mean, linewidth=2, color='black')
-plt.fill_between(np.linspace(1, len(param_split_miniscope_values_mean), len(param_split_miniscope_values_mean)), param_split_miniscope_values_mean-param_split_miniscope_values_std,
-            param_split_miniscope_values_mean+param_split_miniscope_values_std, alpha=0.3, color='black')
-plt.plot(np.arange(7, 17), param_split_miniscope_values_mean[6:16], linewidth=2, color='red')
-plt.fill_between(np.arange(7, 17), param_split_miniscope_values_mean[6:16]-param_split_miniscope_values_std[6:16],
-            param_split_miniscope_values_mean[6:16]+param_split_miniscope_values_std[6:16], alpha=0.3, color='red')
-plt.plot(np.arange(17, 27), param_split_miniscope_values_mean[16:], linewidth=2, color='blue')
-plt.fill_between(np.arange(17, 27), param_split_miniscope_values_mean[16:]-param_split_miniscope_values_std[16:],
-            param_split_miniscope_values_mean[16:]+param_split_miniscope_values_std[16:], alpha=0.3, color='blue')
-ax.set_xlabel('Trial', fontsize=20)
-ax.set_ylabel(param_split[p].replace('_', ' '), fontsize=20)
-plt.xticks(fontsize=16)
-plt.yticks(fontsize=16)
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-plt.savefig('J:\\Miniscope processed files\\split-belt locomotion analysis\\learning_animals_miniscopes', dpi=128)
+# # plot stance speed
+# fig, ax = plt.subplots(figsize=(5, 10), tight_layout=True)
+# rectangle = plt.Rectangle((3 + 0.5, -0.3), 10, 0.2, fc='dimgrey', alpha=0.3)
+# plt.gca().add_patch(rectangle)
+# for p in range(4):
+#     ax.plot(np.linspace(1, len(stance_speed_miniscope_values[0, p, :]), len(stance_speed_miniscope_values[0, p, :])),
+#             np.nanmean(stance_speed_miniscope_values[:, p, :], axis=0), color=paw_colors[p],
+#                linewidth=2)
+#     ax.fill_between(np.linspace(1, len(stance_speed_miniscope_values[0, p, :]), len(stance_speed_miniscope_values[0, p, :])),
+#             np.nanmean(stance_speed_miniscope_values[:, p, :], axis=0)-(np.nanstd(stance_speed_miniscope_values[:, p, :], axis=0)/np.sqrt(np.shape(stance_speed_miniscope_values)[0])),
+#     np.nanmean(stance_speed_miniscope_values[:, p, :], axis=0)+(np.nanstd(stance_speed_miniscope_values[:, p, :], axis=0)/np.sqrt(np.shape(stance_speed_miniscope_values)[0])), color=paw_colors[p],
+#                alpha=0.3)
+#     ax.spines['right'].set_visible(False)
+#     ax.spines['top'].set_visible(False)
+#     ax.set_xlabel('Trial', fontsize=20)
+#     ax.set_ylabel('Stance speed', fontsize=20)
+#     ax.tick_params(axis='x', labelsize=16)
+#     ax.tick_params(axis='y', labelsize=16)
+# if print_plots:
+#     if not os.path.exists(path_save):
+#         os.mkdir(path_save)
+#     plt.savefig(path_session_data+'\\split-belt locomotion analysis\\' + 'stance_speed_miniscopes', dpi=96)
+#
+# fig, ax = plt.subplots(figsize=(5, 10), tight_layout=True)
+# rectangle = plt.Rectangle((3 + 0.5, -0.3), 10, 0.2, fc='dimgrey', alpha=0.3)
+# plt.gca().add_patch(rectangle)
+# for p in range(4):
+#     ax.plot(np.linspace(1, len(stance_speed_control_values[p, 0, :]), len(stance_speed_control_values[p, 0, :])),
+#             np.nanmean(stance_speed_control_values[p, :, :], axis=0), color=paw_colors[p],
+#                linewidth=2)
+#     ax.fill_between(np.linspace(1, len(stance_speed_control_values[p, 0, :]), len(stance_speed_control_values[p, 0, :])),
+#             np.nanmean(stance_speed_control_values[p, :, :], axis=0)-(np.nanstd(stance_speed_control_values[p, :, :], axis=0)/np.sqrt(np.shape(stance_speed_control_values)[1])),
+#     np.nanmean(stance_speed_control_values[p, :, :], axis=0)+(np.nanstd(stance_speed_control_values[p, :, :], axis=0)/np.sqrt(np.shape(stance_speed_control_values)[1])), color=paw_colors[p],
+#                alpha=0.3)
+#     ax.spines['right'].set_visible(False)
+#     ax.spines['top'].set_visible(False)
+#     ax.set_xlabel('Trial', fontsize=20)
+#     ax.set_ylabel('Stance speed', fontsize=20)
+#     ax.tick_params(axis='x', labelsize=16)
+#     ax.tick_params(axis='y', labelsize=16)
+# if print_plots:
+#     if not os.path.exists(path_save):
+#         os.mkdir(path_save)
+#     plt.savefig(path_session_data+'\\split-belt locomotion analysis\\' + 'stance_speed_control', dpi=96)
+#
+# param_split_miniscope_values_mean = np.nanmean(sl_all_miniscope_values, axis=0)
+# param_split_miniscope_values_std = np.nanstd(sl_all_miniscope_values, axis=0)/np.sqrt(np.shape(sl_all_miniscope_values)[1])
+# fig, ax = plt.subplots(figsize=(5, 10), tight_layout=True)
+# rectangle = plt.Rectangle((6 + 0.5, -8), 10,
+#                           10.5,
+#                           fc='dimgrey', alpha=0.3)
+# plt.gca().add_patch(rectangle)
+# plt.hlines(0, 1, len(param_split_miniscope_values_mean), colors='grey', linestyles='--')
+# plt.plot(np.linspace(1, len(param_split_miniscope_values_mean), len(param_split_miniscope_values_mean)), param_split_miniscope_values_mean, linewidth=2, color='black')
+# plt.fill_between(np.linspace(1, len(param_split_miniscope_values_mean), len(param_split_miniscope_values_mean)), param_split_miniscope_values_mean-param_split_miniscope_values_std,
+#             param_split_miniscope_values_mean+param_split_miniscope_values_std, alpha=0.3, color='black')
+# plt.plot(np.arange(7, 17), param_split_miniscope_values_mean[6:16], linewidth=2, color='red')
+# plt.fill_between(np.arange(7, 17), param_split_miniscope_values_mean[6:16]-param_split_miniscope_values_std[6:16],
+#             param_split_miniscope_values_mean[6:16]+param_split_miniscope_values_std[6:16], alpha=0.3, color='red')
+# plt.plot(np.arange(17, 27), param_split_miniscope_values_mean[16:], linewidth=2, color='blue')
+# plt.fill_between(np.arange(17, 27), param_split_miniscope_values_mean[16:]-param_split_miniscope_values_std[16:],
+#             param_split_miniscope_values_mean[16:]+param_split_miniscope_values_std[16:], alpha=0.3, color='blue')
+# ax.set_xlabel('Trial', fontsize=20)
+# ax.set_ylabel(param_split[p].replace('_', ' '), fontsize=20)
+# plt.xticks(fontsize=16)
+# plt.yticks(fontsize=16)
+# ax.spines['right'].set_visible(False)
+# ax.spines['top'].set_visible(False)
+# plt.savefig('J:\\Miniscope processed files\\split-belt locomotion analysis\\learning_animals_miniscopes', dpi=128)

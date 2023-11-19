@@ -389,7 +389,6 @@ class miniscope_session:
 
     def colors_session(self, animal, session_type, trials, bar_boolean):
         """Get the colors of trials for this particular session"""
-        #TODO wtf is bar_boolean
         greys = mp.cm.get_cmap('Greys', 14)
         reds = mp.cm.get_cmap('Reds', 23)
         blues = mp.cm.get_cmap('Blues', 23)

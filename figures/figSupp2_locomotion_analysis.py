@@ -9,8 +9,8 @@ warnings.filterwarnings('ignore')
 
 version_mscope = 'v4'
 plot_data = 1
-print_plots = 1
-paw_colors = ['red', 'magenta', 'blue', 'cyan']
+print_plots = 0
+paw_colors = ['#e52c27', '#3854a4', '#ad4397', '#6fccdf']
 paws = ['FR', 'HR', 'FL', 'HL']
 fsize = 24
 
@@ -316,9 +316,8 @@ for count_p, g in enumerate(param_tied):
         param_tied_control_speed[count_p, count_a, :] = param_tied_control_mean.index
         param_tied_control_values[count_p, count_a, :] = param_tied_control_mean.values
 ylabel = ['stance duration (ms)', 'swing duration (ms)', 'cadence ($\mathregular{ms^{-1}}$)', 'swing length (mm)']
-fig, ax = plt.subplots(2, 2, figsize=(5, 5), tight_layout=True)
-ax = ax.ravel()
 for count_p, g in enumerate(param_tied):
+    fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
     df_intralimb_plot = df_intralimb.loc[df_intralimb['parameter'] == g]
     df_intralimb_plot_animal_mean_speed = np.zeros((len(df_intralimb['animal'].unique()), len(speed_range)-1))
     df_intralimb_plot_animal_mean_values = np.zeros((len(df_intralimb['animal'].unique()), len(speed_range) - 1))
@@ -327,21 +326,23 @@ for count_p, g in enumerate(param_tied):
         df_intralimb_plot_animal_mean = df_intralimb_plot_animal.groupby(['speed'])['values'].mean()
         df_intralimb_plot_animal_mean_speed[count_a, :] = df_intralimb_plot_animal_mean.index
         df_intralimb_plot_animal_mean_values[count_a, :] = df_intralimb_plot_animal_mean.values
-    ax[count_p].plot(df_intralimb_plot_animal_mean_speed[0, :], np.nanmean(param_tied_control_values[count_p, :, :], axis=0), color='black', linewidth=2)
-    ax[count_p].fill_between(df_intralimb_plot_animal_mean_speed[0, :],
+    ax.plot(df_intralimb_plot_animal_mean_speed[0, :], np.nanmean(param_tied_control_values[count_p, :, :], axis=0), color='black', linewidth=2)
+    ax.fill_between(df_intralimb_plot_animal_mean_speed[0, :],
                      np.nanmean(param_tied_control_values[count_p, :, :], axis=0)-np.nanstd(param_tied_control_values[count_p, :, :], axis=0),
     np.nanmean(param_tied_control_values[count_p, :, :], axis=0)+np.nanstd(param_tied_control_values[count_p, :, :], axis=0), color='black', alpha=0.3)
-    ax[count_p].plot(df_intralimb_plot_animal_mean_speed[0, :], np.nanmean(df_intralimb_plot_animal_mean_values, axis=0), color='darkviolet', linewidth=2)
-    ax[count_p].fill_between(df_intralimb_plot_animal_mean_speed[0, :],
+    ax.plot(df_intralimb_plot_animal_mean_speed[0, :], np.nanmean(df_intralimb_plot_animal_mean_values, axis=0), color='darkviolet', linewidth=2)
+    ax.fill_between(df_intralimb_plot_animal_mean_speed[0, :],
                      np.nanmean(df_intralimb_plot_animal_mean_values, axis=0)-np.nanstd(df_intralimb_plot_animal_mean_values, axis=0),
     np.nanmean(df_intralimb_plot_animal_mean_values, axis=0)+np.nanstd(df_intralimb_plot_animal_mean_values, axis=0), color='darkviolet', alpha=0.3)
-    ax[count_p].set_xlabel('speed (m/s)', fontsize=12)
-    ax[count_p].set_title(g.replace('_', ' ') + ' FR paw', fontsize=12)
-    ax[count_p].set_ylabel(ylabel[count_p], fontsize=12)
-    ax[count_p].tick_params(axis='both', which='major', labelsize=12)
-    ax[count_p].spines['right'].set_visible(False)
-    ax[count_p].spines['top'].set_visible(False)
-plt.savefig('J:\\Miniscope processed files\\tied belt locomotion analysis\\param_intralimb.png')
+    ax.set_xlabel('speed (m/s)', fontsize=20)
+    # ax.set_title(g.replace('_', ' ') + ' FR paw', fontsize=20)
+    ax.set_ylabel(ylabel[count_p], fontsize=20)
+    ax.tick_params(axis='both', which='major', labelsize=20)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_param_interlimb_FR_' + g, dpi=256)
+    plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_param_interlimb_FR_' + g + '.svg', dpi=256)
+#plt.savefig('J:\\Miniscope processed files\\tied belt locomotion analysis\\param_intralimb.png')
 
 # Plot phases and trajectories
 phase_bin_paw_control_mat = np.zeros((len(folders_animals), 4, len(speed_range)-1))
@@ -378,55 +379,64 @@ ax = fig.add_subplot(111, projection='polar')
 for p in range(4):
     ax.scatter(np.nanmean(phase_bin_paw_all_mat[:, p, :], axis=0), speed_range[:-1], c=paw_colors[p], marker='*', s=120)
     ax.scatter(np.nanmean(phase_bin_paw_control_mat[:, p, :], axis=0), speed_range[:-1], c=paw_colors[p], s=120, alpha=0.5)
-    ax.tick_params(axis='both', which='major', labelsize=12)
+    ax.tick_params(axis='both', which='major', labelsize=20)
     ax.set_yticks(speed_range[:-1:2])
-plt.savefig('J:\\Miniscope processed files\\tied belt locomotion analysis\\phase_st.png')
+# plt.savefig('J:\\Miniscope processed files\\tied belt locomotion analysis\\phase_st.png')
+plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_phase_st', dpi=256)
+plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_phase_st.svg', dpi=256)
 
-fig, ax = plt.subplots(1, 3, figsize=(12, 5), tight_layout=True)
-ax = ax.ravel()
-ax[0].plot(np.linspace(0, 100, 100), np.nanmean(swing_inst_vel_control_mat, axis=0), color='black', linewidth=2)
-ax[0].fill_between(np.linspace(0, 100, 100),
+fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+ax.plot(np.linspace(0, 100, 100), np.nanmean(swing_inst_vel_control_mat, axis=0), color='black', linewidth=2)
+ax.fill_between(np.linspace(0, 100, 100),
                  np.nanmean(swing_inst_vel_control_mat, axis=0)-np.nanstd(swing_inst_vel_control_mat, axis=0),
                 np.nanmean(swing_inst_vel_control_mat, axis=0)+np.nanstd(swing_inst_vel_control_mat, axis=0), color='black', alpha=0.3)
-ax[0].plot(np.linspace(0, 100, 100), np.nanmean(swing_inst_vel_control_mat, axis=0), color='darkviolet', linewidth=2)
-ax[0].fill_between(np.linspace(0, 100, 100),
+ax.plot(np.linspace(0, 100, 100), np.nanmean(swing_inst_vel_control_mat, axis=0), color='darkviolet', linewidth=2)
+ax.fill_between(np.linspace(0, 100, 100),
                  np.nanmean(swing_inst_vel_all_mat, axis=0)-np.nanstd(swing_inst_vel_all_mat, axis=0),
 np.nanmean(swing_inst_vel_all_mat, axis=0)+np.nanstd(swing_inst_vel_all_mat, axis=0), color='darkviolet', alpha=0.3)
-ax[0].set_xlabel('% swing (norm)', fontsize=14)
-ax[0].set_ylabel('swing instantaneous velocity (m/s)', fontsize=14)
-ax[0].tick_params(axis='both', which='major', labelsize=14)
-ax[0].spines['right'].set_visible(False)
-ax[0].spines['top'].set_visible(False)
-ax[1].plot(np.linspace(0, 100, 100), np.nanmean(swing_z_control_mat, axis=0), color='black', linewidth=2)
-ax[1].fill_between(np.linspace(0, 100, 100),
+ax.set_xlabel('% swing (norm)', fontsize=20)
+ax.set_ylabel('swing instantaneous\nvelocity (m/s)', fontsize=20)
+ax.tick_params(axis='both', which='major', labelsize=20)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_swing_inst_vel', dpi=256)
+plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_swing_inst_vel.svg', dpi=256)
+fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+ax.plot(np.linspace(0, 100, 100), np.nanmean(swing_z_control_mat, axis=0), color='black', linewidth=2)
+ax.fill_between(np.linspace(0, 100, 100),
                  np.nanmean(swing_z_control_mat, axis=0)-np.nanstd(swing_z_control_mat, axis=0),
 np.nanmean(swing_z_control_mat, axis=0)+np.nanstd(swing_z_control_mat, axis=0), color='black', alpha=0.3)
-ax[1].plot(np.linspace(0, 100, 100), np.nanmean(swing_z_all_mat, axis=0), color='darkviolet', linewidth=2)
-ax[1].fill_between(np.linspace(0, 100, 100),
+ax.plot(np.linspace(0, 100, 100), np.nanmean(swing_z_all_mat, axis=0), color='darkviolet', linewidth=2)
+ax.fill_between(np.linspace(0, 100, 100),
                  np.nanmean(swing_z_all_mat, axis=0)-np.nanstd(swing_z_all_mat, axis=0),
 np.nanmean(swing_z_all_mat, axis=0)+np.nanstd(swing_z_all_mat, axis=0), color='darkviolet', alpha=0.3)
-ax[1].set_xlabel('% swing (norm)', fontsize=14)
-ax[1].set_ylabel('swing amplitude (mm)', fontsize=14)
-ax[1].tick_params(axis='both', which='major', labelsize=14)
-ax[1].spines['right'].set_visible(False)
-ax[1].spines['top'].set_visible(False)
+ax.set_xlabel('% swing (norm)', fontsize=20)
+ax.set_ylabel('swing amplitude (mm)', fontsize=20)
+ax.tick_params(axis='both', which='major', labelsize=20)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_swing_z', dpi=256)
+plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_swing_z.svg', dpi=256)
+fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
 for p in range(4):
-    ax[2].plot(np.nanmean(swing_y_rel_control_mat[:, p, :], axis=0), np.nanmean(swing_x_rel_control_mat[:, p, :], axis=0), color='black', linewidth=2)
-    ax[2].fill_between(np.nanmean(swing_y_rel_control_mat[:, p, :], axis=0),
+    ax.plot(np.nanmean(swing_y_rel_control_mat[:, p, :], axis=0), np.nanmean(swing_x_rel_control_mat[:, p, :], axis=0), color='black', linewidth=2)
+    ax.fill_between(np.nanmean(swing_y_rel_control_mat[:, p, :], axis=0),
                        np.nanmean(swing_x_rel_control_mat[:, p, :], axis=0) - np.nanstd(swing_x_rel_control_mat[:, p, :], axis=0),
                        np.nanmean(swing_x_rel_control_mat[:, p, :], axis=0) + np.nanstd(swing_x_rel_control_mat[:, p, :], axis=0), color='black',
                        alpha=0.3)
-    ax[2].plot(np.nanmean(swing_y_rel_all_mat[:, p, :], axis=0), np.nanmean(swing_x_rel_all_mat[:, p, :], axis=0), color='darkviolet', linewidth=2)
-    ax[2].fill_between(np.nanmean(swing_y_rel_all_mat[:, p, :], axis=0),
+    ax.plot(np.nanmean(swing_y_rel_all_mat[:, p, :], axis=0), np.nanmean(swing_x_rel_all_mat[:, p, :], axis=0), color='darkviolet', linewidth=2)
+    ax.fill_between(np.nanmean(swing_y_rel_all_mat[:, p, :], axis=0),
                        np.nanmean(swing_x_rel_all_mat[:, p, :], axis=0) - np.nanstd(swing_x_rel_all_mat[:, p, :], axis=0),
                        np.nanmean(swing_x_rel_all_mat[:, p, :], axis=0) + np.nanstd(swing_x_rel_all_mat[:, p, :], axis=0), color='darkviolet',
                        alpha=0.3)
-    ax[2].set_xlabel('y relative to bodycenter (mm)', fontsize=14)
-    ax[2].set_ylabel('x relative to bodycenter (mm)', fontsize=14)
-    ax[2].tick_params(axis='both', which='major', labelsize=14)
-    ax[2].spines['right'].set_visible(False)
-    ax[2].spines['top'].set_visible(False)
-plt.savefig('J:\\Miniscope processed files\\tied belt locomotion analysis\\trajectories.png')
+    ax.set_xlabel('y relative to bodycenter (mm)', fontsize=20)
+    ax.set_ylabel('x relative to bodycenter (mm)', fontsize=20)
+    ax.tick_params(axis='both', which='major', labelsize=20)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_bos', dpi=256)
+plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_bos.svg', dpi=256)
+# plt.savefig('J:\\Miniscope processed files\\tied belt locomotion analysis\\trajectories.png')
 
 
 

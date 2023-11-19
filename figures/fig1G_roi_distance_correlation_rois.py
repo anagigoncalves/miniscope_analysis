@@ -62,7 +62,7 @@ cmap = plt.get_cmap('magma')
 color_animals = [cmap(i) for i in np.linspace(0, 1, 6)]
 #order
 #MC8855, MC9194, MC10221, MC9513, MC9226
-fig, ax = plt.subplots(figsize=(7, 5), tight_layout=True, sharey=True)
+fig, ax = plt.subplots(figsize=(7, 7), tight_layout=True, sharey=True)
 for a in range(len(color_animals)-1):
     plt.scatter(corr_data_all[a][:, 0], corr_data_all[a][:, 1], s=15, color=color_animals[a])
     z = np.polyfit(corr_data_all[a][:, 0], corr_data_all[a][:, 1], 1)

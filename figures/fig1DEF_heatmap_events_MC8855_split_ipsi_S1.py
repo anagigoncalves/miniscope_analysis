@@ -63,7 +63,7 @@ plt.savefig(path_save + 'MC8855_trial3_splitipsifastS1_heatmap', dpi=256)
 plt.savefig(path_save + 'MC8855_trial3_splitipsifastS1_heatmap.svg', format='svg', dpi=256)
 
 #ROIs
-cmap_rois = plt.get_cmap('plasma')
+cmap_rois = plt.get_cmap('jet')
 colors_rois = [cmap_rois(i) for i in np.linspace(0, 1, len(coord_ext))]
 plt.figure(figsize=(7, 7), tight_layout=True)
 for r in range(len(coord_ext)):
@@ -75,8 +75,8 @@ plt.xlabel('FOV in micrometers', fontsize=mscope.fsize - 4)
 plt.ylabel('FOV in micrometers', fontsize=mscope.fsize - 4)
 plt.xticks(fontsize=mscope.fsize - 4)
 plt.yticks(fontsize=mscope.fsize - 4)
-# plt.savefig(path_save + 'MC8855_trial3_splitipsifastS1_rois', dpi=256)
-# plt.savefig(path_save + 'MC8855_trial3_splitipsifastS1_rois.svg', format='svg', dpi=256)
+plt.savefig(path_save + 'MC8855_trial3_splitipsifastS1_rois', dpi=256)
+plt.savefig(path_save + 'MC8855_trial3_splitipsifastS1_rois.svg', format='svg', dpi=256)
 
 trial = 2
 rois = ['ROI97', 'ROI177']

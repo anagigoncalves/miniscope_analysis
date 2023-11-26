@@ -163,6 +163,7 @@ for c in range(3):
         ax[c].spines['top'].set_visible(False)
         ax[c].tick_params(axis='both', which='major', labelsize=20)
         ax[c].set_ylabel('Firing rate\nnorm. (Hz)', fontsize=20)
+        ax[c].set_title('PC'+str(c+1), fontsize=20)
         if align_dimension == 'time':
             ax[c].set_xlabel('Time (ms)', fontsize=20)
             ax[c].axvline(x=0, color='black')
@@ -198,13 +199,14 @@ plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' +
 plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_trajectories.svg'), dpi=256)
 
 for c in range(3):
-    fig, ax = plt.subplots(tight_layout=True, figsize=(7, 5))
+    fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
     sc = ax.scatter(roi_coordinates_arr[:, 1], roi_coordinates_arr[:, 0], s=5, c=pca_fit_fr_paws_fit_transform[:, c], cmap='coolwarm')
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.tick_params(axis='both', which='major', labelsize=20)
     ax.set_ylabel('AP coordinate (mm)', fontsize=20)
     ax.set_xlabel('ML coordinate (mm)', fontsize=20)
+    ax.set_title('PC' + str(c + 1), fontsize=20)
     cbar = plt.colorbar(sc)
     cbar.ax.tick_params(labelsize=20)
     plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_roilocation'),
@@ -213,13 +215,14 @@ for c in range(3):
                 dpi=256)
 
 for c in range(3):
-    fig, ax = plt.subplots(tight_layout=True, figsize=(7, 5))
+    fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
     ax.scatter(pca_fit_fr_paws_fit_transform[:, c], sl_animals_arr, color='black')
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.tick_params(axis='both', which='major', labelsize=20)
     ax.set_xlabel('PC ' + str(c+1) + ' score\nfor each ROI', fontsize=20)
     ax.set_ylabel('Step length\n after-effect (mm)', fontsize=20)
+    ax.set_title('PC' + str(c + 1), fontsize=20)
     plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_learning'),
                 dpi=256)
     plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_learning.svg'),

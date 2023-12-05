@@ -7,14 +7,14 @@ from mpl_toolkits import mplot3d
 import sklearn.metrics as sm
 
 # Input data
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split ipsi fast S1\\'
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters sw time\\split ipsi fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig pca\\'
 path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
 protocol = 'split ipsi fast'
-align_event = 'st'
-align_dimension = 'phase'
+align_event = 'sw'
+align_dimension = 'time'
 if align_dimension == 'phase':
     bins = np.arange(0, 1.01, 0.05)  # 5 deg
     align_event = 'st' #is always stance
@@ -68,7 +68,7 @@ for p in range(len(paws)):
     firing_rate_mean_trials_paw_animalid = []
     for count_a, animal in enumerate(animals):
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
-        firing_rate_mean_trials_paw.append(zscoring(zscoring(np.nanmean(firing_rate_animal[:, p, :, :], axis=1), 1), 0))
+        firing_rate_mean_trials_paw.append(np.nanmean(firing_rate_animal[:, p, :, :], axis=1))
         firing_rate_mean_trials_paw_animalid.append(np.repeat(count_a, np.shape(firing_rate_animal)[0]))
     firing_rate_mean_trials_paw_concat = np.vstack(firing_rate_mean_trials_paw)
     # list of array of FR x time for each paw
@@ -79,6 +79,7 @@ for p in range(len(paws)):
     else:
         firing_rate_animal_trials_concat_paws = np.concatenate(
             (firing_rate_animal_trials_concat_paws, firing_rate_mean_trials_paw_concat), axis=1)
+firing_rate_animal_trials_concat_paws_zscored = zscoring(firing_rate_animal_trials_concat_paws, 0)
 
 #Get coordinates for all ROIs
 roi_coordinates = []
@@ -140,8 +141,8 @@ coo_animals_arr = np.array(coo_animals)
 # PCA on concatenated space FR x (time x paws)
 comp = 9
 pca_fr_paws = PCA(n_components=comp)
-pca_fit_fr_paws = pca_fr_paws.fit(firing_rate_animal_trials_concat_paws)
-pca_fit_fr_paws_fit_transform = pca_fr_paws.fit_transform(firing_rate_animal_trials_concat_paws)
+pca_fit_fr_paws = pca_fr_paws.fit(firing_rate_animal_trials_concat_paws_zscored)
+pca_fit_fr_paws_fit_transform = pca_fr_paws.fit_transform(firing_rate_animal_trials_concat_paws_zscored)
 # OPTION 1 - PCA AVERAGED CONCATENATED FORM - MATRIX MULTIPLICATION
 # pca_fit_fr_paws_scores = pca_fr_paws.fit_transform(firing_rate_animal_trials_concat_paws)
 # # Project mean firing rate activity for each paw in the reference PC space
@@ -207,8 +208,7 @@ for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
 ax.set_xlabel('PC1 (' + str(np.round(pca_fit_fr_paws.explained_variance_ratio_[0]*100, 1)) + '%)', fontsize=20)
 ax.set_ylabel('PC2 (' + str(np.round(pca_fit_fr_paws.explained_variance_ratio_[1]*100, 1)) + '%)', fontsize=20)
 ax.set_zlabel('PC3 (' + str(np.round(pca_fit_fr_paws.explained_variance_ratio_[2]*100, 1)) + '%)', fontsize=20)
-# ax.view_init(20, 80)
-ax.view_init(60, 30)
+ax.view_init(70, 30)
 plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_trajectories'), dpi=256)
 plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_trajectories.svg'), dpi=256)
 
@@ -228,19 +228,19 @@ for c in range(3):
     plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_roilocation.svg'),
                 dpi=256)
 
-# for c in range(3):
-#     fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
-#     ax.scatter(pca_fit_fr_paws_fit_transform[:, c], sl_animals_arr, color='black')
-#     ax.spines['right'].set_visible(False)
-#     ax.spines['top'].set_visible(False)
-#     ax.tick_params(axis='both', which='major', labelsize=20)
-#     ax.set_xlabel('PC ' + str(c+1) + ' score\nfor each ROI', fontsize=20)
-#     ax.set_ylabel('Step length\n after-effect (mm)', fontsize=20)
-#     ax.set_title('PC' + str(c + 1), fontsize=20)
-#     plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_learning'),
-#                 dpi=256)
-#     plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_learning.svg'),
-#                 dpi=256)
+for c in range(3):
+    fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
+    ax.scatter(pca_fit_fr_paws_fit_transform[:, c], sl_animals_arr, color='black')
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.tick_params(axis='both', which='major', labelsize=20)
+    ax.set_xlabel('PC ' + str(c+1) + ' score\nfor each ROI', fontsize=20)
+    ax.set_ylabel('Step length\n after-effect (mm)', fontsize=20)
+    ax.set_title('PC' + str(c + 1), fontsize=20)
+    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_learning'),
+                dpi=256)
+    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_learning.svg'),
+                dpi=256)
 
 # Reconstruction error
 nrmse = np.zeros(20)

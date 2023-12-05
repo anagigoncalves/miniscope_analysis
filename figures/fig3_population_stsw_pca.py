@@ -7,15 +7,14 @@ from mpl_toolkits import mplot3d
 import sklearn.metrics as sm
 
 # Input data
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split ipsi fast S1\\'
-save_path = 'J:\\Thesis\\for figures\\fig3\\'
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st time\\split ipsi fast S1\\'
+save_path = 'J:\\Thesis\\for figures\\fig pca\\'
 path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
 protocol = 'split ipsi fast'
 align_event = 'st'
-align_dimension = 'phase'
-trials = np.arange(1, 21)
+align_dimension = 'time'
 if align_dimension == 'phase':
     bins = np.arange(0, 1.01, 0.05)  # 5 deg
     align_event = 'st' #is always stance
@@ -36,11 +35,16 @@ tied_idx = [[0, 1, 2], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5
 split_idx = [np.arange(3, 12+1), np.arange(6, 15+1), np.arange(6, 15+1), np.arange(6, 15+1), np.arange(6, 15+1)]
 washout_idx = [np.arange(13, 22+1), np.arange(16, 25+1), np.arange(16, 22+1), np.arange(16, 25+1), np.arange(16, 25+1)]
 def zscoring(data):
-    data_zscore = (data - np.nanmean(data, axis=0))/np.nanstd(data, axis=0)
+    data_mean = np.repeat(np.nanmean(data, axis=1).T, [np.shape(data)[1]], axis=0).reshape(np.shape(data))
+    data_std = np.repeat(np.nanstd(data, axis=1).T, [np.shape(data)[1]], axis=0).reshape(np.shape(data))
+    data_zscore = (data - data_mean)/data_std
     return data_zscore
-
-def min_max(data):
-    data_minmax = (data-np.nanmin(data, axis=0))/(np.nanmax(data, axis=0)-np.nanmin(data, axis=0))
+def minmax(data):
+    data_mean = np.repeat(np.nanmean(data, axis=1).T, [np.shape(data)[1]], axis=0).reshape(np.shape(data))
+    data_centered = data-data_mean
+    data_min = np.repeat(np.nanmin(data_centered, axis=1).T, [np.shape(data)[1]], axis=0).reshape(np.shape(data))
+    data_max = np.repeat(np.nanmax(data_centered, axis=1).T, [np.shape(data)[1]], axis=0).reshape(np.shape(data))
+    data_minmax = (data_centered-data_min)/(data_max-data_min)
     return data_minmax
 
 os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
@@ -54,7 +58,7 @@ for p in range(len(paws)):
     firing_rate_mean_trials_paw_animalid = []
     for count_a, animal in enumerate(animals):
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
-        firing_rate_mean_trials_paw.append(zscoring(np.nanmean(firing_rate_animal[:, p, :, :], axis=1)))
+        firing_rate_mean_trials_paw.append(minmax(np.nanmean(firing_rate_animal[:, p, :, :], axis=1)))
         firing_rate_mean_trials_paw_animalid.append(np.repeat(count_a, np.shape(firing_rate_animal)[0]))
     firing_rate_mean_trials_paw_concat = np.vstack(firing_rate_mean_trials_paw)
     # list of array of FR x time for each paw
@@ -113,7 +117,7 @@ for count_a, animal in enumerate(animals):
     sl_animals.extend(np.repeat(sl_bs_mean[washout_idx[count_a][0]], len(centroid_dist_corner)))
     ds_animals.extend(np.repeat(ds_bs_mean[washout_idx[count_a][0]], len(centroid_dist_corner)))
     coo_animals.extend(np.repeat(coo_bs_mean[washout_idx[count_a][0]], len(centroid_dist_corner)))
-    # change over split
+    # #change over split
     # sl_animals.extend(np.repeat(sl_bs_mean[split_idx[count_a][-1]]-sl_bs_mean[split_idx[count_a][0]], len(centroid_dist_corner)))
     # ds_animals.extend(np.repeat(ds_bs_mean[split_idx[count_a][-1]]-ds_bs_mean[split_idx[count_a][0]], len(centroid_dist_corner)))
     # coo_animals.extend(np.repeat(coo_bs_mean[split_idx[count_a][-1]]-coo_bs_mean[split_idx[count_a][0]], len(centroid_dist_corner)))
@@ -194,7 +198,7 @@ ax.set_xlabel('PC1 (' + str(np.round(pca_fit_fr_paws.explained_variance_ratio_[0
 ax.set_ylabel('PC2 (' + str(np.round(pca_fit_fr_paws.explained_variance_ratio_[1]*100, 1)) + '%)', fontsize=20)
 ax.set_zlabel('PC3 (' + str(np.round(pca_fit_fr_paws.explained_variance_ratio_[2]*100, 1)) + '%)', fontsize=20)
 # ax.view_init(20, 80)
-ax.view_init(10, 60)
+ax.view_init(60, 30)
 plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_trajectories'), dpi=256)
 plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_trajectories.svg'), dpi=256)
 
@@ -214,19 +218,19 @@ for c in range(3):
     plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_roilocation.svg'),
                 dpi=256)
 
-for c in range(3):
-    fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
-    ax.scatter(pca_fit_fr_paws_fit_transform[:, c], sl_animals_arr, color='black')
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.tick_params(axis='both', which='major', labelsize=20)
-    ax.set_xlabel('PC ' + str(c+1) + ' score\nfor each ROI', fontsize=20)
-    ax.set_ylabel('Step length\n after-effect (mm)', fontsize=20)
-    ax.set_title('PC' + str(c + 1), fontsize=20)
-    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_learning'),
-                dpi=256)
-    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_learning.svg'),
-                dpi=256)
+# for c in range(3):
+#     fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
+#     ax.scatter(pca_fit_fr_paws_fit_transform[:, c], sl_animals_arr, color='black')
+#     ax.spines['right'].set_visible(False)
+#     ax.spines['top'].set_visible(False)
+#     ax.tick_params(axis='both', which='major', labelsize=20)
+#     ax.set_xlabel('PC ' + str(c+1) + ' score\nfor each ROI', fontsize=20)
+#     ax.set_ylabel('Step length\n after-effect (mm)', fontsize=20)
+#     ax.set_title('PC' + str(c + 1), fontsize=20)
+#     plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_learning'),
+#                 dpi=256)
+#     plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_learning.svg'),
+#                 dpi=256)
 
 # Reconstruction error
 nrmse = np.zeros(20)

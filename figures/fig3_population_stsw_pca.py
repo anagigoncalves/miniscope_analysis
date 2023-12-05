@@ -7,14 +7,14 @@ from mpl_toolkits import mplot3d
 import sklearn.metrics as sm
 
 # Input data
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st time\\split ipsi fast S1\\'
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split ipsi fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig pca\\'
 path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
 protocol = 'split ipsi fast'
 align_event = 'st'
-align_dimension = 'time'
+align_dimension = 'phase'
 if align_dimension == 'phase':
     bins = np.arange(0, 1.01, 0.05)  # 5 deg
     align_event = 'st' #is always stance
@@ -34,16 +34,26 @@ fov_coords = np.array([[6.27, 0.53],
 tied_idx = [[0, 1, 2], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5]]
 split_idx = [np.arange(3, 12+1), np.arange(6, 15+1), np.arange(6, 15+1), np.arange(6, 15+1), np.arange(6, 15+1)]
 washout_idx = [np.arange(13, 22+1), np.arange(16, 25+1), np.arange(16, 22+1), np.arange(16, 25+1), np.arange(16, 25+1)]
-def zscoring(data):
-    data_mean = np.repeat(np.nanmean(data, axis=1).T, [np.shape(data)[1]], axis=0).reshape(np.shape(data))
-    data_std = np.repeat(np.nanstd(data, axis=1).T, [np.shape(data)[1]], axis=0).reshape(np.shape(data))
+def zscoring(data, axis_value):
+    if axis_value == 1:
+        data_mean = np.repeat(np.nanmean(data, axis=axis_value).T, [np.shape(data)[1]], axis=0).reshape(np.shape(data))
+        data_std = np.repeat(np.nanstd(data, axis=axis_value).T, [np.shape(data)[1]], axis=0).reshape(np.shape(data))
+    if axis_value == 0:
+        data_mean = np.tile(np.nanmean(data, axis=axis_value), (np.shape(data)[0], 1))
+        data_std = np.tile(np.nanstd(data, axis=axis_value), (np.shape(data)[0], 1))
     data_zscore = (data - data_mean)/data_std
     return data_zscore
-def minmax(data):
-    data_mean = np.repeat(np.nanmean(data, axis=1).T, [np.shape(data)[1]], axis=0).reshape(np.shape(data))
-    data_centered = data-data_mean
-    data_min = np.repeat(np.nanmin(data_centered, axis=1).T, [np.shape(data)[1]], axis=0).reshape(np.shape(data))
-    data_max = np.repeat(np.nanmax(data_centered, axis=1).T, [np.shape(data)[1]], axis=0).reshape(np.shape(data))
+def minmax(data, axis_value):
+    if axis_value == 1:
+        data_mean = np.repeat(np.nanmean(data, axis=axis_value).T, [np.shape(data)[1]], axis=0).reshape(np.shape(data))
+        data_centered = data-data_mean
+        data_min = np.repeat(np.nanmin(data_centered, axis=axis_value).T, [np.shape(data)[1]], axis=0).reshape(np.shape(data))
+        data_max = np.repeat(np.nanmax(data_centered, axis=axis_value).T, [np.shape(data)[1]], axis=0).reshape(np.shape(data))
+    if axis_value == 0:
+        data_mean = np.tile(np.nanmean(data, axis=axis_value), (np.shape(data)[0], 1))
+        data_centered = data-data_mean
+        data_min = np.tile(np.nanmin(data, axis=axis_value), (np.shape(data)[0], 1))
+        data_max = np.tile(np.nanmax(data, axis=axis_value), (np.shape(data)[0], 1))
     data_minmax = (data_centered-data_min)/(data_max-data_min)
     return data_minmax
 
@@ -58,7 +68,7 @@ for p in range(len(paws)):
     firing_rate_mean_trials_paw_animalid = []
     for count_a, animal in enumerate(animals):
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
-        firing_rate_mean_trials_paw.append(minmax(np.nanmean(firing_rate_animal[:, p, :, :], axis=1)))
+        firing_rate_mean_trials_paw.append(zscoring(zscoring(np.nanmean(firing_rate_animal[:, p, :, :], axis=1), 1), 0))
         firing_rate_mean_trials_paw_animalid.append(np.repeat(count_a, np.shape(firing_rate_animal)[0]))
     firing_rate_mean_trials_paw_concat = np.vstack(firing_rate_mean_trials_paw)
     # list of array of FR x time for each paw

@@ -21,7 +21,7 @@ import locomotion_class
 path_session_data = 'J:\\Miniscope processed files\\'
 session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
 
-s = 0
+s = 1
 ses_info = session_data.iloc[s, :]
 date = ses_info[3]
 # path inputs
@@ -59,8 +59,8 @@ ax.tick_params(axis='both', which='major', labelsize=16)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.spines['bottom'].set_visible(False)
-plt.savefig(path_save + 'MC8855_trial3_splitipsifastS1_heatmap', dpi=256)
-plt.savefig(path_save + 'MC8855_trial3_splitipsifastS1_heatmap.svg', format='svg', dpi=256)
+plt.savefig(path_save + 'MC9194_trial3_splitipsifastS1_heatmap', dpi=256)
+plt.savefig(path_save + 'MC9194_trial3_splitipsifastS1_heatmap.svg', format='svg', dpi=256)
 
 #ROIs
 cmap_rois = plt.get_cmap('jet')
@@ -75,25 +75,25 @@ plt.xlabel('FOV in micrometers', fontsize=mscope.fsize - 4)
 plt.ylabel('FOV in micrometers', fontsize=mscope.fsize - 4)
 plt.xticks(fontsize=mscope.fsize - 4)
 plt.yticks(fontsize=mscope.fsize - 4)
-plt.savefig(path_save + 'MC8855_trial3_splitipsifastS1_rois', dpi=256)
-plt.savefig(path_save + 'MC8855_trial3_splitipsifastS1_rois.svg', format='svg', dpi=256)
+plt.savefig(path_save + 'MC9194_trial3_splitipsifastS1_rois', dpi=256)
+plt.savefig(path_save + 'MC9194_trial3_splitipsifastS1_rois.svg', format='svg', dpi=256)
 
-trial = 2
-rois = ['ROI97', 'ROI177']
-data_time = np.array(df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == trial, 'time'])
-fig, ax = plt.subplots(figsize=(15, 7), tight_layout=True)
-for count_roi, roi in enumerate(rois):
-    data_roi = df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == trial, roi]
-    data_events = np.where(df_events_extract_rawtrace.loc[df_events_extract_rawtrace['trial'] == trial, roi])[0]
-    ax.plot(data_time, data_roi + count_roi, color='black', linewidth=1.5)
-    ax.scatter(data_time[data_events], np.repeat(np.nanmax(data_roi)+0.1, len(data_events)) + count_roi, s=600, marker='|', color='purple')
-ax.set_xlabel('Time (s)', fontsize=20)
-ax.set_xlim([10, 30])
-ax.spines['right'].set_visible(False)
-ax.spines['top'].set_visible(False)
-ax.spines['left'].set_visible(False)
-plt.tick_params(axis='y', labelsize=0, length=0)
-plt.setp(ax.get_yticklabels(), visible=False)
-ax.tick_params(axis='both', which='major', labelsize=20)
-# plt.savefig(path_save + 'MC8855_trial3_splitipsifastS1_events', dpi=256)
-# plt.savefig(path_save + 'MC8855_trial3_splitipsifastS1_events.svg', format='svg', dpi=256)
+# trial = 2
+# rois = ['ROI97', 'ROI177']
+# data_time = np.array(df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == trial, 'time'])
+# fig, ax = plt.subplots(figsize=(15, 7), tight_layout=True)
+# for count_roi, roi in enumerate(rois):
+#     data_roi = df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == trial, roi]
+#     data_events = np.where(df_events_extract_rawtrace.loc[df_events_extract_rawtrace['trial'] == trial, roi])[0]
+#     ax.plot(data_time, data_roi + count_roi, color='black', linewidth=1.5)
+#     ax.scatter(data_time[data_events], np.repeat(np.nanmax(data_roi)+0.1, len(data_events)) + count_roi, s=600, marker='|', color='purple')
+# ax.set_xlabel('Time (s)', fontsize=20)
+# ax.set_xlim([10, 30])
+# ax.spines['right'].set_visible(False)
+# ax.spines['top'].set_visible(False)
+# ax.spines['left'].set_visible(False)
+# plt.tick_params(axis='y', labelsize=0, length=0)
+# plt.setp(ax.get_yticklabels(), visible=False)
+# ax.tick_params(axis='both', which='major', labelsize=20)
+# plt.savefig(path_save + 'MC9194_trial3_splitipsifastS1_events', dpi=256)
+# plt.savefig(path_save + 'MC9194_trial3_splitipsifastS1_events.svg', format='svg', dpi=256)

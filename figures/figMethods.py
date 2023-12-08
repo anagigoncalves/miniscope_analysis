@@ -108,17 +108,28 @@ cb2 = mpl.colorbar.ColorbarBase(ax2, cmap=cmap_cbar, norm=norm,
 plt.savefig(path_save + 'cl_tm_full_cbar', dpi=256)
 # plt.savefig(path_save + 'cl_tm_full_cbar.svg', format='svg', dpi=256)
 
-project_path = 'C:\\Users\\Ana\\Documents\\PhD\\Projects\\DeepLocoTM_MdV_Miniscopes\\tmLOCO-dd-2019-08-29\\labeled-data\\'
-animal_folder = 'MC7354_25_80_1_tied_0,350_0,350_1_10'
-img_name = 'img01010.png'
-csv_name = 'CollectedData_dd.csv'
-#load image
-im = plt.imread(os.path.join(project_path, animal_folder, img_name))
-#load csv
-labeled_data = pd.read_csv(os.path.join(project_path, animal_folder, csv_name), header=1)
-img_path = os.path.join('labeled-data', animal_folder, img_name)
-coord_row = np.where(labeled_data.iloc[:, 0] == img_path)[0][0]
-coords = labeled_data.iloc[coord_row, 1:].astype(float)
+# project_path = 'C:\\Users\\Ana\\Documents\\PhD\\Projects\\DeepLocoTM_MdV_Miniscopes\\tmLOCO-dd-2019-08-29\\labeled-data\\'
+# animal_folder = 'MC7354_25_80_1_tied_0,350_0,350_1_10'
+# img_name = 'img01010.png'
+# csv_name = 'CollectedData_dd.csv'
+# #load image
+# im2 = plt.imread(os.path.join(project_path, animal_folder, img_name))
+# #load csv
+# labeled_data = pd.read_csv(os.path.join(project_path, animal_folder, csv_name), header=1)
+# img_path = os.path.join('labeled-data', animal_folder, img_name)
+import cv2
+video_path = 'J:\\Thesis\\figuresChapter2\\fig1 - miniscope intro\\MC8855_25_69_1_tied_0,225_0,225_1_3.mp4'
+cap = cv2.VideoCapture(video_path)
+cap.set(cv2.CAP_PROP_POS_FRAMES, 12620)
+res, im = cap.read()
+csv_name = 'J:\\Thesis\\figuresChapter2\\fig1 - miniscope intro\\MC8855_25_69_1_tied_0,225_0,225_1_3DLC_resnet50_tmLOCOAug29shuffle1_1030000.csv'
+labeled_data = pd.read_csv(csv_name, header=1)
+# coord_row = np.where(labeled_data.iloc[:, 0] == img_path)[0][0]
+dotsize = 150
+coord_row = 12621
+# coords = labeled_data.iloc[coord_row, 1:].astype(float)
+coords_df = np.array(labeled_data.iloc[coord_row, 1:])
+coords = np.delete(coords_df, np.arange(2, len(coords_df), 3))
 colors_features = ['orange', 'orange', 'lightgray', 'lightgray', 'sienna', 'sienna', '#e52c27', '#3854a4', '#ad4397',
     '#6fccdf', '#e52c27', '#3854a4', '#ad4397', '#6fccdf', '#e52c27', '#3854a4', '#ad4397', '#6fccdf', '#e52c27', '#3854a4', '#ad4397', '#6fccdf']
 colors_features_full = colors_features + ['green'] * 30
@@ -131,18 +142,18 @@ im_plot = plt.imshow(im)
 for count_i, i in enumerate(np.arange(0, len(coords), 2)):
     plt.scatter(coords[i], coords[i+1], s=dotsize, color=colors_features_full[count_i])
 plt.savefig(path_save + 'miniscope_tm_full', dpi=256)
-# plt.savefig(path_save + 'miniscope_tm_full.svg', format='svg', dpi=256)
+plt.savefig(path_save + 'miniscope_tm_full.svg', format='svg', dpi=256)
 fig1, ax1 = plt.subplots(figsize=(25, 15), tight_layout=True)
 im_plot = plt.imshow(im)
 for count_i, i in enumerate(np.arange(0, len(coords), 2)):
     plt.scatter(coords[i], coords[i+1], s=dotsize, color=colors_features_full[count_i])
-# plt.savefig(path_save + 'miniscope_tm_full.png', format='png', dpi=256)
+plt.savefig(path_save + 'miniscope_tm_full.png', format='png', dpi=256)
 plt.savefig(path_save + 'miniscope_tm_full.svg', format='svg', dpi=256)
 fig2, ax2 = plt.subplots(figsize=(5,1))
 cb2 = mpl.colorbar.ColorbarBase(ax2, cmap=cmap_cbar, norm=norm,
             ticks=bounds, spacing='proportional', orientation='horizontal')
 plt.savefig(path_save + 'miniscope_tm_cbar', dpi=256)
-# plt.savefig(path_save + 'miniscope_tm_cbar.svg', format='svg', dpi=256)
+plt.savefig(path_save + 'miniscope_tm_cbar.svg', format='svg', dpi=256)
 
 project_path = 'C:\\Users\\Ana\\Documents\\PhD\\Projects\\DeepLocoTM_MdV_Miniscope_ClosedLoop-AnaG-2023-04-02-MOBILE\\labeled-data\\'
 animal_folder = 'MC16848_149_22_0.275_0.275_tied_1_8_crop'

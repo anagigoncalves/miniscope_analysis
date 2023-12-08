@@ -7,14 +7,14 @@ from mpl_toolkits import mplot3d
 import sklearn.metrics as sm
 
 # Input data
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters sw time\\split ipsi fast S1\\'
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split ipsi fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig pca\\'
 path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
 protocol = 'split ipsi fast'
-align_event = 'sw'
-align_dimension = 'time'
+align_event = 'st'
+align_dimension = 'phase'
 if align_dimension == 'phase':
     bins = np.arange(0, 1.01, 0.05)  # 5 deg
     align_event = 'st' #is always stance
@@ -80,6 +80,15 @@ for p in range(len(paws)):
         firing_rate_animal_trials_concat_paws = np.concatenate(
             (firing_rate_animal_trials_concat_paws, firing_rate_mean_trials_paw_concat), axis=1)
 firing_rate_animal_trials_concat_paws_zscored = zscoring(firing_rate_animal_trials_concat_paws, 0)
+# Zscore each paw firing rate using the concatenated mean and std (reference space)
+data = firing_rate_animal_trials_concat_paws
+col_len = np.shape(firing_rate_mean_trials_paws_list[0])[1]
+data_fr_mean = np.tile(np.nanmean(data, axis=0), (np.shape(data)[0], 1))[:, :col_len]
+data_fr_std = np.tile(np.nanstd(data, axis=0), (np.shape(data)[0], 1))[:, :col_len]
+firing_rate_mean_trials_paws_list_zscored = []
+for p in range(4):
+    data_paw_zscored = (firing_rate_mean_trials_paws_list[p] - data_fr_mean) / data_fr_std
+    firing_rate_mean_trials_paws_list_zscored.append(data_paw_zscored)
 
 #Get coordinates for all ROIs
 roi_coordinates = []
@@ -143,12 +152,12 @@ comp = 9
 pca_fr_paws = PCA(n_components=comp)
 pca_fit_fr_paws = pca_fr_paws.fit(firing_rate_animal_trials_concat_paws_zscored)
 pca_fit_fr_paws_fit_transform = pca_fr_paws.fit_transform(firing_rate_animal_trials_concat_paws_zscored)
-# OPTION 1 - PCA AVERAGED CONCATENATED FORM - MATRIX MULTIPLICATION
-# pca_fit_fr_paws_scores = pca_fr_paws.fit_transform(firing_rate_animal_trials_concat_paws)
+# # OPTION 1 - PCA AVERAGED CONCATENATED FORM - MATRIX MULTIPLICATION
+# pca_fit_fr_paws_scores = pca_fr_paws.fit_transform(firing_rate_animal_trials_concat_paws_zscored)
 # # Project mean firing rate activity for each paw in the reference PC space
 # pca_fit_fr_single_paws = []
 # for count_p in range(len(paws)):
-#     pca_fit_fr_single_paws.append(np.dot(firing_rate_mean_trials_paws_list[count_p].T, pca_fit_fr_paws_scores).T)
+#     pca_fit_fr_single_paws.append(np.dot(firing_rate_mean_trials_paws_list_zscored[count_p].T, pca_fit_fr_paws_scores).T)
 # OPTION 2 - PCA TRIAL AVERAGED FORM
 pca_fit_fr_single_paws = np.reshape(pca_fit_fr_paws.components_, ((comp, 4, firing_rate_mean_trials_paw_concat.shape[1])))
 
@@ -171,13 +180,12 @@ fig, ax = plt.subplots(1, 3, tight_layout=True, figsize=(15, 4), sharey=True)
 ax = ax.ravel()
 for c in range(3):
     for count_p in range(len(paws)):
-        # ax[c].plot(bins_fr[:-1], pca_fit_fr_single_paws[count_p][c, :], color=paw_colors[count_p], linewidth=2)
+        #ax[c].plot(bins_fr[:-1], pca_fit_fr_single_paws[count_p][c, :], color=paw_colors[count_p], linewidth=2)
         ax[c].plot(bins_fr[:-1], pca_fit_fr_single_paws[c, count_p, :], color=paw_colors[count_p], linewidth=3)
-        # ax[c].set_title('Component ' + str(c+1), fontsize=16)
         ax[c].spines['right'].set_visible(False)
         ax[c].spines['top'].set_visible(False)
         ax[c].tick_params(axis='both', which='major', labelsize=20)
-        ax[c].set_ylabel('Firing rate\nnorm. (Hz)', fontsize=20)
+        ax[c].set_ylabel('Firing rate\nz-scored', fontsize=20)
         ax[c].set_title('PC'+str(c+1), fontsize=20)
         if align_dimension == 'time':
             ax[c].set_xlabel('Time (ms)', fontsize=20)
@@ -193,13 +201,13 @@ fig = plt.figure(tight_layout=True)
 ax = plt.axes(projection='3d')
 for count_p in range(len(paws)):
     # ax.plot3D(pca_fit_fr_single_paws[count_p][0, :], pca_fit_fr_single_paws[count_p][1, :],
-    #         pca_fit_fr_single_paws[count_p][2, :], color=paw_colors[count_p], linewidth=2)
+    #          pca_fit_fr_single_paws[count_p][2, :], color=paw_colors[count_p], linewidth=2)
     # ax.scatter(pca_fit_fr_single_paws[count_p][0, 10], pca_fit_fr_single_paws[count_p][1, 10],
-    #         pca_fit_fr_single_paws[count_p][2, 10], color=paw_colors[count_p], s=60)
+    #          pca_fit_fr_single_paws[count_p][2, 10], color=paw_colors[count_p], s=60)
     ax.plot3D(pca_fit_fr_single_paws[0, count_p, :], pca_fit_fr_single_paws[1, count_p, :],
-            pca_fit_fr_single_paws[2, count_p, :], color=paw_colors[count_p], linewidth=2)
+           pca_fit_fr_single_paws[2, count_p, :], color=paw_colors[count_p], linewidth=2)
     ax.scatter(pca_fit_fr_single_paws[0, count_p, 10], pca_fit_fr_single_paws[1, count_p, 10],
-             pca_fit_fr_single_paws[2, count_p, 10], color=paw_colors[count_p], s=60)
+            pca_fit_fr_single_paws[2, count_p, 10], color=paw_colors[count_p], s=60)
 for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
     axis.set_ticklabels([])
     axis._axinfo['axisline']['linewidth'] = 2
@@ -208,13 +216,14 @@ for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
 ax.set_xlabel('PC1 (' + str(np.round(pca_fit_fr_paws.explained_variance_ratio_[0]*100, 1)) + '%)', fontsize=20)
 ax.set_ylabel('PC2 (' + str(np.round(pca_fit_fr_paws.explained_variance_ratio_[1]*100, 1)) + '%)', fontsize=20)
 ax.set_zlabel('PC3 (' + str(np.round(pca_fit_fr_paws.explained_variance_ratio_[2]*100, 1)) + '%)', fontsize=20)
-ax.view_init(70, 30)
+ax.view_init(10, 30)
 plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_trajectories'), dpi=256)
 plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_trajectories.svg'), dpi=256)
 
 for c in range(3):
     fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
-    sc = ax.scatter(roi_coordinates_arr[:, 1], roi_coordinates_arr[:, 0], s=5, c=pca_fit_fr_paws_fit_transform[:, c], cmap='coolwarm')
+    sc = ax.scatter(roi_coordinates_arr[:, 1], roi_coordinates_arr[:, 0], s=5, c=pca_fit_fr_paws_fit_transform[:, c], cmap='coolwarm',
+            vmax=12, vmin=-12)
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.tick_params(axis='both', which='major', labelsize=20)
@@ -244,7 +253,7 @@ for c in range(3):
 
 # Reconstruction error
 nrmse = np.zeros(20)
-data_X = firing_rate_animal_trials_concat_paws
+data_X = firing_rate_animal_trials_concat_paws_zscored
 for c in range(20):
     pca_fr_paws = PCA(n_components=c+1)
     pca_fit_fr_paws_models = pca_fr_paws.fit(data_X)

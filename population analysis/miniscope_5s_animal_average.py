@@ -54,16 +54,29 @@ for s in range(len(session_data)):
         df_events_extract_zscore_clustered = df_events_extract_rawtrace[clusters_rois_flat]
         df_extract_rawtrace_detrended_zscore = mscope.norm_traces(df_extract_rawtrace_detrended, 'zscore', 'session')
 
-        # raw signal clustered
+        # # raw signal clustered - ROIS
+        # time_beg_vec = np.arange(0, 60, 5)
+        # time_end_vec = np.arange(5, 60+5, 5)
+        # w = 0 # only from 0 to 5 seconds for each trial
+        # mean_data_trials_rois = []
+        # for count_c, c in enumerate(df_extract_rawtrace_detrended_zscore.columns[2:]):
+        #     data_trials = np.zeros(len(trials))
+        #     for count_t, t in enumerate(trials):
+        #         data_trials[count_t] = df_extract_rawtrace_detrended_zscore.loc[
+        #                           df_extract_rawtrace_detrended_zscore['trial'] == t, c].iloc[time_beg_vec[w]*mscope.sr:time_end_vec[w] * mscope.sr].mean(axis=0)
+        #     mean_data_trials_rois.append(data_trials-np.nanmean(data_trials[trials_baseline-1]))
+        # mean_data_animals.append(mean_data_trials_rois)
+
+        # raw signal clustered - CLUSTERS
         time_beg_vec = np.arange(0, 60, 5)
         time_end_vec = np.arange(5, 60+5, 5)
         w = 0 # only from 0 to 5 seconds for each trial
         mean_data_trials_rois = []
-        for count_c, c in enumerate(df_extract_rawtrace_detrended_zscore.columns[2:]):
+        for count_c, c in enumerate(clusters_rois):
             data_trials = np.zeros(len(trials))
             for count_t, t in enumerate(trials):
-                data_trials[count_t] = df_extract_rawtrace_detrended_zscore.loc[
-                                  df_extract_rawtrace_detrended_zscore['trial'] == t, c].iloc[time_beg_vec[w]*mscope.sr:time_end_vec[w] * mscope.sr].mean(axis=0)
+                df_data = df_extract_rawtrace_detrended_zscore.loc[df_extract_rawtrace_detrended_zscore['trial']==t, c].mean(axis=1)
+                data_trials[count_t] = df_data.iloc[time_beg_vec[w]*mscope.sr:time_end_vec[w] * mscope.sr].mean(axis=0)
             mean_data_trials_rois.append(data_trials-np.nanmean(data_trials[trials_baseline-1]))
         mean_data_animals.append(mean_data_trials_rois)
 
@@ -106,11 +119,12 @@ def get_colors_plot(animal_name, color_animals):
         color_plot = color_animals[4]
     return color_plot
 
+MC8855_idx = 3
 fig, ax = plt.subplots(2, 2, figsize=(10, 7), tight_layout=True)
 ax = ax.ravel()
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
-        if a == 0: #if MC8855
+        if a == MC8855_idx: #if MC8855
             ax[0].scatter(mean_data_animals[a][c][3], np.abs(sl_animals[a][3]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         else:
             ax[0].scatter(mean_data_animals[a][c][6], np.abs(sl_animals[a][6]), s=60, color=get_colors_plot(animal_in[a], color_animals))
@@ -121,7 +135,7 @@ ax[0].spines['right'].set_visible(False)
 ax[0].spines['top'].set_visible(False)
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
-        if a == 0: #if MC8855
+        if a == MC8855_idx: #if MC8855
             ax[1].scatter(mean_data_animals[a][c][13], np.abs(sl_animals[a][13]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         elif len(mean_data_animals[a][c]) == 25: #if mc10221 missing trial 10 if split contra fast S1
             ax[1].scatter(mean_data_animals[a][c][12], np.abs(sl_animals[a][12]), s=60, color=get_colors_plot(animal_in[a], color_animals))
@@ -134,7 +148,7 @@ ax[1].spines['right'].set_visible(False)
 ax[1].spines['top'].set_visible(False)
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
-        if a == 0: #if MC8855
+        if a == MC8855_idx: #if MC8855
             ax[2].scatter(mean_data_animals[a][c][3], np.abs(sl_animals[a][3])-np.abs(sl_animals[a][13]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         elif len(mean_data_animals[a][c]) == 25: #if mc10221 missing trial 10 if split contra fast S1
             ax[2].scatter(mean_data_animals[a][c][3], np.abs(sl_animals[a][3]) - np.abs(sl_animals[a][12]), s=60,
@@ -148,7 +162,7 @@ ax[2].spines['right'].set_visible(False)
 ax[2].spines['top'].set_visible(False)
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
-        if a == 0: #if MC8855
+        if a == MC8855_idx: #if MC8855
             ax[3].scatter(mean_data_animals[a][c][13], np.abs(sl_animals[a][3])-np.abs(sl_animals[a][13]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         elif len(mean_data_animals[a][c]) == 25: #if mc10221 missing trial 10 if split contra fast S1
             ax[3].scatter(mean_data_animals[a][c][12], np.abs(sl_animals[a][3]) - np.abs(sl_animals[a][12]), s=60,
@@ -166,7 +180,7 @@ fig, ax = plt.subplots(2, 2, figsize=(10, 7), tight_layout=True)
 ax = ax.ravel()
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
-        if a == 0: #if MC8855
+        if a == MC8855_idx: #if MC8855
             ax[0].scatter(mean_data_animals[a][c][3], np.abs(coo_animals[a][3]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         else:
             ax[0].scatter(mean_data_animals[a][c][6], np.abs(coo_animals[a][6]), s=60, color=get_colors_plot(animal_in[a], color_animals))
@@ -177,7 +191,7 @@ ax[0].spines['right'].set_visible(False)
 ax[0].spines['top'].set_visible(False)
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
-        if a == 0: #if MC8855
+        if a == MC8855_idx: #if MC8855
             ax[1].scatter(mean_data_animals[a][c][13], np.abs(coo_animals[a][13]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         elif len(mean_data_animals[a][c]) == 25: #if mc10221 missing trial 10 if split contra fast S1
             ax[1].scatter(mean_data_animals[a][c][12], np.abs(coo_animals[a][12]), s=60, color=get_colors_plot(animal_in[a], color_animals))
@@ -190,7 +204,7 @@ ax[1].spines['right'].set_visible(False)
 ax[1].spines['top'].set_visible(False)
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
-        if a == 0: #if MC8855
+        if a == MC8855_idx: #if MC8855
             ax[2].scatter(mean_data_animals[a][c][3], np.abs(coo_animals[a][3])-np.abs(coo_animals[a][13]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         elif len(mean_data_animals[a][c]) == 25: #if mc10221 missing trial 10 if split contra fast S1
             ax[2].scatter(mean_data_animals[a][c][3], np.abs(coo_animals[a][3]) - np.abs(coo_animals[a][12]), s=60,
@@ -204,7 +218,7 @@ ax[2].spines['right'].set_visible(False)
 ax[2].spines['top'].set_visible(False)
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
-        if a == 0: #if MC8855
+        if a == MC8855_idx: #if MC8855
             ax[3].scatter(mean_data_animals[a][c][13], np.abs(coo_animals[a][3])-np.abs(coo_animals[a][13]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         elif len(mean_data_animals[a][c]) == 25: #if mc10221 missing trial 10 if split contra fast S1
             ax[3].scatter(mean_data_animals[a][c][12], np.abs(coo_animals[a][3]) - np.abs(coo_animals[a][12]), s=60,
@@ -222,7 +236,7 @@ fig, ax = plt.subplots(2, 2, figsize=(10, 7), tight_layout=True)
 ax = ax.ravel()
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
-        if a == 0: #if MC8855
+        if a == MC8855_idx: #if MC8855
             ax[0].scatter(mean_data_animals[a][c][3], np.abs(ds_animals[a][3]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         else:
             ax[0].scatter(mean_data_animals[a][c][6], np.abs(ds_animals[a][6]), s=60, color=get_colors_plot(animal_in[a], color_animals))
@@ -233,7 +247,7 @@ ax[0].spines['right'].set_visible(False)
 ax[0].spines['top'].set_visible(False)
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
-        if a == 0: #if MC8855
+        if a == MC8855_idx: #if MC8855
             ax[1].scatter(mean_data_animals[a][c][13], np.abs(ds_animals[a][13]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         elif len(mean_data_animals[a][c]) == 25: #if mc10221 missing trial 10 if split contra fast S1
             ax[1].scatter(mean_data_animals[a][c][12], np.abs(ds_animals[a][12]), s=60, color=get_colors_plot(animal_in[a], color_animals))
@@ -246,7 +260,7 @@ ax[1].spines['right'].set_visible(False)
 ax[1].spines['top'].set_visible(False)
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
-        if a == 0: #if MC8855
+        if a == MC8855_idx: #if MC8855
             ax[2].scatter(mean_data_animals[a][c][3], np.abs(ds_animals[a][3])-np.abs(ds_animals[a][13]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         elif len(mean_data_animals[a][c]) == 25: #if mc10221 missing trial 10 if split contra fast S1
             ax[2].scatter(mean_data_animals[a][c][3], np.abs(ds_animals[a][3]) - np.abs(ds_animals[a][12]), s=60,
@@ -260,7 +274,7 @@ ax[2].spines['right'].set_visible(False)
 ax[2].spines['top'].set_visible(False)
 for a in range(len(mean_data_animals)):
     for c in range(len(mean_data_animals[a])):
-        if a == 0: #if MC8855
+        if a == MC8855_idx: #if MC8855
             ax[3].scatter(mean_data_animals[a][c][13], np.abs(ds_animals[a][3])-np.abs(ds_animals[a][13]), s=60,  color=get_colors_plot(animal_in[a], color_animals))
         elif len(mean_data_animals[a][c]) == 25: #if mc10221 missing trial 10 if split contra fast S1
             ax[3].scatter(mean_data_animals[a][c][12], np.abs(ds_animals[a][3]) - np.abs(ds_animals[a][12]), s=60,

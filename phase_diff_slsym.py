@@ -52,7 +52,7 @@ for count_trial, f in enumerate(filelist):
         loco.compute_gait_param(bodycenter, final_tracks, paws_rel, st_strides_mat, sw_pts_mat, param_name))
     param_trials_fr_mean[count_trial] = np.nanmean(param_trials[-1][0]) - np.nanmean(param_trials[-1][2])
 final_tracks_trials_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials,
-                                                    'st-st')
+                                                    'st-sw-st')
 time_continuous = []
 phase_diff_FR_FL_stst = []
 phase_diff_FR_HR_stst = []
@@ -119,4 +119,4 @@ ax[5].set_xlabel('Time (min)')
 ax[5].set_title('FR-FL difference', fontsize=mscope.fsize - 4)
 ax[5].spines['right'].set_visible(False)
 ax[5].spines['top'].set_visible(False)
-plt.savefig('J:\\Miniscope processed files\\step_length_phasediff_pawdiff_window_'+str(window), dpi=mscope.my_dpi)
+plt.savefig('J:\\Miniscope processed files\\step_length_phasediff_pawdiff_window_st_sw_st_'+str(window), dpi=mscope.my_dpi)

@@ -32,8 +32,9 @@ def Detect_PosEvents_ROI(dff_signal, acq_fq, rtau, graph=None):
     # Find the most approximated noise amplitude estimation using the 'gaussian derivative' trick:
     TrueStd, deriv_mean, deriv_std = DerivGauss_NoiseEstim(dff_signal, thres=2)
     # Use that noise amplitude to define regions of slope change / stability
-    IncremSet, DecremSet, F_Values = SlopeThreshold(dff_signal, TrueStd*2, int(np.ceil(rtau*acq_fq)),
-                                                       CollapSeq=False, acausal=True, graph=graph)
+
+    IncremSet, DecremSet, F_Values = SlopeThreshold(dff_signal, TrueStd * 2.5, int(np.ceil(rtau * acq_fq)),
+                                                    CollapSeq=False, acausal=True, graph=graph) #TrueStd*2 before, TrueStd*4 for HF data
 
     Ev_Onset = list(map(lambda x : x[0], IncremSet)); Ev_ApproxPeak = list(map(lambda x : x[1], IncremSet))
     return Ev_Onset, Ev_ApproxPeak, TrueStd, IncremSet
@@ -61,6 +62,7 @@ def Estim_Baseline_PosEvents(rawdata, acq_fq, dtau=0.2, bmax_tslope=3, filtcut=N
     TrueStd, deriv_mean, deriv_std = DerivGauss_NoiseEstim(rawdata, thres=2)
 
     # Use that noise amplitude to define regions of slope change / stability
+    #TrueStd*3 is the threshold used up until Sep2023
     IncremSet, DecremSet, F_Values = SlopeThreshold(rawdata, TrueStd*3, max(2, int(dtau*acq_fq)),
                                                        CollapSeq=False, acausal=True, graph=None)
 

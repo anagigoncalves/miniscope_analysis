@@ -7,12 +7,12 @@ import warnings
 import matplotlib as mp
 
 # path inputs
-path = 'H:\\TM RAW FILES\\split ipsi fast\\MC9194\\2021_07_01\\'
-path_loco = 'H:\\TM TRACKING FILES\\split ipsi fast S3 010721\\'
+path = 'D:\\Miniscopes\\TM RAW FILES\\split contra fast 405 with 480 videos for processing together\\MC13419\\2022_05_31\\'
+path_loco = 'D:\\Miniscopes\\TM TRACKING FILES\\split contra fast S1 310522 480nm\\'
 session_type = path.split('\\')[-4].split(' ')[0]
 version_mscope = 'v4'
 plot_data = 1
-load_data = 1
+load_data = 0
 print_plots = 1
 save_data = 1
 paw_colors = ['red', 'magenta', 'blue', 'cyan']

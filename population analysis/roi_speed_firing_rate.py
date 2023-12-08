@@ -18,8 +18,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'C:\\Users\\Ana\\Desktop\\Miniscope processed files\\'
-session_data = pd.read_excel('C:\\Users\\Ana\\Desktop\\Miniscope processed files\\session_data_tied.xlsx')
+path_session_data = 'J:\\Miniscope processed files\\'
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_tied_S1.xlsx')
 event_count_loco_slow_all = []
 event_count_loco_fast_all = []
 event_count_loco_baseline_all = []
@@ -116,9 +116,74 @@ for count_a, a in enumerate(animals):
 ax.set_xticks([1.5, 3.5, 5.5])
 ax.set_xticklabels(['slow', 'baseline', 'fast'])
 ax.set_xlabel('Speed', fontsize=mscope.fsize - 4)
-ax.set_ylabel('FR forward locomotion', fontsize=mscope.fsize - 4)
+ax.set_ylabel('Firing rate during\nforward locomotion', fontsize=mscope.fsize - 4)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 6)
 plt.savefig(os.path.join(path_session_data, 'rois_fr_forwardloco_speed'), dpi=mscope.my_dpi)
 
+fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True, sharey=True)
+for count_a, a in enumerate(animals):
+    animal_idx = np.where(np.isin(event_count_loco_animals, a))[0]
+    slow_values = []
+    fast_values = []
+    bs_values = []
+    for i in animal_idx:
+        slow_values.append(np.array(event_count_loco_slow_all)[i])
+        fast_values.append(np.array(event_count_loco_fast_all[i]))
+        bs_values.append(np.array(event_count_loco_baseline_all[i]))
+    animal_values = [slow_values, bs_values, fast_values]
+    violin_parts = plt.violinplot(animal_values, positions=[0 + count_a, 6 + count_a, 12 + count_a])
+    for pc in violin_parts['bodies']:
+        pc.set_color(color_animals[count_a])
+    violin_parts['cbars'].set_color(color_animals[count_a])
+    violin_parts['cmins'].set_color(color_animals[count_a])
+    violin_parts['cmaxes'].set_color(color_animals[count_a])
+ax.set_xticks([3, 9, 15])
+ax.set_xticklabels(['slow', 'baseline', 'fast'])
+ax.set_xlabel('Speed', fontsize=mscope.fsize - 4)
+ax.set_ylabel('Firing rate during\nforward locomotion', fontsize=mscope.fsize - 4)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 4)
+plt.savefig(os.path.join(path_session_data, 'rois_fr_forwardloco_speed_violin'), dpi=mscope.my_dpi)
+
+slow_all = []
+fast_all = []
+bs_all = []
+for count_a, a in enumerate(animals):
+    animal_idx = np.where(np.isin(event_count_loco_animals, a))[0]
+    for i in animal_idx:
+        slow_all.append(event_count_loco_slow_all[i])
+        fast_all.append(event_count_loco_fast_all[i])
+        bs_all.append(event_count_loco_baseline_all[i])
+slow_all_arr = np.array(slow_all)
+fast_all_arr = np.array(fast_all)
+bs_all_arr = np.array(bs_all)
+slow_notnan = slow_all_arr[~np.isnan(slow_all_arr)]
+fast_notnan = fast_all_arr[~np.isnan(fast_all_arr)]
+bs_notnan = bs_all_arr[~np.isnan(bs_all_arr)]
+plot_values = [slow_notnan, bs_notnan, fast_notnan]
+color_plots = ['purple', 'black', 'orange']
+fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True, sharey=True)
+violin_parts = plt.violinplot(plot_values, positions=[1, 2 ,3])
+for count_pc, pc in enumerate(violin_parts['bodies']):
+    pc.set_color(color_plots[count_pc])
+violin_parts['cbars'].set_color(color_plots)
+violin_parts['cmins'].set_color(color_plots)
+violin_parts['cmaxes'].set_color(color_plots)
+ax.set_xticks([1, 2, 3])
+ax.set_xticklabels(['slow', 'baseline', 'fast'])
+ax.set_xlabel('Speed', fontsize=mscope.fsize - 4)
+ax.set_ylabel('Firing rate during\nforward locomotion', fontsize=mscope.fsize - 4)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.tick_params(axis='both', which='major', labelsize=mscope.fsize - 4)
+plt.savefig(os.path.join(path_session_data, 'rois_fr_forwardloco_speed_violin_pooled'), dpi=mscope.my_dpi)
+
+
+
+
+# plt.hist(slow_all, bins=25, color='purple')
+# plt.hist(bs_all, bins=25, color='black')
+# plt.hist(fast_all, bins=25, color='orange')

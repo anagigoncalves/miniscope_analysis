@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import circmean
 
 #path inputs
-path_loco = 'J:\\Miniscope processed files\\Non-miniscope locomotion data\\Treadmill adaptation\\'
+path_loco = 'C:\\Users\\Ana\\Documents\\PhD\\Projects\\STGVL-STGSN\\STGSN\\190723 stgsn split right fast\\'
 print_plots  = 1
 frames_dFF = 0 #black frames removed before ROI segmentation
 paw_colors = ['red','magenta','blue','cyan']
@@ -153,32 +153,32 @@ for p in range(np.shape(param_sym)[0]-1):
 #             os.mkdir(path_save)
 #         plt.savefig(path_save+param_sym_name[p]+'_sym', dpi=128)
 
-# #plot phase and stance speed
-# for a in range(np.shape(stance_speed)[1]):
-#     fig, ax = plt.subplots(1,2,figsize=(10,10), tight_layout=True)
-#     ax = ax.ravel()
-#     rectangle = plt.Rectangle((tied_trials_all[0][-1]+0.5,10), 10, 210-(-10), fc='dimgrey',alpha=0.3)
-#     for i in range(2):
-#         if i == 0: #phase_st
-#             data = param_phase[:,a,:]
-#         if i == 1:
-#             data = stance_speed[:,a,:]
-#         for p in range(4):
-#             ax[i].axvline(x = tied_trials_all[0][-1]+0.5, color='dimgray', linestyle='--')
-#             ax[i].axvline(x = split_trials_all[0][-1]+0.5, color='dimgray', linestyle='--')
-#             ax[i].plot(np.linspace(1,len(data[p,:]),len(data[p,:])), data[p,:], color = paw_colors[p], linewidth = 2)
-#             ax[i].spines['right'].set_visible(False)
-#             ax[i].spines['top'].set_visible(False)
-#             ax[i].set_xlabel('Trial', fontsize = 20)
-#             ax[i].set_ylabel('Stance phasing', fontsize = 20)
-#             ax[i].tick_params(axis='x',labelsize = 16)
-#             ax[i].tick_params(axis='y',labelsize = 16)
-#             ax[i].set_title(animal_list[a],fontsize=18)
-#     if print_plots:
-#         if not os.path.exists(path_save):
-#             os.mkdir(path_save)
-#         plt.savefig(path_save+'_'+animal_list[a]+'_phase_st_stancespeed', dpi=96)
-#
+#plot phase and stance speed
+for a in range(np.shape(stance_speed)[1]):
+    fig, ax = plt.subplots(1,2,figsize=(10,10), tight_layout=True)
+    ax = ax.ravel()
+    rectangle = plt.Rectangle((tied_trials_all[0][-1]+0.5,10), 10, 210-(-10), fc='dimgrey',alpha=0.3)
+    for i in range(2):
+        if i == 0: #phase_st
+            data = param_phase[:,a,:]
+        if i == 1:
+            data = stance_speed[:,a,:]
+        for p in range(4):
+            ax[i].axvline(x = tied_trials_all[0][-1]+0.5, color='dimgray', linestyle='--')
+            ax[i].axvline(x = split_trials_all[0][-1]+0.5, color='dimgray', linestyle='--')
+            ax[i].plot(np.linspace(1,len(data[p,:]),len(data[p,:])), data[p,:], color = paw_colors[p], linewidth = 2)
+            ax[i].spines['right'].set_visible(False)
+            ax[i].spines['top'].set_visible(False)
+            ax[i].set_xlabel('Trial', fontsize = 20)
+            ax[i].set_ylabel('Stance phasing', fontsize = 20)
+            ax[i].tick_params(axis='x',labelsize = 16)
+            ax[i].tick_params(axis='y',labelsize = 16)
+            ax[i].set_title(animal_list[a],fontsize=18)
+    if print_plots:
+        if not os.path.exists(path_save):
+            os.mkdir(path_save)
+        plt.savefig(path_save+'_'+animal_list[a]+'_phase_st_stancespeed', dpi=96)
+
 # p = 1
 # fig, ax = plt.subplots(figsize=(5,10), tight_layout=True)
 # rectangle = plt.Rectangle((tied_trials_all[0][-1]+0.5,min(param_sym_bs[p,:,:].flatten())), 10, max(param_sym_bs[p,:,:].flatten())-min(param_sym_bs[p,:,:].flatten()), fc='dimgrey',alpha=0.1)

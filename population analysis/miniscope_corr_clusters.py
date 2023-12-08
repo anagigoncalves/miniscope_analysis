@@ -18,8 +18,12 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
-path_session_data = 'C:\\Users\\Ana\\Desktop\\Miniscope processed files\\'
-session_data = pd.read_excel('C:\\Users\\Ana\\Desktop\\Miniscope processed files\\session_data_all.xlsx')
+path_session_data = 'J:\\Miniscope processed files\\'
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
+corr_data_all = []
+corr_data_all_bs = []
+animal_in = []
+trials_in = []
 for s in range(len(session_data)):
     ses_info = session_data.iloc[s, :]
     date = ses_info[3]
@@ -52,75 +56,87 @@ for s in range(len(session_data)):
         idx_trial = np.where(trials_baseline==t)[0][0]
         trials_baseline_idx.append(idx_trial)
 
-    fig, ax = plt.subplots(1, 2, figsize=(10, 5), tight_layout=True)
-    corr_data_clusters_bs = np.zeros((len(clusters_rois), len(trials)))
+    corr_data_trials = np.zeros((len(clusters_rois), len(trials)))
     for c in range(len(clusters_rois)):
-        corr_data_trials = np.zeros(len(trials))
         for count_t, t in enumerate(trials):
-            # mean_corr = np.nanmean(np.array(df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == t, clusters_rois[c]].corr())[1:, 0])
-            mean_corr = np.nanmean(np.array(df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == t, clusters_rois[c]].corr()).flatten())
-            corr_data_trials[count_t] = mean_corr
-        corr_data_clusters_bs[c, :] = corr_data_trials-np.nanmean(corr_data_trials[trials_baseline_idx])
-        ax[0].plot(trials, corr_data_trials, marker='o', color=colors_cluster[c], markersize=5, linewidth=2)
-        ax[1].plot(trials, corr_data_trials-np.nanmean(corr_data_trials[trials_baseline_idx]), marker='o', color=colors_cluster[c], markersize=5, linewidth=2)
-    ax[0].set_title('Mean cluster correlation', fontsize=mscope.fsize - 8)
-    ax[1].set_title('Baseline subtracted', fontsize=mscope.fsize - 8)
-    ax[0].axvline(trials_baseline[-1]+0.5, linestyle='dashed', color='black')
-    ax[0].axvline(trials_split[-1] + 0.5, linestyle='dashed', color='black')
-    ax[1].axvline(trials_baseline[-1]+0.5, linestyle='dashed', color='black')
-    ax[1].axvline(trials_split[-1] + 0.5, linestyle='dashed', color='black')
-    ax[0].spines['right'].set_visible(False)
-    ax[0].spines['top'].set_visible(False)
-    ax[1].spines['right'].set_visible(False)
-    ax[1].spines['top'].set_visible(False)
-    if print_plots:
-        plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'corr_summary_raw'), dpi=mscope.my_dpi)
+            corr_data_trials[c, count_t] = np.nanmean(np.array(df_extract_rawtrace_detrended.loc[df_extract_rawtrace_detrended['trial'] == t, clusters_rois[c]].corr()).flatten())
+    corr_data_trials_bs = corr_data_trials-np.nanmean(corr_data_trials[:, trials_baseline-1])
+    corr_data_all.append(corr_data_trials)
+    corr_data_all_bs.append(corr_data_trials_bs)
+    animal_in.append(animal)
+    trials_in.append(trials)
 
-    fig, ax = plt.subplots(figsize=(4, 5), tight_layout=True)
-    ax.plot(trials, np.nanmean(corr_data_clusters_bs, axis=0), marker='o', color='black', markersize=5, linewidth=2)
-    ax.fill_between(trials, np.nanmean(corr_data_clusters_bs, axis=0)-np.nanstd(corr_data_clusters_bs, axis=0),
-                    np.nanmean(corr_data_clusters_bs, axis=0) + np.nanstd(corr_data_clusters_bs, axis=0), color='black', alpha=0.3)
-    ax.set_title('Mean cluster correlation bs', fontsize=mscope.fsize - 8)
-    ax.axvline(trials_baseline[-1]+0.5, linestyle='dashed', color='black')
-    ax.axvline(trials_split[-1] + 0.5, linestyle='dashed', color='black')
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    if print_plots:
-        plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'corr_summary_cluster_mean_raw'), dpi=mscope.my_dpi)
+cmap = plt.get_cmap('magma')
+color_animals = [cmap(i) for i in np.linspace(0, 1, 6)]
+def get_colors_plot(animal_name, color_animals):
+    if animal_name=='MC8855':
+        color_plot = color_animals[0]
+    if animal_name=='MC9194':
+        color_plot = color_animals[1]
+    if animal_name=='MC10221':
+        color_plot = color_animals[2]
+    if animal_name=='MC9513':
+        color_plot = color_animals[3]
+    if animal_name=='MC9226':
+        color_plot = color_animals[4]
+    return color_plot
 
-    fig, ax = plt.subplots(1, 2, figsize=(10, 5), tight_layout=True)
-    corr_data_clusters_events_bs = np.zeros((len(clusters_rois), len(trials)))
-    for c in range(len(clusters_rois)):
-        corr_data_trials_events = np.zeros(len(trials))
-        for count_t, t in enumerate(trials):
-            # mean_corr_events = np.nanmean(np.array(df_events_extract_rawtrace.loc[df_events_extract_rawtrace['trial'] == t, clusters_rois[c]].corr())[1:, 0])
-            mean_corr_events = np.nanmean(np.array(df_events_extract_rawtrace.loc[df_events_extract_rawtrace['trial'] == t, clusters_rois[c]].corr()).flatten())
-            corr_data_trials_events[count_t] = mean_corr_events
-        corr_data_clusters_events_bs[c, :] = corr_data_trials_events-np.nanmean(corr_data_trials_events[trials_baseline_idx])
-        ax[0].plot(trials, corr_data_trials_events, marker='o', color=colors_cluster[c], markersize=5, linewidth=2)
-        ax[1].plot(trials, corr_data_trials_events-np.nanmean(corr_data_trials_events[trials_baseline_idx]), marker='o', color=colors_cluster[c], markersize=5, linewidth=2)
-    ax[0].set_title('Mean cluster events correlation', fontsize=mscope.fsize - 8)
-    ax[1].set_title('Baseline subtracted', fontsize=mscope.fsize - 8)
-    ax[0].axvline(trials_baseline[-1]+0.5, linestyle='dashed', color='black')
-    ax[0].axvline(trials_split[-1] + 0.5, linestyle='dashed', color='black')
-    ax[1].axvline(trials_baseline[-1]+0.5, linestyle='dashed', color='black')
-    ax[1].axvline(trials_split[-1] + 0.5, linestyle='dashed', color='black')
-    ax[0].spines['right'].set_visible(False)
-    ax[0].spines['top'].set_visible(False)
-    ax[1].spines['right'].set_visible(False)
-    ax[1].spines['top'].set_visible(False)
-    if print_plots:
-        plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'corr_summary_events'), dpi=mscope.my_dpi)
+fig, ax = plt.subplots(figsize=(5, 10), tight_layout=True)
+rectangle = plt.Rectangle((6.5, 0.5), 10, 1.6, fc='dimgrey', alpha=0.3)
+plt.gca().add_patch(rectangle)
+for a in range(len(corr_data_all)):
+    if a == 3:
+        ax.plot(np.arange(4, 27), np.nanmean(corr_data_all[a], axis=0)+(a/3), marker='o',
+                color=get_colors_plot(animal_in[a], color_animals), markersize=5, linewidth=3)
+        ax.fill_between(np.arange(4, 27), np.nanmean(corr_data_all[a], axis=0)+(a/3) - np.nanstd(corr_data_all[a], axis=0),
+                        np.nanmean(corr_data_all[a], axis=0) + np.nanstd(corr_data_all[a], axis=0)+(a/3),
+                        color=get_colors_plot(animal_in[a], color_animals), alpha=0.3)
+    else:
+        ax.plot(trials_in[a], np.nanmean(corr_data_all[a], axis=0)+(a/3), marker='o',
+                color=get_colors_plot(animal_in[a], color_animals), markersize=5, linewidth=3)
+        ax.fill_between(trials_in[a], np.nanmean(corr_data_all[a], axis=0)+(a/3) - np.nanstd(corr_data_all[a], axis=0),
+                        np.nanmean(corr_data_all[a], axis=0) + np.nanstd(corr_data_all[a], axis=0)+(a/3),
+                        color=get_colors_plot(animal_in[a], color_animals), alpha=0.3)
+ax.set_title('Mean cluster correlation', fontsize=mscope.fsize - 2)
+ax.legend(animal_in, frameon=False, fontsize=mscope.fsize-4)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+plt.savefig('J:\\Miniscope processed files\\corr_summary_cluster_mean_raw', dpi=mscope.my_dpi)
 
-    fig, ax = plt.subplots(figsize=(4, 5), tight_layout=True)
-    ax.plot(trials, np.nanmean(corr_data_clusters_events_bs, axis=0), marker='o', color='black', markersize=5, linewidth=2)
-    ax.fill_between(trials, np.nanmean(corr_data_clusters_events_bs, axis=0)-np.nanstd(corr_data_clusters_events_bs, axis=0),
-                    np.nanmean(corr_data_clusters_events_bs, axis=0) + np.nanstd(corr_data_clusters_events_bs, axis=0), color='black', alpha=0.3)
-    ax.set_title('Mean cluster events correlation bs', fontsize=mscope.fsize - 8)
-    ax.axvline(trials_baseline[-1]+0.5, linestyle='dashed', color='black')
-    ax.axvline(trials_split[-1] + 0.5, linestyle='dashed', color='black')
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    if print_plots:
-        plt.savefig(os.path.join(mscope.path, 'images', 'cluster', 'corr_summary_events_cluster_mean_raw'), dpi=mscope.my_dpi)
-    plt.close('all')
+fig, ax = plt.subplots(figsize=(7, 10), tight_layout=True)
+rectangle = plt.Rectangle((6.5, -0.1), 10, 1, fc='dimgrey', alpha=0.3)
+plt.gca().add_patch(rectangle)
+for a in range(len(corr_data_all)):
+    if a == 3:
+        ax.plot(np.arange(4, 27), np.nanmean(corr_data_all_bs[a], axis=0)+(a/5), marker='o',
+                color=get_colors_plot(animal_in[a], color_animals), markersize=5, linewidth=3)
+        ax.fill_between(np.arange(4, 27), np.nanmean(corr_data_all_bs[a], axis=0)+(a/5) - np.nanstd(corr_data_all_bs[a], axis=0),
+                        np.nanmean(corr_data_all_bs[a], axis=0) + np.nanstd(corr_data_all_bs[a], axis=0)+(a/5),
+                        color=get_colors_plot(animal_in[a], color_animals), alpha=0.3)
+    else:
+        ax.plot(trials_in[a], np.nanmean(corr_data_all_bs[a], axis=0)+(a/5), marker='o',
+                color=get_colors_plot(animal_in[a], color_animals), markersize=5, linewidth=3)
+        ax.fill_between(trials_in[a], np.nanmean(corr_data_all_bs[a], axis=0)+(a/5) - np.nanstd(corr_data_all_bs[a], axis=0),
+                        np.nanmean(corr_data_all_bs[a], axis=0) + np.nanstd(corr_data_all_bs[a], axis=0)+(a/5),
+                        color=get_colors_plot(animal_in[a], color_animals), alpha=0.3)
+ax.set_title('Mean cluster correlation baseline subtracted', fontsize=mscope.fsize - 2)
+ax.legend(animal_in, frameon=False, fontsize=mscope.fsize-4)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+plt.savefig('J:\\Miniscope processed files\\corr_summary_cluster_mean_raw_bs', dpi=mscope.my_dpi)
+
+fig, ax = plt.subplots(figsize=(7, 10), tight_layout=True)
+rectangle = plt.Rectangle((6.5, -0.1), 10, 1, fc='dimgrey', alpha=0.3)
+plt.gca().add_patch(rectangle)
+for a in range(len(corr_data_all)):
+    if a == 3:
+        ax.plot(np.arange(4, 27), np.transpose(corr_data_all_bs[a])+(a/5), marker='o',
+                color=get_colors_plot(animal_in[a], color_animals), markersize=5, linewidth=3)
+    else:
+        ax.plot(trials_in[a], np.transpose(corr_data_all_bs[a])+(a/5), marker='o',
+                color=get_colors_plot(animal_in[a], color_animals), markersize=5, linewidth=3)
+ax.set_title('Mean cluster correlation baseline subtracted', fontsize=mscope.fsize - 2)
+ax.legend(animal_in, frameon=False, fontsize=mscope.fsize-4)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+plt.savefig('J:\\Miniscope processed files\\corr_summary_cluster_mean_raw_allclusters_bs', dpi=mscope.my_dpi)

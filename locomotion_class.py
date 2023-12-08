@@ -44,7 +44,7 @@ class loco_class:
         self.sr_F = 30
         self.my_dpi = 96 #resolution for plotting
         self.floor = 152*self.pixel_to_mm #Dana's setup
-        # floor = 155*pixel_to_mm #Jovin's setup    
+        # self.floor = 152*self.pixel_to_mm #Jovin's setup
 
     @staticmethod
     def inpaint_nans(A):
@@ -312,16 +312,74 @@ class loco_class:
                         if phase_type == 'st-sw-st':
                             nr_st = len(final_tracks_trials[count_t][0, p, st_on:sw_on])
                             nr_sw = len(final_tracks_trials[count_t][0, p, sw_on:st_off])
-                            excursion_phase[st_on - 1:sw_on] = np.linspace(0, 0.5, nr_st + 1)
-                            excursion_phase[sw_on - 1:st_off] = np.linspace(0.5, 1, nr_sw + 1)
-                            excursion_phase[st_off] = 0  # put it there -1
+                            excursion_phase[st_on:sw_on+1] = np.linspace(0, 0.5, nr_st + 1)
+                            excursion_phase[sw_on:st_off+1] = np.linspace(0.5, 1, nr_sw + 2)[:-1]
+                            # excursion_phase[st_off+1] = 0  # put it there -1
                         if phase_type == 'st-st':
                             nr_st = len(final_tracks_trials[count_t][0, p, st_on:st_off])
-                            excursion_phase[st_on - 1:st_off] = np.linspace(0, 1, nr_st + 1)
-                            excursion_phase[st_off] = 0  # put it there -1
+                            excursion_phase[st_on:st_off+1] = np.linspace(0, 1, nr_st + 2)[:-1]
+                            # excursion_phase[st_off+1] = 0  # put it there -1
+                        #TODO sw-sw phase
                     final_tracks_phase[a, p, :] = excursion_phase
             final_tracks_trials_phase.append(final_tracks_phase)
         return final_tracks_trials_phase
+
+    @staticmethod
+    def phase_unwrap(data):
+        """Uses numpy unwrap to unwrap phases only in continuous portions of the 1-d data array"""
+        data_notnan = [data[s] for s in np.ma.clump_unmasked(np.ma.masked_invalid(data))]
+        data_notnan_idx = [np.arange(s.start, s.stop) for s in
+                           np.ma.clump_unmasked(np.ma.masked_invalid(data))]  # get idx of nan values
+        data_unwrapped = np.zeros(len(data))
+        data_unwrapped[:] = np.nan
+        for i in range(len(data_notnan)):
+            data_unwrap = np.unwrap(
+                data_notnan[i] * 2 * np.pi)  # on data that is not nan, multiply by 2*pi and do np.unwrap
+            data_unwrapped[data_notnan_idx[i]] = data_unwrap  # put data that was unwraped on the initial idx
+        return data_unwrapped
+
+    @staticmethod
+    def phase_diff(final_tracks_phase, paw_1, paw_2, axis):
+        """Compute phase difference between two paws for a certain axis
+            final_tracks_phase: (list) with phase values for each trial
+            p1: (str) FR, HR, Fl or HL
+            p2: (str) FR, HR, Fl or HL
+            axis: (str) X, Y or Z"""
+        if paw_1 == 'FR':
+            p1 = 0
+        if paw_1 == 'HR':
+            p1 = 1
+        if paw_1 == 'FL':
+            p1 = 2
+        if paw_1 == 'HL':
+            p1 = 3
+        if paw_2 == 'FR':
+            p2 = 0
+        if paw_2 == 'HR':
+            p2 = 1
+        if paw_2 == 'FL':
+            p2 = 2
+        if paw_2 == 'HL':
+            p2 = 3
+        if axis == 'X':
+            a = 0
+        if axis == 'Y':
+            a = 1
+        if axis == 'Z':
+            a = 3
+        data_diff_trials = []
+        for t in range(len(final_tracks_phase)):
+            data_p1 = final_tracks_phase[t][a, p1, :]
+            data_p2 = final_tracks_phase[t][a, p2, :]
+            # for the two paws one wants to compute put nan on nan idx from both vectors
+            idx_nan_common = np.unique(np.concatenate((np.where(np.isnan(data_p1))[0], np.where(np.isnan(data_p2))[0])))
+            data_p1[idx_nan_common] = np.nan
+            data_p2[idx_nan_common] = np.nan
+            data_p1_unwrap = loco_class.phase_unwrap(data_p1)
+            data_p2_unwrap = loco_class.phase_unwrap(data_p2)
+            data_diff = np.subtract(data_p1_unwrap, data_p2_unwrap)
+            data_diff_trials.append(data_diff%(2*np.pi))
+        return data_diff_trials
 
     def get_sw_st_matrices_JR(self,final_tracks,dict_swst,exclusion):
         """Computes swing and stance points of a trial from x axis of the bottom view tracking.
@@ -843,10 +901,10 @@ class loco_class:
     
     def compute_bodyspeed(self,bodycenter):
         """Computes body speed with a Savitzky-Golay filter"""
-        bodyspeed = savgol_filter(self.inpaint_nans(bodycenter),51,3,deriv=1)
+        bodyspeed = savgol_filter(self.inpaint_nans(bodycenter),81,3,deriv=1)
         return bodyspeed
     
-    def compute_bodycenter(self,final_tracks,axis_name):
+    def compute_bodycenter(self, final_tracks, axis_name):
         """ Computes bodycenter as the mean of the four paws for the desired axis"""
         if axis_name == 'X':
             axis_id = 0
@@ -858,7 +916,7 @@ class loco_class:
 
     def compute_bodyacc(self,bodycenter):
         """Computes body acceleration with a Savitzky-Golay filter"""
-        bodyacc = savgol_filter(self.inpaint_nans(bodycenter),51,3,deriv=2)
+        bodyacc = savgol_filter(self.inpaint_nans(bodycenter),81,3,deriv=2)
         return bodyacc
 
     def get_trials_split(self,filelist): 

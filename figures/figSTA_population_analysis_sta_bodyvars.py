@@ -14,13 +14,13 @@ import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(path_session_data +'\\session_data_split_S1.xlsx')
-load_path = path_session_data + '\\Analysis on population data\\STA bodyvars\\split ipsi fast S1\\'
-save_path = 'J:\\Thesis\\for figures\\fig2\\'
-protocol_type = 'split'
+session_data = pd.read_excel(path_session_data +'\\session_data_tied_S1.xlsx')
+load_path = path_session_data + '\\Analysis on population data\\STA bodyvars\\tied baseline S1\\'
+save_path = 'J:\\Thesis\\for figures\\fig sta\\'
+protocol_type = 'tied'
 sort_type = 'ML'
 window = np.arange(-330, 330 + 1)  # Samples
-zoom_in = np.array([-1, 0.25])
+zoom_in = np.array([-0.75, 0.5])
 xaxis = window / 330
 xaxis_start = np.where(xaxis >= zoom_in[0])[0][0]
 xaxis_end = np.where(xaxis >= zoom_in[1])[0][0]
@@ -34,7 +34,7 @@ fov_coords = np.array([[6.27, 0.53],
                      [6.80, 1.75],
                      [6.98, 1.47],
                      [6.39, 1.62]]) #AP, ML
-var_names = ['Body position', 'Body speed', 'Body acceleration']
+var_names = ['Body position', 'Body speed', 'Body acceleration', 'Body jerk']
 
 sta_zoom_all_concat_vars = []
 sta_zoom_all_cluster_size = []
@@ -150,12 +150,55 @@ for var in var_names:
     sta_zoom_all_cluster_size.append(np.cumsum(np.array(sta_cluster_size)))
 
 #ANIMALS SUMMARY HEATMAP
+for count_v, var in enumerate(var_names):
+    fig, ax = plt.subplots(figsize=(5, 10), tight_layout='True')
+    hm = sns.heatmap(sta_zoom_all_concat_vars_notzscored[count_v], vmax=np.nanpercentile(sta_zoom_all_concat_vars_notzscored[count_v], 99.5),
+                vmin=np.nanpercentile(sta_zoom_all_concat_vars_notzscored[count_v], 0.5), cmap='coolwarm')
+    ax.set_xticks(np.array([0, np.where(xaxis == 0)[0][0]-xaxis_start, np.shape(sta_zoom_all_concat_vars[count_v])[1]]))
+    ax.set_xticklabels([str(np.round(xaxis[xaxis_start], 2)), '0', str(np.round(xaxis[xaxis_end], 2))], fontsize=20)
+    ax.axvline(x=np.where(xaxis==0)[0][0]-xaxis_start, color='white', linewidth=2)
+    ax.set_yticks(sta_zoom_all_cluster_size[count_v])
+    ax.set_xlabel('Time around event (s)', fontsize=20)
+    ax.tick_params(axis='both', which='major', labelsize=16)
+    if sort_type == 'ML':
+        ax.set_yticklabels(list(map(str, np.round(np.sort(sta_ml), 2))), fontsize=12, rotation=45)
+    if sort_type == 'AP':
+        ax.set_yticklabels(list(map(str, np.round(np.sort(sta_ap), 2))), fontsize=12, rotation=45)
+    if sort_type == 'none':
+        ax.set_ylabel('   '.join(sta_animal_id[::-1]), fontsize=12)
+    cbar = hm.collections[0].colorbar
+    cbar.ax.tick_params(labelsize=16)
+# ax.set_title(var, fontsize=16)
+# plt.savefig(os.path.join(save_path,
+#                          'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_notzscored_sort_'+sort_type+'_'+var), dpi=mscope.my_dpi)
+# plt.savefig(os.path.join(save_path,
+#                          'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_notzscored_sort_'+sort_type+'_'+var+'.svg), dpi=mscope.my_dpi)
+
+#ROIS SUMMARY PEAKS AND THROUGHS PIE CHART + SPATIAL MAP OF ROIS AND SIG INCREASES
+labels = ['Significant\nincreases\n>2 STD', '\nSignificant\ndecreases\n<2 STD', '']
+sizes = [len(rois_pos_all), len(rois_neg_all), len(rois_neutral_all)]
+colors = ['firebrick', 'dodgerblue', 'lightgray']
+explode = (0.05, 0.05, 0.05)
+fig2, ax2 = plt.subplots(figsize=(5, 5), tight_layout=True)
+patches, texts, autotexts = ax2.pie(sizes, colors=colors, labels=labels, autopct='%1.1f%%', startangle=90, pctdistance=0.85, explode=explode)
+for i in range(len(texts)):
+    texts[i].set_fontsize(16)
+    autotexts[i].set_fontsize(10)
+    autotexts[i].set_color('white')
+    autotexts[i].set_fontweight('bold')
+# draw circle
+centre_circle = plt.Circle((0, 0), 0.70, fc='white')
+fig2 = plt.gcf()
+fig2.gca().add_artist(centre_circle)
+# plt.savefig(os.path.join(save_path,
+#                          'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_jerk_zscored_quantification'), dpi=mscope.my_dpi)
+
 fig, ax = plt.subplots(1, len(var_names), figsize=(20, 10), tight_layout='True')
 for count_v, var in enumerate(var_names):
     hm = sns.heatmap(sta_zoom_all_concat_vars[count_v], vmax=np.nanpercentile(sta_zoom_all_concat_vars[count_v], 99.5),
                 vmin=np.nanpercentile(sta_zoom_all_concat_vars[count_v], 0.5), cmap='coolwarm', ax=ax[count_v])
     ax[count_v].set_xticks(np.array([0, np.where(xaxis == 0)[0][0]-xaxis_start, np.shape(sta_zoom_all_concat_vars[count_v])[1]]))
-    ax[count_v].set_xticklabels([str(xaxis[xaxis_start]), '0', str(np.round(xaxis[xaxis_end], 2))], fontsize=20)
+    ax[count_v].set_xticklabels([str(np.round(xaxis[xaxis_start], 2)), '0', str(np.round(xaxis[xaxis_end], 2))], fontsize=20)
     ax[count_v].axvline(x=np.where(xaxis==0)[0][0]-xaxis_start, color='white', linewidth=2)
     ax[count_v].set_yticks(sta_zoom_all_cluster_size[count_v])
     ax[count_v].set_xlabel('Time around event (s)', fontsize=20)
@@ -172,53 +215,12 @@ for count_v, var in enumerate(var_names):
 plt.savefig(os.path.join(save_path,
                          'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_zscored_sort_'+sort_type), dpi=mscope.my_dpi)
 
-#ROIS SUMMARY PEAKS AND THROUGHS PIE CHART
-labels = ['Significant\nincreases\n>2 STD', '\nSignificant\ndecreases\n<2 STD', '']
-sizes = [len(rois_pos_all), len(rois_neg_all), len(rois_neutral_all)]
-colors = ['firebrick', 'dodgerblue', 'lightgray']
-explode = (0.05, 0.05, 0.05)
-fig2, ax2 = plt.subplots(figsize=(5, 5), tight_layout=True)
-patches, texts, autotexts = ax2.pie(sizes, colors=colors, labels=labels, autopct='%1.1f%%', startangle=90, pctdistance=0.85, explode=explode)
-for i in range(len(texts)):
-    texts[i].set_fontsize(16)
-    autotexts[i].set_fontsize(10)
-    autotexts[i].set_color('white')
-    autotexts[i].set_fontweight('bold')
-# draw circle
-centre_circle = plt.Circle((0, 0), 0.70, fc='white')
-fig2 = plt.gcf()
-fig2.gca().add_artist(centre_circle)
-plt.savefig(os.path.join(save_path,
-                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_zscored_quantification'), dpi=mscope.my_dpi)
-
-fig, ax = plt.subplots(1, len(var_names), figsize=(20, 10), tight_layout='True')
-for count_v, var in enumerate(var_names):
-    hm = sns.heatmap(sta_zoom_all_concat_vars_notzscored[count_v], vmax=np.nanpercentile(sta_zoom_all_concat_vars_notzscored[count_v], 99.5),
-                vmin=np.nanpercentile(sta_zoom_all_concat_vars_notzscored[count_v], 0.5), cmap='coolwarm', ax=ax[count_v])
-    ax[count_v].set_xticks(np.array([0, np.where(xaxis == 0)[0][0]-xaxis_start, np.shape(sta_zoom_all_concat_vars[count_v])[1]]))
-    ax[count_v].set_xticklabels([str(xaxis[xaxis_start]), '0', str(np.round(xaxis[xaxis_end], 2))], fontsize=20)
-    ax[count_v].axvline(x=np.where(xaxis==0)[0][0]-xaxis_start, color='white', linewidth=2)
-    ax[count_v].set_yticks(sta_zoom_all_cluster_size[count_v])
-    ax[count_v].set_xlabel('Time around event (s)', fontsize=20)
-    ax[count_v].tick_params(axis='both', which='major', labelsize=16)
-    if sort_type == 'ML':
-        ax[count_v].set_yticklabels(list(map(str, np.round(np.sort(sta_ml), 2))), fontsize=12, rotation=45)
-    if sort_type == 'AP':
-        ax[count_v].set_yticklabels(list(map(str, np.round(np.sort(sta_ap), 2))), fontsize=12, rotation=45)
-    if sort_type == 'none':
-        ax[count_v].set_ylabel('   '.join(sta_animal_id[::-1]), fontsize=12)
-    cbar = hm.collections[0].colorbar
-    cbar.ax.tick_params(labelsize=16)
-    ax[count_v].set_title(var, fontsize=16)
-plt.savefig(os.path.join(save_path,
-                         'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_notzscored_sort_'+sort_type), dpi=mscope.my_dpi)
-
 fig, ax = plt.subplots(1, len(var_names), figsize=(20, 10), tight_layout='True')
 for count_v, var in enumerate(var_names):
     hm = sns.heatmap(sta_zoom_all_concat_vars_shuffled[count_v], vmax=np.nanpercentile(sta_zoom_all_concat_vars_shuffled[count_v], 99.5),
                 vmin=np.nanpercentile(sta_zoom_all_concat_vars_shuffled[count_v], 0.5), cmap='coolwarm', ax=ax[count_v])
     ax[count_v].set_xticks(np.array([0, np.where(xaxis == 0)[0][0]-xaxis_start, np.shape(sta_zoom_all_concat_vars[count_v])[1]]))
-    ax[count_v].set_xticklabels([str(xaxis[xaxis_start]), '0', str(np.round(xaxis[xaxis_end], 2))], fontsize=20)
+    ax[count_v].set_xticklabels([str(np.round(xaxis[xaxis_start], 2)), '0', str(np.round(xaxis[xaxis_end], 2))], fontsize=20)
     ax[count_v].axvline(x=np.where(xaxis==0)[0][0]-xaxis_start, color='white', linewidth=2)
     ax[count_v].set_yticks(sta_zoom_all_cluster_size[count_v])
     ax[count_v].set_xlabel('Time around event (s)', fontsize=20)
@@ -243,7 +245,7 @@ for count_v, var in enumerate(var_names):
     hm = sns.heatmap(sta_zoom_notzscore_sig, vmax=np.nanpercentile(sta_zoom_notzscore_sig, 99.5),
                 vmin=np.nanpercentile(sta_zoom_notzscore_sig, 0.5), cmap='coolwarm', ax=ax[count_v])
     ax[count_v].set_xticks(np.array([0, np.where(xaxis == 0)[0][0]-xaxis_start, np.shape(sta_zoom_all_concat_vars[count_v])[1]]))
-    ax[count_v].set_xticklabels([str(xaxis[xaxis_start]), '0', str(np.round(xaxis[xaxis_end], 2))], fontsize=20)
+    ax[count_v].set_xticklabels([str(np.round(xaxis[xaxis_start], 2)), '0', str(np.round(xaxis[xaxis_end], 2))], fontsize=20)
     ax[count_v].axvline(x=np.where(xaxis==0)[0][0]-xaxis_start, color='white', linewidth=2)
     ax[count_v].set_yticks(sta_zoom_all_cluster_size[count_v])
     ax[count_v].set_xlabel('Time around event (s)', fontsize=20)

@@ -916,8 +916,13 @@ class loco_class:
 
     def compute_bodyacc(self,bodycenter):
         """Computes body acceleration with a Savitzky-Golay filter"""
-        bodyacc = savgol_filter(self.inpaint_nans(bodycenter),81,3,deriv=2)
+        bodyacc = savgol_filter(self.inpaint_nans(bodycenter), 81, 3, deriv=2)
         return bodyacc
+
+    def compute_bodyjerk(self,bodycenter):
+        """Computes body acceleration with a Savitzky-Golay filter"""
+        bodyjerk = savgol_filter(self.inpaint_nans(bodycenter), 81, 3, deriv=3)
+        return bodyjerk
 
     def get_trials_split(self,filelist): 
         """Gets the trials that are split-belt"""

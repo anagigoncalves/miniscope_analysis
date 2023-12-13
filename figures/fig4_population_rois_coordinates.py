@@ -7,14 +7,14 @@ import pandas as pd
 save_path = 'J:\\Thesis\\for figures\\fig pca\\'
 path_session_data = 'J:\\Miniscope processed files'
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
-session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_tied_S1.xlsx'))
-protocol = 'tied baseline'
+session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S2.xlsx'))
+protocol = 'split contra fast'
 # for the order ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
-fov_coords = np.array([[6.27, 0.53],
-                     [6.61, 0.89],
-                     [6.98, 1.47],
-                     [6.39, 1.62],
-                     [6.80, 1.75]]) #AP, ML
+fov_coords = np.array([[6.12, 0.5],
+                     [6.24, 1],
+                     [6.64, 1],
+                     [6.48, 1.5],
+                     [6.48, 1.5]]) #AP, ML
 
 os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
@@ -52,11 +52,12 @@ for count_a, animal in enumerate(animals):
     # Compute ROI coordinates
     coord_ext = np.load(os.path.join(mscope.path, 'processed files', 'coord_ext.npy'), allow_pickle=True)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
-    fov_coord = fov_coords[0]
-    fov_corner = np.array([fov_coord[0] + 0.5, fov_coord[1] - 0.5])
-    centroid_dist_corner = (np.array(centroid_ext) * 0.001) + fov_corner
+    centroid_ext_swap = np.array(centroid_ext)[:, [1, 0]]
+    fov_coord = fov_coords[count_a]
+    fov_corner = np.array([fov_coord[0] - 0.5, fov_coord[1] - 0.5])
+    centroid_dist_corner = (np.array(centroid_ext_swap) * 0.001) + fov_corner
     roi_coordinates.extend(centroid_dist_corner)
-    for i in range( len(centroid_dist_corner)):
+    for i in range(len(centroid_dist_corner)):
         animal_id.append(get_colors_plot(animal, color_animals))
 roi_coordinates_arr = np.array(roi_coordinates)
 
@@ -64,6 +65,7 @@ fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
 sc = ax.scatter(roi_coordinates_arr[:, 1], roi_coordinates_arr[:, 0], c=animal_id, s=15)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
+plt.gca().invert_yaxis()
 ax.tick_params(axis='both', which='major', labelsize=20)
 ax.set_ylabel('AP coordinate (mm)', fontsize=20)
 ax.set_xlabel('ML coordinate (mm)', fontsize=20)

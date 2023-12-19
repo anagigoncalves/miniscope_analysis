@@ -169,8 +169,8 @@ for count_a, a in enumerate(folders_animals):
     param_tied_miniscope_file = np.load(miniscope_path + '\\' + 'step_length_all.npy')
     sl_all_miniscope_values[count_a, :] = param_tied_miniscope_file
 
-max_rect = np.array([2, 4, 8, 6, 12.5])
-min_rect = np.array([-6, -10, -5, -2, -1])
+max_rect = np.array([3, 4, 11, 6, 13])
+min_rect = np.array([-6, -10, -6, -2, -2])
 param_split_name = ['Center of oscillation\n symmetry (mm)', 'Step length symmetry\n(mm)', 'Percentage of double\nsupport symmetry', 'Center of oscillation\n stance symmetry (mm)',
         'Swing length\nsymmetry (mm)']
 # Plot learning curves
@@ -193,8 +193,8 @@ for p in range(np.shape(param_split)[0]):
                      param_split_miniscope_values_mean+param_split_miniscope_values_std, alpha=0.3, color='darkviolet')
     ax.set_xlabel('Trial', fontsize=20)
     ax.set_ylabel(param_split_name[p].replace('_', ' '), fontsize=20)
-    if p == 2:
-        plt.gca().invert_yaxis()
+    # if p == 2:
+    #     plt.gca().invert_yaxis()
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
     ax.spines['right'].set_visible(False)
@@ -214,13 +214,15 @@ param = []
 for count_p, p in enumerate(param_split):
     group_control_len = np.shape(param_split_control_values)[1]
     group_id.extend(np.repeat(0, group_control_len))
-    ae_amp.extend(np.abs(param_split_control_values[count_p, :, 13]))
-    delta_split.extend(np.abs(param_split_control_values[count_p, :, 3])-np.abs(param_split_control_values[count_p, :, 12]))
+    ae_control_data = np.vstack((param_split_control_values[count_p, :, 13], param_split_control_values[count_p, :, 14]))
+    ae_amp.extend(np.nanmean(ae_control_data, axis=0))
+    delta_split.extend(param_split_control_values[count_p, :, 3]-param_split_control_values[count_p, :, 12])
     param.extend(np.repeat(p, group_control_len))
     group_miniscope_len = np.shape(param_split_miniscope_values)[1]
     group_id.extend(np.repeat(1, group_miniscope_len))
-    ae_amp.extend(np.abs(param_split_miniscope_values[count_p, :, 13]))
-    delta_split.extend(np.abs(param_split_miniscope_values[count_p, :, 3])-np.abs(param_split_miniscope_values[count_p, :, 12]))
+    ae_miniscope_data = np.vstack((param_split_miniscope_values[count_p, :, 13], param_split_miniscope_values[count_p, :, 14]))
+    ae_amp.extend(np.nanmean(ae_miniscope_data, axis=0))
+    delta_split.extend(param_split_miniscope_values[count_p, :, 3]-param_split_miniscope_values[count_p, :, 12])
     param.extend(np.repeat(p, group_miniscope_len))
 split_quant_df = pd.DataFrame({'param': param, 'group': group_id, 'after-effect': ae_amp, 'delta-split':delta_split})
 

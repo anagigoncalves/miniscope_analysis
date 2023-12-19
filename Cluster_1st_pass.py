@@ -115,12 +115,6 @@ if load_data == 0:
                                                                       colormap_cluster, plot_data, print_plots)
     [clusters_rois, idx_roi_cluster_ordered] = mscope.get_rois_clusters_mediolateral(df_extract_rawtrace_detrended,
                                                                                      idx_roi_cluster, centroid_ext)
-    mscope.plot_roi_clustering_spatial(ref_image, colors_cluster, idx_roi_cluster_ordered, coord_ext_curated, plot_data,
-                                       0)
-    plot_ratio = 3
-    mscope.plot_roi_clustering_temporal(df_extract_rawtrace_detrended, centroid_ext, distance_neurons,
-                                        trials_baseline[-1], colors_cluster, idx_roi_cluster_ordered, plot_ratio,
-                                        plot_data, 0)
     [df_events_extract_rawtrace_clustered, df_extract_rawtrace_detrended_clustered] = mscope.compute_clustered_traces_events_correlations(df_events_extract_rawtrace, df_extract_rawtrace_detrended, clusters_rois, colors_cluster, trials, 1, 0)
     [df_trace_clusters_ave, df_trace_clusters_std] = mscope.clusters_dataframe(df_extract_rawtrace_detrended, clusters_rois, 0, save_data) #no detrending because it comes from detrended traces
     df_events_trace_clusters = mscope.get_events(df_trace_clusters_ave, 0, 'df_events_trace_clusters')  #no detrending because it comes from detrended traces

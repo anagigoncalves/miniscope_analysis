@@ -5,11 +5,11 @@ import pandas as pd
 import seaborn as sns
 
 # Input data
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split ipsi fast S1\\'
-save_path = 'J:\\Thesis\\for figures\\fig3\\'
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\tied baseline S1\\'
+save_path = 'J:\\Thesis\\for figures\\fig pca\\'
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
-protocol = 'split ipsi fast'
+session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_tied_S1.xlsx'))
+protocol = 'tied baseline'
 align_event = 'st'
 align_dimension = 'phase'
 if align_dimension == 'phase':
@@ -22,7 +22,7 @@ if align_dimension == 'time':
 paw_colors = ['#e52c27', '#ad4397', '#3854a4', '#6fccdf']
 paws = ['FR', 'HR', 'FL', 'HL']
 
-animal = 'MC9194'
+animal = 'MC10221'
 firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_ro'
                                                                               'is.npy'))
 # firing_rate_mean_trials_paw = np.nanmean(firing_rate_animal[:, p, :, :], axis=1)
@@ -49,7 +49,7 @@ session = loco.get_session_id()
     trials, protocol.split(' ')[0], animal, session)
 
 roi_list = mscope.get_roi_list(df_events_extract_rawtrace)
-count_roi = roi_list.index('ROI208')
+count_roi = roi_list.index('ROI127')
 fig, ax = plt.subplots(1, 4, figsize=(25, 7), tight_layout=True)
 for count_p, paw in enumerate(paws):
     sns.heatmap(firing_rate_animal[count_roi, count_p, :, :], cmap='viridis', cbar=None,
@@ -70,7 +70,7 @@ fig, ax = plt.subplots(1, 4, figsize=(25, 7), tight_layout=True)
 for count_p, paw in enumerate(paws):
     hm = sns.heatmap(firing_rate_animal[count_roi, count_p, :, :], cmap='viridis',
     vmin=np.nanmin(firing_rate_animal[count_roi, :, :, :]), vmax=np.nanmax(firing_rate_animal[count_roi, :, :, :]), ax=ax[count_p])
-    hm.figure.axes[-1].set_ylabel('Firing rate (Hz)', size=20)
+    hm.figure.axes[-1].set_ylabel('Event rate (Hz)', size=20)
     hm.figure.axes[-1].tick_params(labelsize=16)
     ax[count_p].set_yticks(np.arange(0, len(trials)))
     ax[count_p].invert_yaxis()
@@ -93,11 +93,12 @@ for count_p, paw in enumerate(paws):
     if align_dimension == 'time':
         ax[count_p].axvline(x=0, color='black')
         ax[count_p].set_xlabel('Time (ms)', fontsize=20)
-    ax[count_p].set_ylim([np.nanmin(np.nanmean(firing_rate_animal[count_roi, count_p, :, :], axis=0)), np.nanmax(np.nanmean(firing_rate_animal[count_roi, count_p, :, :], axis=0))])
+    # ax[count_p].set_ylim([0.25, 0.55])
+    #ax[count_p].set_ylim([np.nanmin(np.nanmean(firing_rate_animal[count_roi, :, :, :], axis=0)), np.nanmax(np.nanmean(firing_rate_animal[count_roi, :, :, :], axis=0))])
     ax[count_p].spines['right'].set_visible(False)
     ax[count_p].spines['top'].set_visible(False)
     ax[count_p].tick_params(axis='both', which='major', labelsize=20)
-    ax[count_p].set_ylabel('Firing rate (Hz)', fontsize=20)
+    ax[count_p].set_ylabel('Event rate (Hz)', fontsize=20)
 plt.savefig(os.path.join(save_path, animal + '_' + roi_list[count_roi] + '_paw_summary_legend'), dpi=256)
 plt.savefig(os.path.join(save_path, animal + '_' + roi_list[count_roi] + '_paw_summary_legend.svg'), dpi=256)
 

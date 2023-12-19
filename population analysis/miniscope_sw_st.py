@@ -83,7 +83,7 @@ for s in range(len(session_data)):
             [cumulative_idx_paw, trial_id_paw, events_stride_trial_paw] = mscope.event_swst_stride(df_events_extract_rawtrace,
             st_strides_trials, sw_strides_trials, final_tracks_phase, bcam_time, align_dimension, align_event,
             trials, paw, roi, np.abs(bins[0]))
-            firing_rate_paw, spike_prob_paw = mscope.firing_rate_swst(events_stride_trial_paw, trial_id_paw, final_tracks_phase, trials, bins_fr, align_dimension)
+            firing_rate_paw, spike_prob_paw = mscope.firing_rate_swst(events_stride_trial_paw, trial_id_paw, final_tracks_phase, trials, bins_fr, align_dimension, paw)
             cumulative_idx_all_paws.append(cumulative_idx_paw)
             trial_id_all_paws.append(trial_id_paw)
             events_stride_trial_all_paws.append(events_stride_trial_paw)

@@ -12,9 +12,9 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S2.xlsx')
-save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA phase diff st-sw-st\\split contra fast S1\\'
-sta_type = 'phase_diff'
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_tied_S1.xlsx')
+save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA bodyvars\\tied baseline S1\\'
+sta_type = 'bodyvars'
 window = np.arange(-330, 330 + 1)  # Samples
 iter_n = 100 # Number of iterations of CS timestamps random shuffling
 
@@ -42,6 +42,7 @@ for s in range(len(session_data)):
     # Load behavioral data and get acceleration
     filelist = loco.get_track_files(animal, session)
     final_tracks_trials = []
+    bodyjerk = []
     bodyacc = []
     bodycenter = []
     bodyspeed = []
@@ -58,9 +59,11 @@ for s in range(len(session_data)):
         bodycenter_trial = sp.medfilt(loco.compute_bodycenter(final_tracks, 'X'), 25) #filter for tracking errors
         bodyspeed_trial = loco.compute_bodyspeed(bodycenter_trial)
         bodyacc_trial = loco.compute_bodyacc(bodycenter_trial)
+        bodyjerk_trial = loco.compute_bodyjerk(bodycenter_trial)
         final_tracks_trials.append(final_tracks)
         st_strides_trials.append(st_strides_mat)
         sw_strides_trials.append(sw_pts_mat)
+        bodyjerk.append(bodyjerk_trial)
         bodyacc.append(bodyacc_trial)
         bodycenter.append(bodycenter_trial)
         bodyspeed.append(bodyspeed_trial)
@@ -72,7 +75,7 @@ for s in range(len(session_data)):
 
     if sta_type == 'bodyvars':
         # Dictionary of all the independent variables on which computing the STA
-        ind_vars = {'Body position': bodycenter, 'Body speed': bodyspeed, 'Body acceleration': bodyacc}
+        ind_vars = {'Body position': bodycenter, 'Body speed': bodyspeed, 'Body acceleration': bodyacc, 'Body jerk': bodyjerk}
         keys=list(ind_vars.keys())
     if sta_type == 'paw_diff':
         # Get phase and displacement difference

@@ -356,7 +356,8 @@ class miniscope_session:
         """Computes events for a vector of fluorescence. It uses JR SlopeThreshold method
         Input:
             rawdata: vector of fluorescence trace
-            acq_fq: sampling rate (float)"""
+            acq_fq: sampling rate (float)
+            detrend_bool: boolean for trace detrending"""
         if detrend_bool:
             # Estimate Baseline
             Baseline, Est_Std = ST.Estim_Baseline_PosEvents(rawdata, acq_fq, dtau=0.2, bmax_tslope=3, filtcut=1,
@@ -367,7 +368,28 @@ class miniscope_session:
             dff = np.where(dff < 0, np.zeros_like(dff), dff)  # Remove negative dff values
         else:
             dff = rawdata
-        Ev_Onset, Ev_ApproxPeak, dff_std, IncremSet = ST.Detect_PosEvents_ROI(dff, acq_fq, rtau=0.02, graph=None)
+        Ev_Onset, Ev_ApproxPeak, TrueStd, IncremSet = ST.Detect_PosEvents_ROI(dff, acq_fq, rtau=0.02, graph=None)
+        return [Ev_Onset, IncremSet, TrueStd]
+
+    @staticmethod
+    def compute_events_onset_405(rawdata, acq_fq, amp, detrend_bool):
+        """Computes events for a vector of fluorescence. It uses JR SlopeThreshold method
+        Input:
+            rawdata: vector of fluorescence trace
+            acq_fq: sampling rate (float)
+            amp: amplitude for noise threshold
+            detrend_bool: boolean for trace detrending"""
+        if detrend_bool:
+            # Estimate Baseline
+            Baseline, Est_Std = ST.Estim_Baseline_PosEvents(rawdata, acq_fq, dtau=0.2, bmax_tslope=3, filtcut=1,
+                                                            graph=False)
+            # Calculate dF/F0:
+            F0 = Baseline - Est_Std * 2
+            dff = (rawdata - F0) / F0
+            dff = np.where(dff < 0, np.zeros_like(dff), dff)  # Remove negative dff values
+        else:
+            dff = rawdata
+        Ev_Onset, Ev_ApproxPeak, IncremSet = ST.Detect_PosEvents_ROI_Amp_Input(dff, acq_fq, 0.02, amp, graph=None)
         return [Ev_Onset, IncremSet]
 
     @staticmethod
@@ -2279,7 +2301,7 @@ class miniscope_session:
                 data = np.array(df_dFF.loc[df_dFF['trial'] == t, r])
                 events_mat = np.zeros(len(data))
                 if len(np.where(np.isnan(data))[0]) != len(data):
-                    [Ev_Onset, IncremSet] = self.compute_events_onset(data, self.sr, detrend_bool)
+                    [Ev_Onset, IncremSet, TrueStd] = self.compute_events_onset(data, self.sr, detrend_bool)
                     if len(Ev_Onset) > 0:
                         events = self.event_detection_calcium_trace(data, Ev_Onset, IncremSet, 3)
                         if detrend_bool == 0:
@@ -2942,7 +2964,7 @@ class miniscope_session:
             trial_id.extend(np.repeat(trial, len(events_stride_list)))
         return np.array(cumulative_idx), np.array(trial_id), np.array(events_stride_trial)
 
-    def firing_rate_swst(self, events_stride_trial, trial_id, final_tracks_phase, trials, bins, align_dimension):
+    def firing_rate_swst(self, events_stride_trial, trial_id, final_tracks_phase, trials, bins, align_dimension, paw):
         """Compute firing rate of CS around the locomotor events (can do this in phase or time).
         Inputs:
             event_stride_trial: list with the time/%phase of CS aligned to locomotor event
@@ -2950,7 +2972,16 @@ class miniscope_session:
             final_tracks_phase: list of paw excursions in phase
             trials: list of trials in the session
             bins: vector of time or phase bins
-            align_dimension: (str) phase or time"""
+            align_dimension: (str) phase or time
+            paw: (str) FR, HR, FL, HL"""
+        if paw == 'FR':
+            p1_idx = 0
+        if paw == 'HR':
+            p1_idx = 1
+        if paw == 'FL':
+            p1_idx = 2
+        if paw == 'HL':
+            p1_idx = 3
         spikes_count_tr = []
         for count_t, trial in enumerate(trials):
             spikes_count = []
@@ -2967,7 +2998,7 @@ class miniscope_session:
         firing_rate = np.zeros((len(trials), len(bins) - 1))
         spike_prob = np.zeros((len(trials), len(bins) - 1))
         for tr in range(len(trials)):
-            phase_paw = final_tracks_phase[tr][0, 3, :]
+            phase_paw = final_tracks_phase[tr][0, p1_idx, :]
             spikes_count = np.sum(np.vstack(spikes_count_tr[tr]), axis=0)  # Sum spikes in each bin
             frames_bin, _ = np.histogram(phase_paw[~np.isnan(phase_paw)],
                                          bins=len(bins) - 1)  # Compute time spent in each bin

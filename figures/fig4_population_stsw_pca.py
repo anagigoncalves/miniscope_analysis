@@ -7,14 +7,14 @@ from mpl_toolkits import mplot3d
 import sklearn.metrics as sm
 
 # Input data
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split ipsi fast S1\\'
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters sw time\\split ipsi fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig pca\\'
 path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
 protocol = 'split ipsi fast'
-align_event = 'st'
-align_dimension = 'phase'
+align_event = 'sw'
+align_dimension = 'time'
 if align_dimension == 'phase':
     bins = np.arange(0, 1.01, 0.05)  # 5 deg
     align_event = 'st' #is always stance
@@ -29,7 +29,7 @@ fov_coords = np.array([[6.12, 0.5],
                      [6.24, 1],
                      [6.64, 1],
                      [6.48, 1.5],
-                     [6.48, 1.5]]) #AP, ML
+                     [6.48, 1.7]]) #AP, ML
 
 tied_idx = [[0, 1, 2], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5]]
 split_idx = [np.arange(3, 12+1), np.arange(6, 15+1), np.arange(6, 15+1), np.arange(6, 15+1), np.arange(6, 15+1)]
@@ -105,9 +105,16 @@ for count_a, animal in enumerate(animals):
     # Compute ROI coordinates
     coord_ext = np.load(os.path.join(mscope.path, 'processed files', 'coord_ext.npy'), allow_pickle=True)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
-    centroid_ext_swap = np.array(centroid_ext)[:, [1, 0]]
+    centroid_ext_arr = np.array(centroid_ext)
+    #Flip coords horizontally and vertically because image in miniscope is flipped
+    centroid_ext_flip = np.zeros(np.shape(centroid_ext_arr))
+    centroid_ext_flip[:, 1] = 1000-centroid_ext_arr[:, 0]
+    centroid_ext_flip[:, 0] = 1000-centroid_ext_arr[:, 1]
+    #Need to swap again, because now ML and AP are swapped
+    #Adjust for the FOV coordinates to get global coordinates
+    centroid_ext_swap = np.array(centroid_ext_flip)[:, [1, 0]] 
     fov_coord = fov_coords[count_a]
-    fov_corner = np.array([fov_coord[0] - 0.5, fov_coord[1] - 0.5])
+    fov_corner = np.array([fov_coord[1] - 0.5, fov_coord[0] - 0.5]) #ML is the centroid[:, 0] and AP the centroid[:, 1]
     centroid_dist_corner = (np.array(centroid_ext_swap) * 0.001) + fov_corner
     roi_coordinates.extend(centroid_dist_corner)
 roi_coordinates_arr = np.array(roi_coordinates)
@@ -182,13 +189,13 @@ for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
 ax.set_xlabel('PC1 (' + str(np.round(pca_fit_fr_paws.explained_variance_ratio_[0]*100, 1)) + '%)', fontsize=20)
 ax.set_ylabel('PC2 (' + str(np.round(pca_fit_fr_paws.explained_variance_ratio_[1]*100, 1)) + '%)', fontsize=20)
 ax.set_zlabel('PC3 (' + str(np.round(pca_fit_fr_paws.explained_variance_ratio_[2]*100, 1)) + '%)', fontsize=20)
-ax.view_init(30, 60)
+ax.view_init(10, 30)
 plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_trajectories'), dpi=256)
 plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_trajectories.svg'), dpi=256)
 
 for c in range(3):
     fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
-    sc = ax.scatter(roi_coordinates_arr[:, 1], roi_coordinates_arr[:, 0], s=5, c=pca_fit_fr_paws_fit_transform[:, c], cmap='coolwarm')
+    sc = ax.scatter(roi_coordinates_arr[:, 0], roi_coordinates_arr[:, 1], s=15, c=pca_fit_fr_paws_fit_transform[:, c], cmap='coolwarm')
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.tick_params(axis='both', which='major', labelsize=20)
@@ -198,6 +205,7 @@ for c in range(3):
     plt.gca().invert_yaxis()
     cbar = plt.colorbar(sc)
     cbar.ax.tick_params(labelsize=20)
+    cbar.mappable.set_clim([-15, 15])
     plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_roilocation'),
                 dpi=256)
     plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_roilocation.svg'),

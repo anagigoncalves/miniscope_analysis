@@ -39,6 +39,21 @@ def Detect_PosEvents_ROI(dff_signal, acq_fq, rtau, graph=None):
     Ev_Onset = list(map(lambda x : x[0], IncremSet)); Ev_ApproxPeak = list(map(lambda x : x[1], IncremSet))
     return Ev_Onset, Ev_ApproxPeak, TrueStd, IncremSet
 
+def Detect_PosEvents_ROI_Amp_Input(dff_signal, acq_fq, rtau, amp, graph=None):
+    # Function to detect the fast rising events in a fluorescent signal.
+    # dff_signal: Normalized fluorescent signal in ΔF/F.
+    # acq_fq: Sampling frequency of values in Hz.
+    # rtau: Approximated tau constant with the rise of the signal (the fastest process, in seconds)
+    # amp: threshold for noise amplitude
+    # graph: If True, a plot will be made to visualize the thresholding process.
+
+    # Use that input noise amplitude to define regions of slope change / stability
+    IncremSet, DecremSet, F_Values = SlopeThreshold(dff_signal, amp * 2.5, int(np.ceil(rtau * acq_fq)),
+                                                    CollapSeq=False, acausal=True, graph=graph) #TrueStd*2 before, TrueStd*4 for HF data
+
+    Ev_Onset = list(map(lambda x : x[0], IncremSet)); Ev_ApproxPeak = list(map(lambda x : x[1], IncremSet))
+    return Ev_Onset, Ev_ApproxPeak, IncremSet
+
 def Estim_Baseline_PosEvents(rawdata, acq_fq, dtau=0.2, bmax_tslope=3, filtcut=None, graph=False):
     # Function to approximate a minimal baseline of a signal with positive rising events
     # using changepoint detection algorithms. Events are assumed to be very fast rising,

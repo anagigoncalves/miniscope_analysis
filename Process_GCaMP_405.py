@@ -7,9 +7,9 @@ import tifffile as tiff
 import matplotlib.pyplot as plt
 
 # path inputs
-path = 'D:\\Miniscopes\\TM RAW FILES\\split contra fast 405 processed with 480\\MC13420\\2022_05_31\\'
-path_loco = 'D:\\Miniscopes\\TM TRACKING FILES\\split contra fast 405nm S2 310522\\'
-path_480 = 'D:\\Miniscopes\\TM RAW FILES\\split contra fast 480 processed with 405\\MC13420\\2022_05_31\\'
+path = 'E:\\Miniscopes\\TM RAW FILES\\split contra fast 405 processed with 480\\MC13419\\2022_05_31\\'
+path_loco = 'E:\\Miniscopes\\TM TRACKING FILES\\split contra fast 405nm S2 310522\\'
+path_480 = 'E:\\Miniscopes\\TM RAW FILES\\split contra fast 480 processed with 405\\MC13419\\2022_05_31\\'
 session_type = path.split('\\')[-4].split(' ')[0]
 version_mscope = 'v4'
 plot_data = 1
@@ -93,8 +93,57 @@ df_traces = pd.concat([df_ext1, df_ext2], axis=1)
 # Get raw trace from EXTRACT ROIs
 roi_list = list(df_traces.columns[2:])
 df_extract_rawtrace = mscope.compute_extract_rawtrace(coord_ext_480, df_traces, roi_list, trials, frame_time)
-# Find calcium events - label as synchronous or asynchronous
-df_events_extract_rawtrace = mscope.get_events(df_extract_rawtrace, 1, 'df_events_extract_rawtrace')  # 1 for detrending"
+
+# #load 405 traces
+# df_extract_rawtrace = pd.read_csv(
+#     os.path.join(path, 'processed files', 'df_extract_raw.csv'))
+
+# Find calcium events from 480 (to get amplitude threshold) and use that TrueStd in 405 calcium event detection
+roi_trace = np.array(df_extract_rawtrace.iloc[:, 2:])
+roi_list = list(df_extract_rawtrace.columns[2:])
+trial_ext = list(df_extract_rawtrace['trial'])
+trials = np.unique(trial_ext)
+frame_time_ext = list(df_extract_rawtrace['time'])
+data_dFF1 = {'trial': trial_ext, 'time': frame_time_ext}
+df_dFF1 = pd.DataFrame(data_dFF1)
+df_dFF2 = pd.DataFrame(np.zeros(np.shape(roi_trace)), columns=roi_list)
+df_events_extract_rawtrace = pd.concat([df_dFF1, df_dFF2], axis=1)
+roi_list = df_extract_rawtrace.columns[2:]
+detrend_bool = 1
+csv_name = 'df_events_extract_rawtrace'
+for count_r, r in enumerate(roi_list):
+    print('Processing events of ' + r)
+    for count_t, t in enumerate(trials):
+        data_480 = np.array(df_extract_rawtrace_detrended_480.loc[df_extract_rawtrace_detrended_480['trial'] == t, r])
+        data = np.array(df_extract_rawtrace.loc[df_extract_rawtrace['trial'] == t, r])
+        events_mat = np.zeros(len(data))
+        if len(np.where(np.isnan(data_480))[0]) != len(data_480):
+            # Get amplitude threshold for the same ROI and trial for 480 data
+            [Ev_Onset_480, IncremSet_480, TrueStd_480] = mscope.compute_events_onset(data_480, mscope.sr, detrend_bool)
+        if len(np.where(np.isnan(data))[0]) != len(data):
+            [Ev_Onset, IncremSet] = mscope.compute_events_onset_405(data, mscope.sr, TrueStd_480, detrend_bool)
+            if len(Ev_Onset) > 0:
+                events = mscope.event_detection_calcium_trace(data, Ev_Onset, IncremSet, 3)
+                if detrend_bool == 0:
+                    events_new = []
+                    for e in events:
+                        if data[e] >= np.nanpercentile(data, 75):
+                            events_new.append(e)
+                    events = events_new
+                events_mat[events] = 1
+            else:
+                print('No events for ' + r + ' trial ' + str(t))
+            df_events_extract_rawtrace.loc[df_events_extract_rawtrace['trial'] == t, r] = events_mat
+        else:
+            print('No events for ' + r + ' trial ' + str(t))
+            df_events_extract_rawtrace.loc[df_events_extract_rawtrace['trial'] == t, r] = events_mat
+        count_t += 1
+    count_r += 1
+if len(csv_name) > 0:
+    if not os.path.exists(os.path.join(mscope.path, 'processed files')):
+        os.mkdir(os.path.join(mscope.path, 'processed files'))
+    df_events_extract_rawtrace.to_csv(os.path.join(mscope.path, 'processed files', csv_name + '.csv'), sep=',', index=False)
+
 roi_plot = np.int64(np.random.choice(roi_list)[3:])
 trial_plot = np.random.choice(trials)
 mscope.plot_events_roi_trial(trial_plot, roi_plot, frame_time, df_extract_rawtrace, traces_type, df_events_extract_rawtrace, trials, plot_data, print_plots)

@@ -31,7 +31,7 @@ xaxis_new_minus_250ms = np.argmin(np.abs(np.abs(xaxis_new) - 0.25))
 animal_order = ['MC8855', 'MC9194', 'MC10221', 'MC9226', 'MC9513']
 fov_coords = np.array([[6.12, 0.5],
                      [6.24, 1],
-                     [6.48, 1.5],
+                     [6.48, 1.7],
                      [6.64, 1],
                      [6.48, 1.5]]) #AP, ML
 var_names = ['Body position', 'Body speed', 'Body acceleration', 'Body jerk']
@@ -54,6 +54,7 @@ for var in var_names:
         rois_neutral_all = []
         roi_coordinates = []
         rois_val_all = []
+        rois_zscore_all = []
     for count_f, f in enumerate(animal_order):
         session_data_idx = np.where(session_data['animal'] == f)[0][0]
         ses_info = session_data.iloc[session_data_idx, :]
@@ -84,9 +85,16 @@ for var in var_names:
 
         # Get rois global coordinates
         centroid_ext = mscope.get_roi_centroids(coord_ext)
-        centroid_ext_swap = np.array(centroid_ext)[:, [1, 0]]
+        centroid_ext_arr = np.array(centroid_ext)
+        #Flip coords horizontally and vertically because image in miniscope is flipped
+        centroid_ext_flip = np.zeros(np.shape(centroid_ext_arr))
+        centroid_ext_flip[:, 1] = 1000-centroid_ext_arr[:, 0]
+        centroid_ext_flip[:, 0] = 1000-centroid_ext_arr[:, 1]
+        #Need to swap again, because now ML and AP are swapped
+        #Adjust for the FOV coordinates to get global coordinates
+        centroid_ext_swap = np.array(centroid_ext_flip)[:, [1, 0]] 
         fov_coord = fov_coords[count_f]
-        fov_corner = np.array([fov_coord[0] - 0.5, fov_coord[1] - 0.5])
+        fov_corner = np.array([fov_coord[1] - 0.5, fov_coord[0] - 0.5]) #ML is the centroid[:, 0] and AP the centroid[:, 1]
         centroid_dist_corner = (np.array(centroid_ext_swap) * 0.001) + fov_corner
 
         #do trial average
@@ -120,12 +128,16 @@ for var in var_names:
                         rois_pos = np.delete(rois_pos, np.where(rois_pos==i)[0][0])
             rois_neutral = np.setdiff1d(np.arange(0, np.shape(sta_zs_zoom)[0]), np.concatenate((rois_pos, rois_neg)))
             rois_val = np.zeros(np.shape(sta_zs_zoom_250mswindow)[0])
+            rois_zscore = np.zeros(np.shape(sta_zs_zoom_250mswindow)[0])
             rois_val[rois_pos] = 1
             rois_val[rois_neg] = -1
+            rois_zscore[rois_pos] = sta_zs_zoom_250mswindow_max[rois_pos]
+            rois_zscore[rois_neg] = sta_zs_zoom_250mswindow_min[rois_neg]
             rois_pos_all.extend(rois_pos)
             rois_neg_all.extend(rois_neg)
             rois_neutral_all.extend(rois_neutral)
             rois_val_all.extend(rois_val)
+            rois_zscore_all.extend(rois_zscore)
     #sort ML or AP values
     sort_ml = np.argsort(sta_ml)
     sort_ap = np.argsort(sta_ap)
@@ -210,7 +222,8 @@ plt.savefig(os.path.join(save_path,
                          'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_acc_zscored_quantification.svg'), dpi=mscope.my_dpi)
 
 fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
-sc = ax.scatter(roi_coordinates_arr[:, 1], roi_coordinates_arr[:, 0], s=5, c=rois_val_all, cmap='coolwarm')
+sc = ax.scatter(roi_coordinates_arr[:, 0], roi_coordinates_arr[:, 1], s=15, c=rois_zscore_all, 
+        vmin=-np.nanpercentile(rois_zscore_all, 99.5), vmax=np.nanpercentile(rois_zscore_all, 99.5), cmap='coolwarm')
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 plt.gca().invert_yaxis()

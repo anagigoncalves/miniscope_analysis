@@ -7,15 +7,15 @@ import matplotlib as mp
 import seaborn as sns
 
 # Input data
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split ipsi fast S1\\'
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split contra fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig pca\\'
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
+protocol = 'split contra fast'
+session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S2.xlsx'))
 Ntrials = 26
 trials = np.arange(1, Ntrials+1)
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
 bins = np.arange(0, 1.01, 0.05)  # 5 deg
-protocol = 'split ipsi fast'
 paws = ['FR', 'HR', 'FL', 'HL']
 
 # for the order ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
@@ -23,7 +23,7 @@ fov_coords = np.array([[6.12, 0.5],
                      [6.24, 1],
                      [6.64, 1],
                      [6.48, 1.5],
-                     [6.48, 1.5]]) #AP, ML
+                     [6.48, 1.7]]) #AP, ML
 os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
@@ -50,9 +50,16 @@ for count_a, animal in enumerate(animals):
     # Compute ROI coordinates
     coord_ext = np.load(os.path.join(mscope.path, 'processed files', 'coord_ext.npy'), allow_pickle=True)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
-    centroid_ext_swap = np.array(centroid_ext)[:, [1, 0]]
+    centroid_ext_arr = np.array(centroid_ext)
+    #Flip coords horizontally and vertically because image in miniscope is flipped
+    centroid_ext_flip = np.zeros(np.shape(centroid_ext_arr))
+    centroid_ext_flip[:, 1] = 1000-centroid_ext_arr[:, 0]
+    centroid_ext_flip[:, 0] = 1000-centroid_ext_arr[:, 1]
+    #Need to swap again, because now ML and AP are swapped
+    #Adjust for the FOV coordinates to get global coordinates
+    centroid_ext_swap = np.array(centroid_ext_flip)[:, [1, 0]] 
     fov_coord = fov_coords[count_a]
-    fov_corner = np.array([fov_coord[0] - 0.5, fov_coord[1] - 0.5])
+    fov_corner = np.array([fov_coord[1] - 0.5, fov_coord[0] - 0.5]) #ML is the centroid[:, 0] and AP the centroid[:, 1]
     centroid_dist_corner = (np.array(centroid_ext_swap) * 0.001) + fov_corner
     if protocol == 'split ipsi fast' and animal == 'MC8855':
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
@@ -213,7 +220,7 @@ for paw in paws:
 for paw in paws:
     fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
     data_plot_st_tf = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 7) & (df_amp['phase'] == 'st')]
-    sc = ax.scatter(data_plot_st_tf['coord_ML'], data_plot_st_tf['coord_AP'], s=5, c=data_plot_st_tf['amp'],
+    sc = ax.scatter(data_plot_st_tf['coord_AP'], data_plot_st_tf['coord_ML'], s=15, c=data_plot_st_tf['amp'],
                     cmap='viridis')
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
@@ -230,7 +237,7 @@ for paw in paws:
                 dpi=256)
     fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
     data_plot_sw_tf = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 7) & (df_amp['phase'] == 'sw')]
-    sc = ax.scatter(data_plot_sw_tf['coord_ML'], data_plot_sw_tf['coord_AP'], s=5, c=data_plot_sw_tf['amp'],
+    sc = ax.scatter(data_plot_sw_tf['coord_AP'], data_plot_sw_tf['coord_ML'], s=15, c=data_plot_sw_tf['amp'],
                     cmap='viridis')
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
@@ -251,7 +258,7 @@ for paw in paws:
     data_plot_st_ti = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 7) & (df_amp['phase'] == 'st')]
     data_plot_st_tf = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 16) & (df_amp['phase'] == 'st')]
     delta_amp_st = np.array(data_plot_st_tf['amp'])-np.array(data_plot_st_ti['amp'])
-    sc = ax.scatter(data_plot_st_tf['coord_ML'], data_plot_st_tf['coord_AP'], s=5, c=delta_amp_st,
+    sc = ax.scatter(data_plot_st_tf['coord_AP'], data_plot_st_tf['coord_ML'], s=15, c=delta_amp_st,
                     cmap='coolwarm')
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
@@ -261,7 +268,7 @@ for paw in paws:
     plt.gca().invert_yaxis()
     cbar = plt.colorbar(sc)
     cbar.ax.tick_params(labelsize=20)
-    cbar.mappable.set_clim(-5, 5)
+    cbar.mappable.set_clim(-4, 4)
     plt.savefig(os.path.join(save_path, 'firing_rate_amp_deltasplit_st_' + paw + '_roilocation'),
                 dpi=256)
     plt.savefig(os.path.join(save_path, 'firing_rate_amp_deltasplit_st_' + paw + '_roilocation.svg'),
@@ -270,7 +277,7 @@ for paw in paws:
     data_plot_sw_ti = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 7) & (df_amp['phase'] == 'sw')]
     data_plot_sw_tf = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 16) & (df_amp['phase'] == 'sw')]
     delta_amp_sw = np.array(data_plot_sw_tf['amp']) - np.array(data_plot_sw_ti['amp'])
-    sc = ax.scatter(data_plot_sw_tf['coord_ML'], data_plot_sw_tf['coord_AP'], s=5, c=delta_amp_sw,
+    sc = ax.scatter(data_plot_sw_tf['coord_AP'], data_plot_sw_tf['coord_ML'], s=15, c=delta_amp_sw,
                     cmap='coolwarm')
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
@@ -279,7 +286,7 @@ for paw in paws:
     ax.set_xlabel('ML coordinate (mm)', fontsize=20)
     plt.gca().invert_yaxis()
     cbar = plt.colorbar(sc)
-    cbar.mappable.set_clim(-5, 5)
+    cbar.mappable.set_clim(-4, 4)
     cbar.ax.tick_params(labelsize=20)
     plt.savefig(os.path.join(save_path, 'firing_rate_amp_deltasplit_sw_' + paw + '_roilocation'),
                 dpi=256)

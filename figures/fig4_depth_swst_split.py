@@ -7,16 +7,17 @@ import matplotlib as mp
 import seaborn as sns
 
 # Input data
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split contra fast S1\\'
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split ipsi fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig pca\\'
 path_session_data = 'J:\\Miniscope processed files'
-protocol = 'split contra fast'
-session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S2.xlsx'))
+protocol = 'split ipsi fast'
+session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
 Ntrials = 26
 trials = np.arange(1, Ntrials+1)
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
 bins = np.arange(0, 1.01, 0.05)  # 5 deg
 paws = ['FR', 'HR', 'FL', 'HL']
+save_fig = 0
 
 # for the order ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
 fov_coords = np.array([[6.12, 0.5],
@@ -66,28 +67,52 @@ for count_a, animal in enumerate(animals):
         firing_rate_match_arr = np.zeros((np.shape(firing_rate_animal)[0], 4, Ntrials, 20))
         firing_rate_match_arr[:] = np.nan
         firing_rate_match_arr[:, :, 3:, :] = firing_rate_animal
-        firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
-            firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
-        firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
-            firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
+        firing_rate_stride_median = np.nanmedian(firing_rate_match_arr, axis=3)
+        firing_rate_stride_median_tile = np.repeat(firing_rate_stride_median[:, :, :, None],
+                                                   np.shape(firing_rate_match_arr)[3], axis=3)
+        firing_rate_match_arr_centered = firing_rate_match_arr-firing_rate_stride_median_tile
+        firing_rate_amp_st = np.nanmax(firing_rate_match_arr_centered[:, :, :, :np.where(bins == 0.5)[0][0]],
+                                       axis=-1)
+        firing_rate_amp_sw = np.nanmax(firing_rate_match_arr_centered[:, :, :, np.where(bins == 0.5)[0][0]:],
+                                       axis=-1)
+        # firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
+        #     firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
+        # firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
+        #     firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
     elif protocol == 'split ipsi fast' and animal == 'MC9226':
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
         firing_rate_match_arr = np.zeros((np.shape(firing_rate_animal)[0], 4, Ntrials, 20))
         firing_rate_match_arr[:] = np.nan
         firing_rate_match_arr[:, :, :-3, :] = firing_rate_animal
-        firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
-            firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
-        firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
-            firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
+        firing_rate_stride_median = np.nanmedian(firing_rate_match_arr, axis=3)
+        firing_rate_stride_median_tile = np.repeat(firing_rate_stride_median[:, :, :, None],
+                                                   np.shape(firing_rate_match_arr)[3], axis=3)
+        firing_rate_match_arr_centered = firing_rate_match_arr-firing_rate_stride_median_tile
+        firing_rate_amp_st = np.nanmax(firing_rate_match_arr_centered[:, :, :, :np.where(bins == 0.5)[0][0]],
+                                       axis=-1)
+        firing_rate_amp_sw = np.nanmax(firing_rate_match_arr_centered[:, :, :, np.where(bins == 0.5)[0][0]:],
+                                       axis=-1)
+        # firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
+        #     firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
+        # firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
+        #     firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
     elif protocol == 'split contra fast' and animal == 'MC8855':
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
         firing_rate_match_arr = np.zeros((np.shape(firing_rate_animal)[0], 4, Ntrials, 20))
         firing_rate_match_arr[:] = np.nan
         firing_rate_match_arr[:, :, 3:, :] = firing_rate_animal
-        firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
-            firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
-        firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
-            firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
+        firing_rate_stride_median = np.nanmedian(firing_rate_match_arr, axis=3)
+        firing_rate_stride_median_tile = np.repeat(firing_rate_stride_median[:, :, :, None],
+                                                   np.shape(firing_rate_match_arr)[3], axis=3)
+        firing_rate_match_arr_centered = firing_rate_match_arr-firing_rate_stride_median_tile
+        firing_rate_amp_st = np.nanmax(firing_rate_match_arr_centered[:, :, :, :np.where(bins == 0.5)[0][0]],
+                                       axis=-1)
+        firing_rate_amp_sw = np.nanmax(firing_rate_match_arr_centered[:, :, :, np.where(bins == 0.5)[0][0]:],
+                                       axis=-1)
+        # firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
+        #     firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
+        # firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
+        #     firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
     elif protocol == 'split contra fast' and animal == 'MC10221':
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
         trial_idx = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
@@ -95,16 +120,32 @@ for count_a, animal in enumerate(animals):
         firing_rate_match_arr = np.zeros((np.shape(firing_rate_animal)[0], 4, Ntrials, 20))
         firing_rate_match_arr[:] = np.nan
         firing_rate_match_arr[:, :, trial_idx, :] = firing_rate_animal
-        firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
-            firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
-        firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
-            firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
+        firing_rate_stride_median = np.nanmedian(firing_rate_match_arr, axis=3)
+        firing_rate_stride_median_tile = np.repeat(firing_rate_stride_median[:, :, :, None],
+                                                   np.shape(firing_rate_match_arr)[3], axis=3)
+        firing_rate_match_arr_centered = firing_rate_match_arr-firing_rate_stride_median_tile
+        firing_rate_amp_st = np.nanmax(firing_rate_match_arr_centered[:, :, :, :np.where(bins == 0.5)[0][0]],
+                                       axis=-1)
+        firing_rate_amp_sw = np.nanmax(firing_rate_match_arr_centered[:, :, :, np.where(bins == 0.5)[0][0]:],
+                                       axis=-1)
+        # firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
+        #     firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
+        # firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
+        #     firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
     else:
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
-        firing_rate_amp_st = np.nanmax(firing_rate_animal[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
-            firing_rate_animal[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
-        firing_rate_amp_sw = np.nanmax(firing_rate_animal[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
-            firing_rate_animal[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
+        firing_rate_stride_median = np.nanmedian(firing_rate_animal, axis=3)
+        firing_rate_stride_median_tile = np.repeat(firing_rate_stride_median[:, :, :, None],
+                                                   np.shape(firing_rate_animal)[3], axis=3)
+        firing_rate_animal_centered = firing_rate_animal-firing_rate_stride_median_tile
+        firing_rate_amp_st = np.nanmax(firing_rate_animal_centered[:, :, :, :np.where(bins == 0.5)[0][0]],
+                                       axis=-1)
+        firing_rate_amp_sw = np.nanmax(firing_rate_animal_centered[:, :, :, np.where(bins == 0.5)[0][0]:],
+                                       axis=-1)
+        # firing_rate_amp_st = np.nanmax(firing_rate_animal[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
+        #     firing_rate_animal[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
+        # firing_rate_amp_sw = np.nanmax(firing_rate_animal[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
+        #     firing_rate_animal[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
     for p, paw in enumerate(paws):
         for t, trial in enumerate(np.arange(1, Ntrials + 1)):
             animal_id.extend(np.repeat(animal, np.shape(firing_rate_amp_st)[0]))
@@ -128,32 +169,33 @@ amp_dict = {'animal': animal_id, 'trial': trial_id, 'roi': roi_id, 'phase': phas
         'coord_ML': coord_ML}
 df_amp = pd.DataFrame(amp_dict)
 
-for paw in paws:
-    fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True)
-    rectangle = plt.Rectangle((1.5, 0), 2, 10, fc='lightgrey', alpha=0.3, zorder=-1)
-    plt.gca().add_patch(rectangle)
-    data_plot = df_amp.loc[(df_amp['paw']==paw)&(df_amp['trial'].isin(np.array([1, 6, 7, 16, 17, 26])))]
-    ax = sns.violinplot(data=data_plot,
-        x='trial', y='amp', saturate=1, hue='phase', split=True, inner=None, palette=['orange', 'green'], legend=False)
-    for collection in ax.collections:
-        if isinstance(collection, mp.collections.PolyCollection):
-            collection.set_edgecolor(collection.get_facecolor())
-            collection.set_facecolor('none')
-            collection.set_linewidth(4)
-    ax.scatter(np.arange(0, 6)-0.1, data_plot.loc[data_plot['phase']=='st'].groupby('trial').mean()['amp'],
-             s=20, color='orange')
-    ax.scatter(np.arange(0, 6)+0.1, data_plot.loc[data_plot['phase']=='sw'].groupby('trial').mean()['amp'],
-             s=20, color='green')
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.tick_params(axis='both', which='major', labelsize=20)
-    ax.set_xlabel('Trial', fontsize=20)
-    ax.set_ylabel('Event rate amplitude', fontsize=20)
-    plt.savefig(os.path.join(save_path, 'firing_rate_amp_dist_' + paw + '_trials'),
-                dpi=256)
-    plt.savefig(os.path.join(save_path, 'firing_rate_amp_dist_' + paw + '_trials.svg'),
-                dpi=256)
-    plt.close('all')
+# for paw in paws:
+#     fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True)
+#     rectangle = plt.Rectangle((1.5, 0), 2, 10, fc='lightgrey', alpha=0.3, zorder=-1)
+#     plt.gca().add_patch(rectangle)
+#     data_plot = df_amp.loc[(df_amp['paw']==paw)&(df_amp['trial'].isin(np.array([1, 6, 7, 16, 17, 26])))]
+#     ax = sns.violinplot(data=data_plot,
+#         x='trial', y='amp', saturate=1, hue='phase', split=True, inner=None, palette=['orange', 'green'], legend=False)
+#     for collection in ax.collections:
+#         if isinstance(collection, mp.collections.PolyCollection):
+#             collection.set_edgecolor(collection.get_facecolor())
+#             collection.set_facecolor('none')
+#             collection.set_linewidth(4)
+#     ax.scatter(np.arange(0, 6)-0.1, data_plot.loc[data_plot['phase']=='st'].groupby('trial').mean()['amp'],
+#              s=20, color='orange')
+#     ax.scatter(np.arange(0, 6)+0.1, data_plot.loc[data_plot['phase']=='sw'].groupby('trial').mean()['amp'],
+#              s=20, color='green')
+#     ax.spines['right'].set_visible(False)
+#     ax.spines['top'].set_visible(False)
+#     ax.tick_params(axis='both', which='major', labelsize=20)
+#     ax.set_xlabel('Trial', fontsize=20)
+#     ax.set_ylabel('Event rate amplitude', fontsize=20)
+#     if save_fig:
+#         plt.savefig(os.path.join(save_path, 'firing_rate_amp_dist_' + paw + '_trials'),
+#                     dpi=256)
+#         plt.savefig(os.path.join(save_path, 'firing_rate_amp_dist_' + paw + '_trials.svg'),
+#                     dpi=256)
+#     plt.close('all')
 
 # Do also line plots of single rois per animal
 for paw in paws:
@@ -172,10 +214,11 @@ for paw in paws:
         ax[count_a].tick_params(axis='both', which='major', labelsize=20)
         ax[count_a].set_xlabel('Trial', fontsize=20)
         ax[count_a].set_ylabel('Event\nrate\namplitude', fontsize=20)
-        plt.savefig(os.path.join(save_path, 'firing_rate_amp_sw_' + paw + '_singlerois_trials'),
-                    dpi=256)
-        plt.savefig(os.path.join(save_path, 'firing_rate_amp_sw_' + paw + '_singlerois_trials.svg'),
-                    dpi=256)
+        if save_fig:
+            plt.savefig(os.path.join(save_path, 'firing_rate_amp_sw_' + paw + '_singlerois_trials'),
+                        dpi=256)
+            plt.savefig(os.path.join(save_path, 'firing_rate_amp_sw_' + paw + '_singlerois_trials.svg'),
+                        dpi=256)
     data_plot_st = df_amp.loc[(df_amp['paw']==paw)&(df_amp['phase']=='st')]
     fig, ax = plt.subplots(5, 1, figsize=(7, 15), tight_layout=True, sharex=True, sharey=True)
     ax = ax.ravel()
@@ -191,11 +234,12 @@ for paw in paws:
         ax[count_a].tick_params(axis='both', which='major', labelsize=20)
         ax[count_a].set_xlabel('Trial', fontsize=20)
         ax[count_a].set_ylabel('Event\nrate\namplitude', fontsize=20)
-        plt.savefig(os.path.join(save_path, 'firing_rate_amp_st_' + paw + '_singlerois_trials'),
-                    dpi=256)
-        plt.savefig(os.path.join(save_path, 'firing_rate_amp_st_' + paw + '_singlerois_trials.svg'),
-                    dpi=256)
-plt.close('all')
+        if save_fig:
+            plt.savefig(os.path.join(save_path, 'firing_rate_amp_st_' + paw + '_singlerois_trials'),
+                        dpi=256)
+            plt.savefig(os.path.join(save_path, 'firing_rate_amp_st_' + paw + '_singlerois_trials.svg'),
+                        dpi=256)
+# plt.close('all')
 
 # Do also line plots of mean and std - learning style
 for paw in paws:
@@ -211,11 +255,32 @@ for paw in paws:
     ax.tick_params(axis='both', which='major', labelsize=20)
     ax.set_xlabel('Trial', fontsize=20)
     ax.set_ylabel('Event rate amplitude', fontsize=20)
-    plt.savefig(os.path.join(save_path, 'firing_rate_amp_' + paw + '_trials'),
-                dpi=256)
-    plt.savefig(os.path.join(save_path, 'firing_rate_amp_' + paw + '_trials.svg'),
-                dpi=256)
-    plt.close('all')
+    if save_fig:
+        plt.savefig(os.path.join(save_path, 'firing_rate_amp_' + paw + '_trials'),
+                    dpi=256)
+        plt.savefig(os.path.join(save_path, 'firing_rate_amp_' + paw + '_trials.svg'),
+                    dpi=256)
+    # plt.close('all')
+
+# Plot only the ones that increase during split
+paw = 'FR'
+data_plot_sw = df_amp.loc[(df_amp['paw']==paw)&(df_amp['phase']=='sw')]
+data_plot_sw_list = []
+for count_a, animal in enumerate(animals):
+    data_plot_sw_animal = data_plot_sw.loc[data_plot_sw['animal'] == animal]
+    for roi in data_plot_sw_animal.roi.unique():
+        data_plot_sw_animal_roi = data_plot_sw_animal.loc[data_plot_sw_animal['roi'] == roi]
+        data_plot_sw_list.append(np.array(data_plot_sw_animal_roi['amp']))
+data_plot_sw_arr = np.array(data_plot_sw_list)
+mi_ie = (data_plot_sw_arr[:, 6]-data_plot_sw_arr[:, 5])/(data_plot_sw_arr[:, 6]+data_plot_sw_arr[:, 5])
+mi_ae = (data_plot_sw_arr[:, 16]-data_plot_sw_arr[:, 5])/(data_plot_sw_arr[:, 16]+data_plot_sw_arr[:, 5])
+mi_ie_bins = np.digitize(mi_ie, np.linspace(0, 1, 9))
+fig, ax = plt.subplots(3, 3, figsize=(10, 10), tight_layout=True)
+ax = ax.ravel()
+for i in range(9):
+    rois_bin = np.where(mi_ie_bins == i)[0]
+    if len(rois_bin)>0:
+        ax[i].plot(data_plot_sw_arr[rois_bin, :].T, color='black', linewidth=0.5)
 
 for paw in paws:
     fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
@@ -230,11 +295,12 @@ for paw in paws:
     plt.gca().invert_yaxis()
     cbar = plt.colorbar(sc)
     cbar.ax.tick_params(labelsize=20)
-    cbar.mappable.set_clim(0.5, 7.5)
-    plt.savefig(os.path.join(save_path, 'firing_rate_amp_earlysplit_st_' + paw + '_roilocation'),
-                dpi=256)
-    plt.savefig(os.path.join(save_path, 'firing_rate_amp_earlysplit_st_' + paw + '_roilocation.svg'),
-                dpi=256)
+    # cbar.mappable.set_clim(0.5, 5)
+    if save_fig:
+        plt.savefig(os.path.join(save_path, 'firing_rate_amp_earlysplit_st_' + paw + '_roilocation'),
+                    dpi=256)
+        plt.savefig(os.path.join(save_path, 'firing_rate_amp_earlysplit_st_' + paw + '_roilocation.svg'),
+                    dpi=256)
     fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
     data_plot_sw_tf = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 7) & (df_amp['phase'] == 'sw')]
     sc = ax.scatter(data_plot_sw_tf['coord_AP'], data_plot_sw_tf['coord_ML'], s=15, c=data_plot_sw_tf['amp'],
@@ -246,50 +312,53 @@ for paw in paws:
     ax.set_xlabel('ML coordinate (mm)', fontsize=20)
     plt.gca().invert_yaxis()
     cbar = plt.colorbar(sc)
-    cbar.mappable.set_clim(0.5, 7.5)
+    # cbar.mappable.set_clim(0.5, 5)
     cbar.ax.tick_params(labelsize=20)
-    plt.savefig(os.path.join(save_path, 'firing_rate_amp_earlysplit_sw_' + paw + '_roilocation'),
-                dpi=256)
-    plt.savefig(os.path.join(save_path, 'firing_rate_amp_earlysplit_sw_' + paw + '_roilocation.svg'),
-                dpi=256)
-    plt.close('all')
-for paw in paws:
-    fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
-    data_plot_st_ti = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 7) & (df_amp['phase'] == 'st')]
-    data_plot_st_tf = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 16) & (df_amp['phase'] == 'st')]
-    delta_amp_st = np.array(data_plot_st_tf['amp'])-np.array(data_plot_st_ti['amp'])
-    sc = ax.scatter(data_plot_st_tf['coord_AP'], data_plot_st_tf['coord_ML'], s=15, c=delta_amp_st,
-                    cmap='coolwarm')
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.tick_params(axis='both', which='major', labelsize=20)
-    ax.set_ylabel('AP coordinate (mm)', fontsize=20)
-    ax.set_xlabel('ML coordinate (mm)', fontsize=20)
-    plt.gca().invert_yaxis()
-    cbar = plt.colorbar(sc)
-    cbar.ax.tick_params(labelsize=20)
-    cbar.mappable.set_clim(-4, 4)
-    plt.savefig(os.path.join(save_path, 'firing_rate_amp_deltasplit_st_' + paw + '_roilocation'),
-                dpi=256)
-    plt.savefig(os.path.join(save_path, 'firing_rate_amp_deltasplit_st_' + paw + '_roilocation.svg'),
-                dpi=256)
-    fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
-    data_plot_sw_ti = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 7) & (df_amp['phase'] == 'sw')]
-    data_plot_sw_tf = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 16) & (df_amp['phase'] == 'sw')]
-    delta_amp_sw = np.array(data_plot_sw_tf['amp']) - np.array(data_plot_sw_ti['amp'])
-    sc = ax.scatter(data_plot_sw_tf['coord_AP'], data_plot_sw_tf['coord_ML'], s=15, c=delta_amp_sw,
-                    cmap='coolwarm')
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.tick_params(axis='both', which='major', labelsize=20)
-    ax.set_ylabel('AP coordinate (mm)', fontsize=20)
-    ax.set_xlabel('ML coordinate (mm)', fontsize=20)
-    plt.gca().invert_yaxis()
-    cbar = plt.colorbar(sc)
-    cbar.mappable.set_clim(-4, 4)
-    cbar.ax.tick_params(labelsize=20)
-    plt.savefig(os.path.join(save_path, 'firing_rate_amp_deltasplit_sw_' + paw + '_roilocation'),
-                dpi=256)
-    plt.savefig(os.path.join(save_path, 'firing_rate_amp_deltasplit_sw_' + paw + '_roilocation.svg'),
-                dpi=256)
-    plt.close('all')
+    if save_fig:
+        plt.savefig(os.path.join(save_path, 'firing_rate_amp_earlysplit_sw_' + paw + '_roilocation'),
+                    dpi=256)
+        plt.savefig(os.path.join(save_path, 'firing_rate_amp_earlysplit_sw_' + paw + '_roilocation.svg'),
+                    dpi=256)
+    # plt.close('all')
+# for paw in paws:
+#     fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
+#     data_plot_st_ti = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 7) & (df_amp['phase'] == 'st')]
+#     data_plot_st_tf = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 16) & (df_amp['phase'] == 'st')]
+#     delta_amp_st = np.array(data_plot_st_tf['amp'])-np.array(data_plot_st_ti['amp'])
+#     sc = ax.scatter(data_plot_st_tf['coord_AP'], data_plot_st_tf['coord_ML'], s=15, c=delta_amp_st,
+#                     cmap='coolwarm')
+#     ax.spines['right'].set_visible(False)
+#     ax.spines['top'].set_visible(False)
+#     ax.tick_params(axis='both', which='major', labelsize=20)
+#     ax.set_ylabel('AP coordinate (mm)', fontsize=20)
+#     ax.set_xlabel('ML coordinate (mm)', fontsize=20)
+#     plt.gca().invert_yaxis()
+#     cbar = plt.colorbar(sc)
+#     cbar.ax.tick_params(labelsize=20)
+#     cbar.mappable.set_clim(-4, 4)
+#     if save_fig:
+#         plt.savefig(os.path.join(save_path, 'firing_rate_amp_deltasplit_st_' + paw + '_roilocation'),
+#                     dpi=256)
+#         plt.savefig(os.path.join(save_path, 'firing_rate_amp_deltasplit_st_' + paw + '_roilocation.svg'),
+#                     dpi=256)
+#     fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
+#     data_plot_sw_ti = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 7) & (df_amp['phase'] == 'sw')]
+#     data_plot_sw_tf = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 16) & (df_amp['phase'] == 'sw')]
+#     delta_amp_sw = np.array(data_plot_sw_tf['amp']) - np.array(data_plot_sw_ti['amp'])
+#     sc = ax.scatter(data_plot_sw_tf['coord_AP'], data_plot_sw_tf['coord_ML'], s=15, c=delta_amp_sw,
+#                     cmap='coolwarm')
+#     ax.spines['right'].set_visible(False)
+#     ax.spines['top'].set_visible(False)
+#     ax.tick_params(axis='both', which='major', labelsize=20)
+#     ax.set_ylabel('AP coordinate (mm)', fontsize=20)
+#     ax.set_xlabel('ML coordinate (mm)', fontsize=20)
+#     plt.gca().invert_yaxis()
+#     cbar = plt.colorbar(sc)
+#     cbar.mappable.set_clim(-4, 4)
+#     cbar.ax.tick_params(labelsize=20)
+#     if save_fig:
+#         plt.savefig(os.path.join(save_path, 'firing_rate_amp_deltasplit_sw_' + paw + '_roilocation'),
+#                     dpi=256)
+#         plt.savefig(os.path.join(save_path, 'firing_rate_amp_deltasplit_sw_' + paw + '_roilocation.svg'),
+#                     dpi=256)
+#     plt.close('all')

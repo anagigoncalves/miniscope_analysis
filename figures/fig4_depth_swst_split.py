@@ -197,48 +197,48 @@ df_amp = pd.DataFrame(amp_dict)
 #                     dpi=256)
 #     plt.close('all')
 
-# Do also line plots of single rois per animal
-for paw in paws:
-    data_plot_sw = df_amp.loc[(df_amp['paw']==paw)&(df_amp['phase']=='sw')]
-    fig, ax = plt.subplots(5, 1, figsize=(7, 15), tight_layout=True, sharex=True, sharey=True)
-    ax = ax.ravel()
-    for count_a, animal in enumerate(animals):
-        data_plot_sw_animal = data_plot_sw.loc[data_plot_sw['animal'] == animal]
-        for roi in data_plot_sw_animal.roi.unique():
-            data_plot_sw_animal_roi = data_plot_sw_animal.loc[data_plot_sw_animal['roi'] == roi]
-            ax[count_a].plot(np.arange(1, Ntrials+1), data_plot_sw_animal_roi['amp'], color='green', linewidth=0.1)
-        ax[count_a].axvline(x=6.5, color='black')
-        ax[count_a].axvline(x=16.5, color='black')
-        ax[count_a].spines['right'].set_visible(False)
-        ax[count_a].spines['top'].set_visible(False)
-        ax[count_a].tick_params(axis='both', which='major', labelsize=20)
-        ax[count_a].set_xlabel('Trial', fontsize=20)
-        ax[count_a].set_ylabel('Event\nrate\namplitude', fontsize=20)
-        if save_fig:
-            plt.savefig(os.path.join(save_path, 'firing_rate_amp_sw_' + paw + '_singlerois_trials'),
-                        dpi=256)
-            plt.savefig(os.path.join(save_path, 'firing_rate_amp_sw_' + paw + '_singlerois_trials.svg'),
-                        dpi=256)
-    data_plot_st = df_amp.loc[(df_amp['paw']==paw)&(df_amp['phase']=='st')]
-    fig, ax = plt.subplots(5, 1, figsize=(7, 15), tight_layout=True, sharex=True, sharey=True)
-    ax = ax.ravel()
-    for count_a, animal in enumerate(animals):
-        data_plot_st_animal = data_plot_st.loc[data_plot_st['animal'] == animal]
-        for roi in data_plot_st_animal.roi.unique():
-            data_plot_st_animal_roi = data_plot_st_animal.loc[data_plot_st_animal['roi'] == roi]
-            ax[count_a].plot(np.arange(1, Ntrials+1), data_plot_st_animal_roi['amp'], color='orange', linewidth=0.1)
-        ax[count_a].axvline(x=6.5, color='black')
-        ax[count_a].axvline(x=16.5, color='black')
-        ax[count_a].spines['right'].set_visible(False)
-        ax[count_a].spines['top'].set_visible(False)
-        ax[count_a].tick_params(axis='both', which='major', labelsize=20)
-        ax[count_a].set_xlabel('Trial', fontsize=20)
-        ax[count_a].set_ylabel('Event\nrate\namplitude', fontsize=20)
-        if save_fig:
-            plt.savefig(os.path.join(save_path, 'firing_rate_amp_st_' + paw + '_singlerois_trials'),
-                        dpi=256)
-            plt.savefig(os.path.join(save_path, 'firing_rate_amp_st_' + paw + '_singlerois_trials.svg'),
-                        dpi=256)
+# # Do also line plots of single rois per animal
+# for paw in paws:
+#     data_plot_sw = df_amp.loc[(df_amp['paw']==paw)&(df_amp['phase']=='sw')]
+#     fig, ax = plt.subplots(5, 1, figsize=(7, 15), tight_layout=True, sharex=True, sharey=True)
+#     ax = ax.ravel()
+#     for count_a, animal in enumerate(animals):
+#         data_plot_sw_animal = data_plot_sw.loc[data_plot_sw['animal'] == animal]
+#         for roi in data_plot_sw_animal.roi.unique():
+#             data_plot_sw_animal_roi = data_plot_sw_animal.loc[data_plot_sw_animal['roi'] == roi]
+#             ax[count_a].plot(np.arange(1, Ntrials+1), data_plot_sw_animal_roi['amp'], color='green', linewidth=0.1)
+#         ax[count_a].axvline(x=6.5, color='black')
+#         ax[count_a].axvline(x=16.5, color='black')
+#         ax[count_a].spines['right'].set_visible(False)
+#         ax[count_a].spines['top'].set_visible(False)
+#         ax[count_a].tick_params(axis='both', which='major', labelsize=20)
+#         ax[count_a].set_xlabel('Trial', fontsize=20)
+#         ax[count_a].set_ylabel('Event\nrate\namplitude', fontsize=20)
+#         if save_fig:
+#             plt.savefig(os.path.join(save_path, 'firing_rate_amp_sw_' + paw + '_singlerois_trials'),
+#                         dpi=256)
+#             plt.savefig(os.path.join(save_path, 'firing_rate_amp_sw_' + paw + '_singlerois_trials.svg'),
+#                         dpi=256)
+#     data_plot_st = df_amp.loc[(df_amp['paw']==paw)&(df_amp['phase']=='st')]
+#     fig, ax = plt.subplots(5, 1, figsize=(7, 15), tight_layout=True, sharex=True, sharey=True)
+#     ax = ax.ravel()
+#     for count_a, animal in enumerate(animals):
+#         data_plot_st_animal = data_plot_st.loc[data_plot_st['animal'] == animal]
+#         for roi in data_plot_st_animal.roi.unique():
+#             data_plot_st_animal_roi = data_plot_st_animal.loc[data_plot_st_animal['roi'] == roi]
+#             ax[count_a].plot(np.arange(1, Ntrials+1), data_plot_st_animal_roi['amp'], color='orange', linewidth=0.1)
+#         ax[count_a].axvline(x=6.5, color='black')
+#         ax[count_a].axvline(x=16.5, color='black')
+#         ax[count_a].spines['right'].set_visible(False)
+#         ax[count_a].spines['top'].set_visible(False)
+#         ax[count_a].tick_params(axis='both', which='major', labelsize=20)
+#         ax[count_a].set_xlabel('Trial', fontsize=20)
+#         ax[count_a].set_ylabel('Event\nrate\namplitude', fontsize=20)
+#         if save_fig:
+#             plt.savefig(os.path.join(save_path, 'firing_rate_amp_st_' + paw + '_singlerois_trials'),
+#                         dpi=256)
+#             plt.savefig(os.path.join(save_path, 'firing_rate_amp_st_' + paw + '_singlerois_trials.svg'),
+#                         dpi=256)
 # plt.close('all')
 
 # Do also line plots of mean and std - learning style
@@ -262,7 +262,7 @@ for paw in paws:
                     dpi=256)
     # plt.close('all')
 
-# Plot only the ones that increase during split
+# Divide ROIs into classes
 paw = 'FR'
 data_plot_sw = df_amp.loc[(df_amp['paw']==paw)&(df_amp['phase']=='sw')]
 data_plot_sw_list = []
@@ -275,50 +275,54 @@ data_plot_sw_arr = np.array(data_plot_sw_list)
 mi_ie = (data_plot_sw_arr[:, 6]-data_plot_sw_arr[:, 5])/(data_plot_sw_arr[:, 6]+data_plot_sw_arr[:, 5])
 mi_ae = (data_plot_sw_arr[:, 16]-data_plot_sw_arr[:, 5])/(data_plot_sw_arr[:, 16]+data_plot_sw_arr[:, 5])
 mi_ie_bins = np.digitize(mi_ie, np.linspace(0, 1, 9))
+mi_ae_bins = np.digitize(mi_ae, np.linspace(0, 1, 9))
 fig, ax = plt.subplots(3, 3, figsize=(10, 10), tight_layout=True)
 ax = ax.ravel()
 for i in range(9):
     rois_bin = np.where(mi_ie_bins == i)[0]
     if len(rois_bin)>0:
-        ax[i].plot(data_plot_sw_arr[rois_bin, :].T, color='black', linewidth=0.5)
+        ax[i].plot(np.nanmean(data_plot_sw_arr[rois_bin, :], axis=0), color='green', linewidth=2)
+        ax[i].fill_between(np.nanmean(data_plot_sw_arr[rois_bin, :], axis=0)-np.nanstd(data_plot_sw_arr[rois_bin, :], axis=0),
+                np.nanmean(data_plot_sw_arr[rois_bin, :], axis=0)+np.nanstd(data_plot_sw_arr[rois_bin, :], axis=0), 
+                color='green', alpha=0.3)
 
-for paw in paws:
-    fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
-    data_plot_st_tf = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 7) & (df_amp['phase'] == 'st')]
-    sc = ax.scatter(data_plot_st_tf['coord_AP'], data_plot_st_tf['coord_ML'], s=15, c=data_plot_st_tf['amp'],
-                    cmap='viridis')
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.tick_params(axis='both', which='major', labelsize=20)
-    ax.set_ylabel('AP coordinate (mm)', fontsize=20)
-    ax.set_xlabel('ML coordinate (mm)', fontsize=20)
-    plt.gca().invert_yaxis()
-    cbar = plt.colorbar(sc)
-    cbar.ax.tick_params(labelsize=20)
-    # cbar.mappable.set_clim(0.5, 5)
-    if save_fig:
-        plt.savefig(os.path.join(save_path, 'firing_rate_amp_earlysplit_st_' + paw + '_roilocation'),
-                    dpi=256)
-        plt.savefig(os.path.join(save_path, 'firing_rate_amp_earlysplit_st_' + paw + '_roilocation.svg'),
-                    dpi=256)
-    fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
-    data_plot_sw_tf = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 7) & (df_amp['phase'] == 'sw')]
-    sc = ax.scatter(data_plot_sw_tf['coord_AP'], data_plot_sw_tf['coord_ML'], s=15, c=data_plot_sw_tf['amp'],
-                    cmap='viridis')
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.tick_params(axis='both', which='major', labelsize=20)
-    ax.set_ylabel('AP coordinate (mm)', fontsize=20)
-    ax.set_xlabel('ML coordinate (mm)', fontsize=20)
-    plt.gca().invert_yaxis()
-    cbar = plt.colorbar(sc)
-    # cbar.mappable.set_clim(0.5, 5)
-    cbar.ax.tick_params(labelsize=20)
-    if save_fig:
-        plt.savefig(os.path.join(save_path, 'firing_rate_amp_earlysplit_sw_' + paw + '_roilocation'),
-                    dpi=256)
-        plt.savefig(os.path.join(save_path, 'firing_rate_amp_earlysplit_sw_' + paw + '_roilocation.svg'),
-                    dpi=256)
+# for paw in paws:
+#     fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
+#     data_plot_st_tf = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 7) & (df_amp['phase'] == 'st')]
+#     sc = ax.scatter(data_plot_st_tf['coord_AP'], data_plot_st_tf['coord_ML'], s=15, c=data_plot_st_tf['amp'],
+#                     cmap='viridis')
+#     ax.spines['right'].set_visible(False)
+#     ax.spines['top'].set_visible(False)
+#     ax.tick_params(axis='both', which='major', labelsize=20)
+#     ax.set_ylabel('AP coordinate (mm)', fontsize=20)
+#     ax.set_xlabel('ML coordinate (mm)', fontsize=20)
+#     plt.gca().invert_yaxis()
+#     cbar = plt.colorbar(sc)
+#     cbar.ax.tick_params(labelsize=20)
+#     # cbar.mappable.set_clim(0.5, 5)
+#     if save_fig:
+#         plt.savefig(os.path.join(save_path, 'firing_rate_amp_earlysplit_st_' + paw + '_roilocation'),
+#                     dpi=256)
+#         plt.savefig(os.path.join(save_path, 'firing_rate_amp_earlysplit_st_' + paw + '_roilocation.svg'),
+#                     dpi=256)
+#     fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
+#     data_plot_sw_tf = df_amp.loc[(df_amp['paw'] == paw) & (df_amp['trial'] == 7) & (df_amp['phase'] == 'sw')]
+#     sc = ax.scatter(data_plot_sw_tf['coord_AP'], data_plot_sw_tf['coord_ML'], s=15, c=data_plot_sw_tf['amp'],
+#                     cmap='viridis')
+#     ax.spines['right'].set_visible(False)
+#     ax.spines['top'].set_visible(False)
+#     ax.tick_params(axis='both', which='major', labelsize=20)
+#     ax.set_ylabel('AP coordinate (mm)', fontsize=20)
+#     ax.set_xlabel('ML coordinate (mm)', fontsize=20)
+#     plt.gca().invert_yaxis()
+#     cbar = plt.colorbar(sc)
+#     # cbar.mappable.set_clim(0.5, 5)
+#     cbar.ax.tick_params(labelsize=20)
+#     if save_fig:
+#         plt.savefig(os.path.join(save_path, 'firing_rate_amp_earlysplit_sw_' + paw + '_roilocation'),
+#                     dpi=256)
+#         plt.savefig(os.path.join(save_path, 'firing_rate_amp_earlysplit_sw_' + paw + '_roilocation.svg'),
+#                     dpi=256)
     # plt.close('all')
 # for paw in paws:
 #     fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))

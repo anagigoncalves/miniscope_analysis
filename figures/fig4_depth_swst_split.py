@@ -7,11 +7,11 @@ import matplotlib as mp
 import seaborn as sns
 
 # Input data
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split contra fast S1\\'
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split ipsi fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig pca\\'
 path_session_data = 'J:\\Miniscope processed files'
-protocol = 'split contra fast'
-session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S2.xlsx'))
+protocol = 'split ipsi fast'
+session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
 Ntrials = 26
 trials = np.arange(1, Ntrials+1)
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
@@ -274,12 +274,12 @@ for paw in paws:
     ax[1].tick_params(axis='both', which='major', labelsize=20)
     ax[1].set_xlabel('Trial', fontsize=20)
     ax[1].set_ylabel('Event rate amplitude', fontsize=20)
-    # if save_fig:
-    #     plt.savefig(os.path.join(save_path, 'firing_rate_amp_' + paw + '_trials'),
-    #                 dpi=256)
-    #     plt.savefig(os.path.join(save_path, 'firing_rate_amp_' + paw + '_trials.svg'),
-    #                 dpi=256)
-    # plt.close('all')
+    if save_fig:
+        plt.savefig(os.path.join(save_path, 'firing_rate_amp_' + paw + '_trials_transitions'),
+                    dpi=256)
+        plt.savefig(os.path.join(save_path, 'firing_rate_amp_' + paw + '_trials_transitions.svg'),
+                    dpi=256)
+    plt.close('all')
 
 # Divide ROIs into classes
 for paw in paws:
@@ -304,7 +304,7 @@ for paw in paws:
     mi_ae = (data_plot_sw_arr[:, 16]-data_plot_sw_arr[:, 5])/(data_plot_sw_arr[:, 16]+data_plot_sw_arr[:, 5])
     mi_ie_bins = np.digitize(mi_ie, np.linspace(0, 1, 10))
     mi_ae_bins = np.digitize(mi_ae, np.linspace(0, 1, 10))
-    fig, ax = plt.subplots(3, 3, figsize=(10, 10), tight_layout=True, sharey=True, sharex=True)
+    fig, ax = plt.subplots(3, 3, figsize=(15, 15), tight_layout=True, sharey=True, sharex=True)
     ax = ax.ravel()
     for i in range(9):
         rois_bin = np.where(mi_ie_bins == i)[0]
@@ -319,7 +319,8 @@ for paw in paws:
             ax[i].fill_between(trials, np.nanmean(data_plot_sw_arr[rois_bin, :], axis=0)-np.nanstd(data_plot_sw_arr[rois_bin, :], axis=0),
                     np.nanmean(data_plot_sw_arr[rois_bin, :], axis=0)+np.nanstd(data_plot_sw_arr[rois_bin, :], axis=0),
                     color='green', alpha=0.3)
-            ax[i].set_title('MI ' + str(np.round(np.linspace(0, 1, 10)[i], 2)) + '-' + str(np.round(np.linspace(0, 1, 10)[i+1], 2)), fontsize=20)
+            ax[i].set_title('MI ' + str(np.round(np.linspace(0, 1, 10)[i], 2)) + '-' + str(np.round(np.linspace(0, 1, 10)[i+1], 2)) + ' #' +
+                    str(len(rois_bin)) + 'ROIs', fontsize=16)
             ax[i].spines['right'].set_visible(False)
             ax[i].spines['top'].set_visible(False)
             ax[i].tick_params(axis='both', which='major', labelsize=20)

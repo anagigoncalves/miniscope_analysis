@@ -7,12 +7,12 @@ from mpl_toolkits import mplot3d
 import sklearn.metrics as sm
 
 # Input data
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters sw time\\split ipsi fast S1\\'
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters sw time\\tied baseline S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig pca\\'
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
+session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_tied_S1.xlsx'))
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
-protocol = 'split ipsi fast'
+protocol = 'tied baseline'
 align_event = 'sw'
 align_dimension = 'time'
 if align_dimension == 'phase':
@@ -66,8 +66,10 @@ firing_rate_mean_trials_paws_list = []
 for p in range(len(paws)):
     firing_rate_mean_trials_paw = []
     firing_rate_mean_trials_paw_animalid = []
+    roi_nr = []
     for count_a, animal in enumerate(animals):
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
+        roi_nr.append(np.shape(firing_rate_animal)[0])
         firing_rate_mean_trials_paw.append(zscoring(np.nanmean(firing_rate_animal[:, p, :, :], axis=1),0))
         firing_rate_mean_trials_paw_animalid.append(np.repeat(count_a, np.shape(firing_rate_animal)[0]))
     firing_rate_mean_trials_paw_concat = np.vstack(firing_rate_mean_trials_paw)

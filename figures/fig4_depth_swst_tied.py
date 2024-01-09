@@ -57,40 +57,72 @@ for count_a, animal in enumerate(animals):
         firing_rate_match_arr = np.zeros((np.shape(firing_rate_animal)[0], 4, Ntrials, 20))
         firing_rate_match_arr[:] = np.nan
         firing_rate_match_arr[:, :, 3:9, :] = firing_rate_animal
-        firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
-            firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
-        firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
-            firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
+        firing_rate_stride_median = np.nanmedian(firing_rate_match_arr, axis=3)
+        firing_rate_stride_median_tile = np.repeat(firing_rate_stride_median[:, :, :, None],
+                                                   np.shape(firing_rate_match_arr)[3], axis=3)
+        firing_rate_match_arr_centered = firing_rate_match_arr-firing_rate_stride_median_tile
+        firing_rate_amp_st = np.nanmax(firing_rate_match_arr_centered[:, :, :, :np.where(bins == 0.5)[0][0]],
+                                       axis=-1)
+        firing_rate_amp_sw = np.nanmax(firing_rate_match_arr_centered[:, :, :, np.where(bins == 0.5)[0][0]:],
+                                       axis=-1)
+        # firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
+        #     firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
+        # firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
+        #     firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
     elif (session == 1 and animal == 'MC9194') or (session == 1 and animal == 'MC9513'):
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
         firing_rate_match_arr = np.zeros((np.shape(firing_rate_animal)[0], 4, Ntrials, 20))
         trial_idx = np.array([0, 1, 2, 3, 4, 5, 12, 13, 14, 15, 16, 17, 6, 7, 8, 9, 10, 11])
         firing_rate_match_arr[:] = np.nan
         firing_rate_match_arr[:, :, trial_idx, :] = firing_rate_animal
-        firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
-            firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
-        firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
-            firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
+        firing_rate_stride_median = np.nanmedian(firing_rate_match_arr, axis=3)
+        firing_rate_stride_median_tile = np.repeat(firing_rate_stride_median[:, :, :, None],
+                                                   np.shape(firing_rate_match_arr)[3], axis=3)
+        firing_rate_match_arr_centered = firing_rate_match_arr-firing_rate_stride_median_tile
+        firing_rate_amp_st = np.nanmax(firing_rate_match_arr_centered[:, :, :, :np.where(bins == 0.5)[0][0]],
+                                       axis=-1)
+        firing_rate_amp_sw = np.nanmax(firing_rate_match_arr_centered[:, :, :, np.where(bins == 0.5)[0][0]:],
+                                       axis=-1)
+        # firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
+        #     firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
+        # firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
+        #     firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
     elif session == 1 and animal == 'MC10221':
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
         firing_rate_match_arr = np.zeros((np.shape(firing_rate_animal)[0], 4, Ntrials, 20))
         trial_idx = np.array([12, 13, 14, 15, 16, 17, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
         firing_rate_match_arr[:] = np.nan
         firing_rate_match_arr[:, :, trial_idx, :] = firing_rate_animal
-        firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
-            firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
-        firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
-            firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
+        firing_rate_stride_median = np.nanmedian(firing_rate_match_arr, axis=3)
+        firing_rate_stride_median_tile = np.repeat(firing_rate_stride_median[:, :, :, None],
+                                                   np.shape(firing_rate_match_arr)[3], axis=3)
+        firing_rate_match_arr_centered = firing_rate_match_arr-firing_rate_stride_median_tile
+        firing_rate_amp_st = np.nanmax(firing_rate_match_arr_centered[:, :, :, :np.where(bins == 0.5)[0][0]],
+                                       axis=-1)
+        firing_rate_amp_sw = np.nanmax(firing_rate_match_arr_centered[:, :, :, np.where(bins == 0.5)[0][0]:],
+                                       axis=-1)
+        # firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
+        #     firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
+        # firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
+        #     firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
     elif session == 2 and animal == 'MC9226':
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
         firing_rate_match_arr = np.zeros((np.shape(firing_rate_animal)[0], 4, Ntrials, 20))
         trial_idx = np.array([0, 1, 2, 3, 4, 5, 12, 13, 14, 15, 16, 17, 20, 21, 22, 23, 24, 25])
         firing_rate_match_arr[:] = np.nan
         firing_rate_match_arr[:, :, :, :] = firing_rate_animal[:, :, trial_idx, :]
-        firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
-            firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
-        firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
-            firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
+        firing_rate_stride_median = np.nanmedian(firing_rate_match_arr, axis=3)
+        firing_rate_stride_median_tile = np.repeat(firing_rate_stride_median[:, :, :, None],
+                                                   np.shape(firing_rate_match_arr)[3], axis=3)
+        firing_rate_match_arr_centered = firing_rate_match_arr-firing_rate_stride_median_tile
+        firing_rate_amp_st = np.nanmax(firing_rate_match_arr_centered[:, :, :, :np.where(bins == 0.5)[0][0]],
+                                       axis=-1)
+        firing_rate_amp_sw = np.nanmax(firing_rate_match_arr_centered[:, :, :, np.where(bins == 0.5)[0][0]:],
+                                       axis=-1)
+        # firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
+        #     firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
+        # firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
+        #     firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
     for p, paw in enumerate(paws):
         for t, trial in enumerate(np.arange(1, Ntrials + 1)):
             animal_id.extend(np.repeat(animal, np.shape(firing_rate_amp_st)[0]))

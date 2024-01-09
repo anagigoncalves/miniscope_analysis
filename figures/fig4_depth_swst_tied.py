@@ -65,10 +65,6 @@ for count_a, animal in enumerate(animals):
                                        axis=-1)
         firing_rate_amp_sw = np.nanmax(firing_rate_match_arr_centered[:, :, :, np.where(bins == 0.5)[0][0]:],
                                        axis=-1)
-        # firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
-        #     firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
-        # firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
-        #     firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
     elif (session == 1 and animal == 'MC9194') or (session == 1 and animal == 'MC9513'):
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
         firing_rate_match_arr = np.zeros((np.shape(firing_rate_animal)[0], 4, Ntrials, 20))
@@ -83,10 +79,6 @@ for count_a, animal in enumerate(animals):
                                        axis=-1)
         firing_rate_amp_sw = np.nanmax(firing_rate_match_arr_centered[:, :, :, np.where(bins == 0.5)[0][0]:],
                                        axis=-1)
-        # firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
-        #     firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
-        # firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
-        #     firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
     elif session == 1 and animal == 'MC10221':
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
         firing_rate_match_arr = np.zeros((np.shape(firing_rate_animal)[0], 4, Ntrials, 20))
@@ -101,10 +93,6 @@ for count_a, animal in enumerate(animals):
                                        axis=-1)
         firing_rate_amp_sw = np.nanmax(firing_rate_match_arr_centered[:, :, :, np.where(bins == 0.5)[0][0]:],
                                        axis=-1)
-        # firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
-        #     firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
-        # firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
-        #     firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
     elif session == 2 and animal == 'MC9226':
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
         firing_rate_match_arr = np.zeros((np.shape(firing_rate_animal)[0], 4, Ntrials, 20))
@@ -119,10 +107,6 @@ for count_a, animal in enumerate(animals):
                                        axis=-1)
         firing_rate_amp_sw = np.nanmax(firing_rate_match_arr_centered[:, :, :, np.where(bins == 0.5)[0][0]:],
                                        axis=-1)
-        # firing_rate_amp_st = np.nanmax(firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1) - np.nanmin(
-        #     firing_rate_match_arr[:, :, :, :np.where(bins == 0.5)[0][0]], axis=-1)
-        # firing_rate_amp_sw = np.nanmax(firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1) - np.nanmin(
-        #     firing_rate_match_arr[:, :, :, np.where(bins == 0.5)[0][0]:], axis=-1)
     for p, paw in enumerate(paws):
         for t, trial in enumerate(np.arange(1, Ntrials + 1)):
             animal_id.extend(np.repeat(animal, np.shape(firing_rate_amp_st)[0]))
@@ -151,8 +135,6 @@ for paw in paws:
     fig, ax = plt.subplots(figsize=(5, 7), tight_layout=True)
     data_plot_sw = df_amp.loc[(df_amp['paw']==paw)&(df_amp['phase']=='sw'), ['trial', 'amp']]
     data_plot_st = df_amp.loc[(df_amp['paw']==paw)&(df_amp['phase']=='st'), ['trial', 'amp']]
-    rectangle = plt.Rectangle((6.5, 0), 6, 6, fc='lightgrey', alpha=0.3, zorder=-1)
-    plt.gca().add_patch(rectangle)
     ax = sns.lineplot(data=data_plot_st, x='trial', y='amp', estimator='mean', ci='sd', color='orange', marker='o')
     ax = sns.lineplot(data=data_plot_sw, x='trial', y='amp', estimator='mean', ci='sd', color='green', marker='o')
     ax.spines['right'].set_visible(False)

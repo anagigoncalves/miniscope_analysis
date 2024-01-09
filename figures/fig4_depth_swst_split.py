@@ -242,6 +242,45 @@ for paw in paws:
                     dpi=256)
     plt.close('all')
 
+# Do also line plots of mean and std - scatter plot of transition
+for paw in paws:
+    data_plot_sw = df_amp.loc[(df_amp['paw']==paw)&(df_amp['phase']=='sw')]
+    data_plot_sw_list = []
+    for count_a, animal in enumerate(animals):
+        data_plot_sw_animal = data_plot_sw.loc[data_plot_sw['animal'] == animal]
+        for roi in data_plot_sw_animal.roi.unique():
+            data_plot_sw_animal_roi = data_plot_sw_animal.loc[data_plot_sw_animal['roi'] == roi]
+            data_plot_sw_list.append(np.array(data_plot_sw_animal_roi['amp']))
+    data_plot_sw_arr = np.array(data_plot_sw_list)
+    fig, ax = plt.subplots(1, 2, figsize=(10, 7), tight_layout=True)
+    ax = ax.ravel()
+    for i in range(np.shape(data_plot_sw_arr)[0]):
+        ax[0].scatter(np.tile(np.array([0, 1]), (np.shape(data_plot_sw_arr)[0], 1))[i, :], data_plot_sw_arr[:, [5, 6]][i, :], color='black')
+        ax[0].plot(np.tile(np.array([0, 1]), (np.shape(data_plot_sw_arr)[0], 1))[i, :], data_plot_sw_arr[:, [5, 6]][i, :], color='black', linewidth=0.5)
+    ax[0].set_xticks([0, 1])
+    ax[0].set_xticklabels(['last baseline', 'earlye split'])
+    ax[0].spines['right'].set_visible(False)
+    ax[0].spines['top'].set_visible(False)
+    ax[0].tick_params(axis='both', which='major', labelsize=20)
+    ax[0].set_xlabel('Trial', fontsize=20)
+    ax[0].set_ylabel('Event rate amplitude', fontsize=20)
+    for i in range(np.shape(data_plot_sw_arr)[0]):
+        ax[1].scatter(np.tile(np.array([0, 1]), (np.shape(data_plot_sw_arr)[0], 1))[i, :], data_plot_sw_arr[:, [6, 15]][i, :], color='black')
+        ax[1].plot(np.tile(np.array([0, 1]), (np.shape(data_plot_sw_arr)[0], 1))[i, :], data_plot_sw_arr[:, [6, 15]][i, :], color='black', linewidth=0.5)
+    ax[1].set_xticks([0, 1])
+    ax[1].set_xticklabels(['last baseline', 'early split'])
+    ax[1].spines['right'].set_visible(False)
+    ax[1].spines['top'].set_visible(False)
+    ax[1].tick_params(axis='both', which='major', labelsize=20)
+    ax[1].set_xlabel('Trial', fontsize=20)
+    ax[1].set_ylabel('Event rate amplitude', fontsize=20)
+    # if save_fig:
+    #     plt.savefig(os.path.join(save_path, 'firing_rate_amp_' + paw + '_trials'),
+    #                 dpi=256)
+    #     plt.savefig(os.path.join(save_path, 'firing_rate_amp_' + paw + '_trials.svg'),
+    #                 dpi=256)
+    # plt.close('all')
+
 # Divide ROIs into classes
 for paw in paws:
     data_plot_sw = df_amp.loc[(df_amp['paw']==paw)&(df_amp['phase']=='sw')]

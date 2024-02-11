@@ -65,6 +65,7 @@ for count_a, animal in enumerate(animals):
                                        axis=-1)
         firing_rate_amp_sw = np.nanmax(firing_rate_match_arr_centered[:, :, :, np.where(bins == 0.5)[0][0]:],
                                        axis=-1)
+        firing_rate_amp = np.nanmax(firing_rate_match_arr_centered, axis=-1)
     elif (session == 1 and animal == 'MC9194') or (session == 1 and animal == 'MC9513'):
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
         firing_rate_match_arr = np.zeros((np.shape(firing_rate_animal)[0], 4, Ntrials, 20))
@@ -79,6 +80,7 @@ for count_a, animal in enumerate(animals):
                                        axis=-1)
         firing_rate_amp_sw = np.nanmax(firing_rate_match_arr_centered[:, :, :, np.where(bins == 0.5)[0][0]:],
                                        axis=-1)
+        firing_rate_amp = np.nanmax(firing_rate_match_arr_centered, axis=-1)
     elif session == 1 and animal == 'MC10221':
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
         firing_rate_match_arr = np.zeros((np.shape(firing_rate_animal)[0], 4, Ntrials, 20))
@@ -93,6 +95,7 @@ for count_a, animal in enumerate(animals):
                                        axis=-1)
         firing_rate_amp_sw = np.nanmax(firing_rate_match_arr_centered[:, :, :, np.where(bins == 0.5)[0][0]:],
                                        axis=-1)
+        firing_rate_amp = np.nanmax(firing_rate_match_arr_centered, axis=-1)
     elif session == 2 and animal == 'MC9226':
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
         firing_rate_match_arr = np.zeros((np.shape(firing_rate_animal)[0], 4, Ntrials, 20))
@@ -107,6 +110,7 @@ for count_a, animal in enumerate(animals):
                                        axis=-1)
         firing_rate_amp_sw = np.nanmax(firing_rate_match_arr_centered[:, :, :, np.where(bins == 0.5)[0][0]:],
                                        axis=-1)
+        firing_rate_amp = np.nanmax(firing_rate_match_arr_centered, axis=-1)
     for p, paw in enumerate(paws):
         for t, trial in enumerate(np.arange(1, Ntrials + 1)):
             animal_id.extend(np.repeat(animal, np.shape(firing_rate_amp_st)[0]))
@@ -125,10 +129,33 @@ for count_a, animal in enumerate(animals):
             amp_val.extend(firing_rate_amp_sw[:, p, t])
             coord_AP.extend(centroid_dist_corner[:, 0])
             coord_ML.extend(centroid_dist_corner[:, 1])
+            animal_id.extend(np.repeat(animal, np.shape(firing_rate_amp)[0]))
+            trial_id.extend(np.repeat(trial, np.shape(firing_rate_amp)[0]))
+            phase_id.extend(np.repeat('cycle', np.shape(firing_rate_amp)[0]))
+            paw_id.extend(np.repeat(paw, np.shape(firing_rate_amp)[0]))
+            roi_id.extend(np.arange(0, np.shape(firing_rate_amp)[0]))
+            amp_val.extend(firing_rate_amp[:, p, t])
+            coord_AP.extend(centroid_dist_corner[:, 0])
+            coord_ML.extend(centroid_dist_corner[:, 1])
 
 amp_dict = {'animal': animal_id, 'trial': trial_id, 'roi': roi_id, 'phase': phase_id, 'amp': amp_val, 'paw': paw_id, 'coord_AP': coord_AP,
         'coord_ML': coord_ML}
 df_amp = pd.DataFrame(amp_dict)
+
+for paw in paws:
+    fig, ax = plt.subplots(figsize=(5, 7), tight_layout=True)
+    data_plot = df_amp.loc[(df_amp['paw']==paw)&(df_amp['phase']=='cycle'), ['trial', 'amp']]
+    ax = sns.lineplot(data=data_plot, x='trial', y='amp', estimator='mean', ci='sd', color='black', marker='o')
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.tick_params(axis='both', which='major', labelsize=20)
+    ax.set_ylim([0, 6])
+    ax.set_xlabel('Trial', fontsize=20)
+    ax.set_ylabel('Event rate amplitude', fontsize=20)
+    plt.savefig(os.path.join(save_path, 'firing_rate_amp_step_cycle' + paw + '_trials'),
+                dpi=256)
+    plt.savefig(os.path.join(save_path, 'firing_rate_amp_step_cycle' + paw + '_trials.svg'),
+                dpi=256)
 
 # Do also line plots of mean and std - learning style
 for paw in paws:
@@ -137,6 +164,7 @@ for paw in paws:
     data_plot_st = df_amp.loc[(df_amp['paw']==paw)&(df_amp['phase']=='st'), ['trial', 'amp']]
     ax = sns.lineplot(data=data_plot_st, x='trial', y='amp', estimator='mean', ci='sd', color='orange', marker='o')
     ax = sns.lineplot(data=data_plot_sw, x='trial', y='amp', estimator='mean', ci='sd', color='green', marker='o')
+    ax.set_ylim([0, 6])
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)
     ax.tick_params(axis='both', which='major', labelsize=20)

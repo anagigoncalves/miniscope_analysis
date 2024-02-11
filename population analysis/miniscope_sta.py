@@ -13,8 +13,8 @@ import miniscope_session_class
 import locomotion_class
 path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_tied_S1.xlsx')
-save_path = 'J:\\Miniscope processed files\\Analysis on population data\\STA bodyvars\\tied baseline S1\\'
-sta_type = 'bodyvars'
+save_path = 'J:\\Miniscope processed files\\Analysis on population data\\\STA paw speed\\tied baseline S1\\'
+sta_type = 'pawspeed'
 window = np.arange(-330, 330 + 1)  # Samples
 iter_n = 100 # Number of iterations of CS timestamps random shuffling
 
@@ -46,6 +46,9 @@ for s in range(len(session_data)):
     bodyacc = []
     bodycenter = []
     bodyspeed = []
+    fr_speed = []
+    fr_acc = []
+    fr_jerk = []
     FR_X_excursion = []
     FL_X_excursion = []
     HR_X_excursion = []
@@ -67,12 +70,18 @@ for s in range(len(session_data)):
         bodyacc.append(bodyacc_trial)
         bodycenter.append(bodycenter_trial)
         bodyspeed.append(bodyspeed_trial)
+        fr_speed.append(loco.compute_bodyspeed(final_tracks[0, 0, :]))
+        fr_acc.append(loco.compute_bodyacc(final_tracks[0, 0, :]))
+        fr_jerk.append(loco.compute_bodyjerk(final_tracks[0, 0, :]))
         FR_X_excursion.append((final_tracks[0, 0, :]*loco.pixel_to_mm)-(np.nanmean(final_tracks[0, :4, :], axis=0)*loco.pixel_to_mm))
         HR_X_excursion.append((final_tracks[0, 1, :]*loco.pixel_to_mm)-(np.nanmean(final_tracks[0, :4, :], axis=0)*loco.pixel_to_mm))
         FL_X_excursion.append((final_tracks[0, 2, :]*loco.pixel_to_mm)-(np.nanmean(final_tracks[0, :4, :], axis=0)*loco.pixel_to_mm))
         HL_X_excursion.append((final_tracks[0, 3, :]*loco.pixel_to_mm)-(np.nanmean(final_tracks[0, :4, :], axis=0)*loco.pixel_to_mm))
     final_tracks_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials, 'st-sw-st')
 
+    if sta_type == 'pawspeed':
+        ind_vars = {'FR speed': fr_speed, 'FR acceleration': fr_acc, 'FR jerk': fr_jerk}
+        keys = list(ind_vars.keys())
     if sta_type == 'bodyvars':
         # Dictionary of all the independent variables on which computing the STA
         ind_vars = {'Body position': bodycenter, 'Body speed': bodyspeed, 'Body acceleration': bodyacc, 'Body jerk': bodyjerk}

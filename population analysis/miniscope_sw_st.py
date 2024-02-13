@@ -12,8 +12,8 @@ os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
-save_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split ipsi fast S1\\'
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S2.xlsx')
+save_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split contra fast S1\\'
 paws = ['FR', 'HR', 'FL', 'HL']
 paw_colors = ['red', 'magenta', 'blue', 'cyan']
 align_event = 'st'

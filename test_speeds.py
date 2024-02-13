@@ -37,6 +37,7 @@ session = loco.get_session_id()
 [df_extract, df_events_extract, df_extract_rawtrace, df_extract_rawtrace_detrended, df_events_extract_rawtrace, coord_ext, reg_th, reg_bad_frames, trials,
  clusters_rois, colors_cluster, colors_session, idx_roi_cluster_ordered, ref_image, frames_dFF] = mscope.load_processed_files()
 [trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
+[trigger_nr, strobe_nr, frames_loco, trial_start, bcam_time] = loco.get_tdms_frame_start(animal, session, frames_dFF)
 [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
 centroid_ext = mscope.get_roi_centroids(coord_ext)
 
@@ -68,3 +69,15 @@ plt.plot(bodyspeed[0], color='orange')
 plt.plot(bodyacc[0], color='blue')
 
 
+paw_colors = ['#e52c27', '#ad4397', '#3854a4', '#6fccdf']
+fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+for p in range(4):
+    ax.plot(bcam_time[-1], loco.inpaint_nans(final_tracks[0, p, :]*loco.pixel_to_mm), color=paw_colors[p], linewidth=4)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.tick_params(axis='both', which='major', labelsize=20)
+ax.set_xlabel('Time (s)', fontsize=20)
+ax.set_ylabel('Paw\n excursion (mm)', fontsize=20)
+ax.set_xlim([17.8, 18.6])
+ax.set_ylim([190, 290])
+plt.savefig('J:\\Thesis\\for figures\\paws', dpi=256)

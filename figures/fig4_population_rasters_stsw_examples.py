@@ -22,7 +22,7 @@ if align_dimension == 'time':
 paw_colors = ['#e52c27', '#ad4397', '#3854a4', '#6fccdf']
 paws = ['FR', 'HR', 'FL', 'HL']
 
-animal = 'MC10221'
+animal = 'MC9194'
 firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_ro'
                                                                               'is.npy'))
 # firing_rate_mean_trials_paw = np.nanmean(firing_rate_animal[:, p, :, :], axis=1)
@@ -49,7 +49,7 @@ session = loco.get_session_id()
     trials, protocol.split(' ')[0], animal, session)
 
 roi_list = mscope.get_roi_list(df_events_extract_rawtrace)
-count_roi = roi_list.index('ROI127')
+count_roi = roi_list.index('ROI12')
 fig, ax = plt.subplots(1, 4, figsize=(25, 7), tight_layout=True)
 for count_p, paw in enumerate(paws):
     sns.heatmap(firing_rate_animal[count_roi, count_p, :, :], cmap='viridis', cbar=None,
@@ -57,7 +57,7 @@ for count_p, paw in enumerate(paws):
     ax[count_p].set_yticks(np.arange(0, len(trials)))
     ax[count_p].invert_yaxis()
     ax[count_p].set_xticks([0, 10, 20])
-    ax[count_p].set_xticklabels(['0', '0.5', '1'], rotation=45)
+    ax[count_p].set_xticklabels(['0', '50', '100'], rotation=45)
     ax[count_p].set_yticklabels(list(map(str, trials)), rotation=0)
     ax[count_p].axvline(x=np.int64(len(bins[::-1])/2), color='white')
     ax[count_p].axhline(y=trials_ses[0, 1], color='white', linestyle='dashed')
@@ -75,7 +75,7 @@ for count_p, paw in enumerate(paws):
     ax[count_p].set_yticks(np.arange(0, len(trials)))
     ax[count_p].invert_yaxis()
     ax[count_p].set_xticks([0, 10, 20])
-    ax[count_p].set_xticklabels(['0', '0.5', '1'], rotation=45)
+    ax[count_p].set_xticklabels(['0', '50', '100'], rotation=45)
     ax[count_p].set_yticklabels(list(map(str, trials)), rotation=0)
     ax[count_p].axvline(x=np.int64(len(bins[::-1])/2), color='white')
     ax[count_p].axhline(y=trials_ses[0, 1], color='white', linestyle='dashed')
@@ -86,14 +86,15 @@ plt.savefig(os.path.join(save_path, animal + '_' + roi_list[count_roi] + '_heatm
 
 fig, ax = plt.subplots(1, 4, figsize=(25, 3), tight_layout=True)
 for count_p, paw in enumerate(paws):
-    ax[count_p].plot(bins[:-1], np.nanmean(firing_rate_animal[count_roi, count_p, :, :], axis=0), color=paw_colors[count_p], linewidth=3)
+    ax[count_p].plot(bins[:-1]*100, np.nanmean(firing_rate_animal[count_roi, count_p, :, :], axis=0), color=paw_colors[count_p], linewidth=3)
     if align_dimension == 'phase':
-        ax[count_p].axvline(x=0.5, color='black')
+        ax[count_p].axvline(x=50, color='black')
         ax[count_p].set_xlabel('Phase (%)', fontsize=20)
     if align_dimension == 'time':
         ax[count_p].axvline(x=0, color='black')
         ax[count_p].set_xlabel('Time (ms)', fontsize=20)
-    # ax[count_p].set_ylim([0.25, 0.55])
+    # ax[count_p].set_ylim([0.8, 3.8])
+    ax[count_p].set_ylim([0.8, 3.1])
     #ax[count_p].set_ylim([np.nanmin(np.nanmean(firing_rate_animal[count_roi, :, :, :], axis=0)), np.nanmax(np.nanmean(firing_rate_animal[count_roi, :, :, :], axis=0))])
     ax[count_p].spines['right'].set_visible(False)
     ax[count_p].spines['top'].set_visible(False)

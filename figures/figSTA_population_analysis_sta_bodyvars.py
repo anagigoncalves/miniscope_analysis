@@ -20,7 +20,7 @@ save_path = 'J:\\Thesis\\for figures\\fig sta\\'
 protocol_type = 'tied'
 sort_type = 'ML'
 window = np.arange(-330, 330 + 1)  # Samples
-zoom_in = np.array([-0.75, 0.5])
+zoom_in = np.array([-1, 0.5])
 xaxis = window / 330
 xaxis_start = np.where(xaxis >= zoom_in[0])[0][0]
 xaxis_end = np.where(xaxis >= zoom_in[1])[0][0]
@@ -35,6 +35,7 @@ fov_coords = np.array([[6.27, 0.53],
                      [6.98, 1.47],
                      [6.39, 1.62]]) #AP, ML
 var_names = ['Body position', 'Body speed', 'Body acceleration', 'Body jerk']
+# var_names = ['FR speed', 'FR acceleration', 'FR jerk']
 
 sta_zoom_all_concat_vars = []
 sta_zoom_all_cluster_size = []
@@ -149,6 +150,53 @@ for var in var_names:
     sta_zoom_all_concat_vars_shuffled.append(sta_zoom_all_concat_shuffled)
     sta_zoom_all_cluster_size.append(np.cumsum(np.array(sta_cluster_size)))
 
+# EXAMPLE ACC
+var = 'Body acceleration'
+# INCREASE
+ses_info = session_data.iloc[1, :]
+sta = np.load(
+    os.path.join(load_path, 'MC9194 ' + ses_info[0], 'sta_bodyvars_' + var.replace(' ', '_') + '.npy'))
+roi = 15
+fig, ax = plt.subplots(figsize=(5, 5), tight_layout='True')
+ax.ticklabel_format(axis='y', style='sci', scilimits=(-1, 1))
+ax.yaxis.get_offset_text().set_fontsize(18)
+ax.axvline(0, linestyle='dashed', color='black')
+ax.plot(xaxis, np.nanmean(sta[roi, :, :], axis=0), color='firebrick', linewidth=2)
+ax.fill_between(xaxis, np.nanmean(sta[roi, :, :], axis=0)-np.nanstd(sta[roi, :, :], axis=0),
+    np.nanmean(sta[roi, :, :], axis=0)+np.nanstd(sta[10, :, :], axis=0), color='firebrick', alpha=0.3)
+ax.set_xlim([-0.75, 0.25])
+ax.set_ylabel('Body acceleration', fontsize=20)
+ax.set_xlabel('Time (s)', fontsize=20)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.tick_params(axis='both', which='major', labelsize=18)
+plt.savefig(os.path.join(save_path,
+                             'sta_bodyvars_example_acc_increase_MC9194_roi_'+str(roi)), dpi=mscope.my_dpi)
+plt.savefig(os.path.join(save_path,
+                             'sta_bodyvars_example_acc_increase_MC9194_roi_'+str(roi)+'.svg'), dpi=mscope.my_dpi)
+# DECREASE
+ses_info = session_data.iloc[3, :]
+sta = np.load(
+    os.path.join(load_path, 'MC9226 ' + ses_info[0], 'sta_bodyvars_' + var.replace(' ', '_') + '.npy'))
+roi = 91
+fig, ax = plt.subplots(figsize=(5, 5), tight_layout='True')
+ax.ticklabel_format(axis='y', style='sci', scilimits=(-1, 1))
+ax.yaxis.get_offset_text().set_fontsize(18)
+ax.axvline(0, linestyle='dashed', color='black')
+ax.plot(xaxis, np.nanmean(sta[roi, :, :], axis=0), color='dodgerblue', linewidth=2)
+ax.fill_between(xaxis, np.nanmean(sta[roi, :, :], axis=0)-np.nanstd(sta[roi, :, :], axis=0),
+    np.nanmean(sta[roi, :, :], axis=0)+np.nanstd(sta[10, :, :], axis=0), color='dodgerblue', alpha=0.3)
+ax.set_xlim([-0.75, 0.25])
+ax.set_ylabel('Body acceleration', fontsize=20)
+ax.set_xlabel('Time (s)', fontsize=20)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.tick_params(axis='both', which='major', labelsize=18)
+plt.savefig(os.path.join(save_path,
+                             'sta_bodyvars_example_acc_increase_MC9226_roi_'+str(roi)), dpi=mscope.my_dpi)
+plt.savefig(os.path.join(save_path,
+                             'sta_bodyvars_example_acc_increase_MC9226_roi_'+str(roi)+'.svg'), dpi=mscope.my_dpi)
+
 #ANIMALS SUMMARY HEATMAP
 for count_v, var in enumerate(var_names):
     fig, ax = plt.subplots(figsize=(5, 10), tight_layout='True')
@@ -168,11 +216,11 @@ for count_v, var in enumerate(var_names):
         ax.set_ylabel('   '.join(sta_animal_id[::-1]), fontsize=12)
     cbar = hm.collections[0].colorbar
     cbar.ax.tick_params(labelsize=16)
-# ax.set_title(var, fontsize=16)
-# plt.savefig(os.path.join(save_path,
-#                          'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_notzscored_sort_'+sort_type+'_'+var), dpi=mscope.my_dpi)
-# plt.savefig(os.path.join(save_path,
-#                          'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_notzscored_sort_'+sort_type+'_'+var+'.svg), dpi=mscope.my_dpi)
+    ax.set_title(var, fontsize=16)
+    plt.savefig(os.path.join(save_path,
+                             'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_notzscored_sort_'+sort_type+'_'+var), dpi=mscope.my_dpi)
+    plt.savefig(os.path.join(save_path,
+                             'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_notzscored_sort_'+sort_type+'_'+var+'.svg'), dpi=mscope.my_dpi)
 
 #ROIS SUMMARY PEAKS AND THROUGHS PIE CHART + SPATIAL MAP OF ROIS AND SIG INCREASES
 labels = ['Significant\nincreases\n>2 STD', '\nSignificant\ndecreases\n<2 STD', '']

@@ -8,20 +8,20 @@ import sklearn.metrics as sm
 import seaborn as sns
 
 # Input data
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split contra fast S1\\'
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\tied baseline S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig pca\\'
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S2.xlsx'))
+session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_tied_S1.xlsx'))
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
-protocol = 'split contra fast'
+protocol = 'tied baseline'
 align_event = 'st'
 align_dimension = 'phase'
 if align_dimension == 'phase':
-    bins = np.arange(0, 105, 5)  # 5 deg
+    bins = np.arange(0, 105, 10)  # 5 deg
     align_event = 'st' #is always stance
     bins_fr = bins
 if align_dimension == 'time':
-    bins = np.arange(-0.125, 0.126, 0.0125) # 12.5 ms
+    bins = np.arange(-0.125, 0.126, 0.025) # 25 ms
     bins_fr = bins*1000
 paw_colors = ['#e52c27', '#ad4397', '#3854a4', '#6fccdf']
 
@@ -98,7 +98,7 @@ for p in range(len(paws)):
         firing_rate_animal_trials_concat_paws_nozscore = np.concatenate(
             (firing_rate_animal_trials_concat_paws_nozscore, firing_rate_mean_trials_paw_concat), axis=1)
 fig, ax = plt.subplots(tight_layout=True, figsize=(6, 5))
-hm = sns.heatmap(firing_rate_animal_trials_concat_paws_nozscore[np.argsort(np.argmax(firing_rate_animal_trials_concat_paws_nozscore[:, :20], axis=1)), :20],
+hm = sns.heatmap(firing_rate_animal_trials_concat_paws_nozscore[np.argsort(np.argmax(firing_rate_animal_trials_concat_paws_nozscore[:, :len(bins)-1], axis=1)), :20],
         ax=ax, cmap='viridis')
 cbar = hm.collections[0].colorbar
 cbar.ax.tick_params(labelsize=18)
@@ -180,12 +180,13 @@ for c in range(4):
     plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_roilocation.svg'), dpi=256)
 
 # Trajectories
-pca_fit_fr_components_paws = np.reshape(pca_fit_fr_paws_fit_transform.T, ((9, 4, 20)))
+sw_idx = np.int64(((len(bins)-1)/2)-1)
+pca_fit_fr_components_paws = np.reshape(pca_fit_fr_paws_fit_transform.T, ((9, 4, len(bins)-1)))
 fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
 for count_p in range(len(paws)):
     ax.plot(pca_fit_fr_components_paws[0, count_p, :], pca_fit_fr_components_paws[1, count_p, :],
             color=paw_colors[count_p], linewidth=2)
-    ax.scatter(pca_fit_fr_components_paws[0, count_p, 10], pca_fit_fr_components_paws[1, count_p, 10],
+    ax.scatter(pca_fit_fr_components_paws[0, count_p, sw_idx], pca_fit_fr_components_paws[1, count_p, sw_idx],
                color=paw_colors[count_p], s=60)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
@@ -199,10 +200,10 @@ plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' +
 pca_fr_paws = PCA(n_components=4)
 pca_fit_fr_paws_models = pca_fr_paws.fit(firing_rate_animal_trials_concat_paws)
 data_PCA = pca_fit_fr_paws_models.transform(firing_rate_animal_trials_concat_paws)
-pca_fit_fr_single_paws = np.reshape(data_PCA.T, ((4, 4, 20)))
-fig, ax = plt.subplots(1, 3, tight_layout=True, figsize=(15, 5), sharey=True)
+pca_fit_fr_single_paws = np.reshape(data_PCA.T, ((4, 4, len(bins)-1)))
+fig, ax = plt.subplots(1, 4, tight_layout=True, figsize=(15, 5), sharey=True)
 ax = ax.ravel()
-for c in range(3):
+for c in range(4):
     for count_p in range(len(paws)):
         ax[c].plot(bins_fr[:-1], pca_fit_fr_single_paws[c, count_p, :], color=paw_colors[count_p], linewidth=3)
         ax[c].spines['right'].set_visible(False)
@@ -222,11 +223,11 @@ plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' +
 # Input data sorted by peak location
 firing_rate_animal_trials_concat_paws_transpose = firing_rate_animal_trials_concat_paws.T
 fig, ax = plt.subplots(tight_layout=True, figsize=(6, 5))
-hm = sns.heatmap(firing_rate_animal_trials_concat_paws_transpose[np.argsort(np.argmax(firing_rate_animal_trials_concat_paws_nozscore[:, :20], axis=1)), :20],
+hm = sns.heatmap(firing_rate_animal_trials_concat_paws_transpose[np.argsort(np.argmax(firing_rate_animal_trials_concat_paws_nozscore[:, :len(bins)-1], axis=1)), :len(bins)-1],
         ax=ax, cmap='viridis')
 cbar = hm.collections[0].colorbar
 cbar.ax.tick_params(labelsize=18)
-ax.set_xticks(np.linspace(0, 20, 10))
+ax.set_xticks(np.linspace(0, len(bins)-1, 10))
 ax.set_xticklabels(np.round(np.linspace(0, bins[-1], 10), 1))
 ax.set_ylabel('ROI #', fontsize=20)
 ax.set_xlabel('Phase (%)', fontsize=20)
@@ -241,7 +242,7 @@ pca_fit_fr_paws_models = pca_fr_paws.fit(firing_rate_animal_trials_concat_paws)
 data_PCA = pca_fit_fr_paws_models.transform(firing_rate_animal_trials_concat_paws)
 data_X_rPCA = pca_fit_fr_paws_models.inverse_transform(data_PCA)
 fig, ax = plt.subplots(tight_layout=True, figsize=(6, 5))
-hm = sns.heatmap(data_X_rPCA[:20, np.argsort(np.argmax(firing_rate_animal_trials_concat_paws_nozscore[:, :20], axis=1))].T,
+hm = sns.heatmap(data_X_rPCA[:20, np.argsort(np.argmax(firing_rate_animal_trials_concat_paws_nozscore[:, :len(bins)-1], axis=1))].T,
         ax=ax, cmap='viridis')
 cbar = hm.collections[0].colorbar
 cbar.ax.tick_params(labelsize=18)

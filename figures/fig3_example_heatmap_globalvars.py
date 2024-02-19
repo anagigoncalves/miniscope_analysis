@@ -77,7 +77,7 @@ for count_trial, f in enumerate(filelist):
 trial = 1
 beg = 20
 end = 45
-fig, axs = plt.subplots(5, 1, figsize=(25, 15), tight_layout=True)
+fig, axs = plt.subplots(4, 1, figsize=(25, 15), tight_layout=True)
 df_trial = df_sorted.loc[(df_sorted['trial'] == trial)&(df_sorted['time']>beg)&(df_sorted['time']<end)].iloc[:, 2:]  # Get df/f for the desired trial and interval
 hm = sns.heatmap(df_trial.T, cmap='plasma', ax=axs[0], cbar=None)
 axs[0].set_xticks([])
@@ -112,13 +112,13 @@ axs[3].set_xlabel('Time (s)', fontsize=20)
 axs[3].tick_params(axis='both', which='major', labelsize=18)
 axs[3].spines['right'].set_visible(False)
 axs[3].spines['top'].set_visible(False)
-sns.lineplot(x=t, y=bodyjerk[trial-1][beg*loco.sr:end*loco.sr], ax=axs[4], color='black', linewidth=2)
-axs[4].set_xlim([t[0], t[-1]])
-axs[4].set_ylabel('Body\nJerk\n(mm/s\u00b3)', fontsize=20)
-axs[4].set_xlabel('Time (s)', fontsize=20)
-axs[4].tick_params(axis='both', which='major', labelsize=18)
-axs[4].spines['right'].set_visible(False)
-axs[4].spines['top'].set_visible(False)
+# sns.lineplot(x=t, y=bodyjerk[trial-1][beg*loco.sr:end*loco.sr], ax=axs[4], color='black', linewidth=2)
+# axs[4].set_xlim([t[0], t[-1]])
+# axs[4].set_ylabel('Body\nJerk\n(mm/s\u00b3)', fontsize=20)
+# axs[4].set_xlabel('Time (s)', fontsize=20)
+# axs[4].tick_params(axis='both', which='major', labelsize=18)
+# axs[4].spines['right'].set_visible(False)
+# axs[4].spines['top'].set_visible(False)
 plt.savefig(os.path.join('J:\\Thesis\\for figures\\fig sta\\', 'example_bodyvars_MC8855_splitipsifast_S1'), dpi=128)
 plt.savefig(os.path.join('J:\\Thesis\\for figures\\fig sta\\', 'example_bodyvars_MC8855_splitipsifast_S1.svg'), dpi=128)
 

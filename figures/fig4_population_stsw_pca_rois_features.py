@@ -8,12 +8,12 @@ import sklearn.metrics as sm
 import seaborn as sns
 
 # Input data
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\tied baseline S1\\'
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split contra fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig pca\\'
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_tied_S1.xlsx'))
+session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S2.xlsx'))
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
-protocol = 'tied baseline'
+protocol = 'split contra fast'
 align_event = 'st'
 align_dimension = 'phase'
 if align_dimension == 'phase':
@@ -113,6 +113,8 @@ plt.savefig(os.path.join(save_path, 'input_data_sorted_peak_nozscoring_' + align
 
 #Get coordinates for all ROIs
 roi_coordinates = []
+animal_list = []
+roi_name_list = []
 for count_a, animal in enumerate(animals):
     session_data_idx = np.where(session_data['animal'] == animal)[0][0]
     ses_info = session_data.iloc[session_data_idx, :]
@@ -124,6 +126,10 @@ for count_a, animal in enumerate(animals):
                              date.split('_')[-3][2:] + '\\')
     loco = locomotion_class.loco_class(path_loco)
     session = loco.get_session_id()
+    df_extract_rawtrace_detrended = pd.read_csv(
+        os.path.join(mscope.path, 'processed files', 'df_extract_rawtrace_detrended.csv'))
+    roi_name_list.extend(df_extract_rawtrace_detrended.columns[2:])
+    animal_list.extend(np.repeat(animal, len(df_extract_rawtrace_detrended.columns[2:])))
     # Compute ROI coordinates
     coord_ext = np.load(os.path.join(mscope.path, 'processed files', 'coord_ext.npy'), allow_pickle=True)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
@@ -148,11 +154,18 @@ pca_fr_paws = PCA(n_components=comp)
 pca_fit_fr_paws = pca_fr_paws.fit(firing_rate_animal_trials_concat_paws)
 pca_fit_fr_paws_fit_transform = pca_fr_paws.fit_transform(firing_rate_animal_trials_concat_paws)
 
+pc_coeff_df = pd.DataFrame({'animal': animal_list, 'roi': roi_name_list})
+for pc in range(comp):
+    pc_coeff_df['PC'+str(pc+1)] =  pca_fit_fr_paws.components_[pc, :]
+pc_coeff_df.to_csv(
+    os.path.join(save_path, 'pc_coeff_df_' + protocol.replace(' ','_') + '.csv'), sep=',', index=False)
+
 # Explained variance for each component
 fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
 ax.scatter(np.arange(1, comp+1), np.cumsum(pca_fit_fr_paws.explained_variance_ratio_)*100,
     color='black', s=20)
 # ax.set_title('Explained variance\nratio of components', fontsize=20)
+ax.set_xticks([0, 3, 6, 9])
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.set_ylim([0, 100])
@@ -197,13 +210,13 @@ plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' +
 plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_trajectories.svg'), dpi=256)
 
 # Reconstruction of PC
-pca_fr_paws = PCA(n_components=4)
+pca_fr_paws = PCA(n_components=3)
 pca_fit_fr_paws_models = pca_fr_paws.fit(firing_rate_animal_trials_concat_paws)
 data_PCA = pca_fit_fr_paws_models.transform(firing_rate_animal_trials_concat_paws)
-pca_fit_fr_single_paws = np.reshape(data_PCA.T, ((4, 4, len(bins)-1)))
-fig, ax = plt.subplots(1, 4, tight_layout=True, figsize=(15, 5), sharey=True)
+pca_fit_fr_single_paws = np.reshape(data_PCA.T, ((3, 4, len(bins)-1)))
+fig, ax = plt.subplots(1, 3, tight_layout=True, figsize=(15, 5), sharey=True)
 ax = ax.ravel()
-for c in range(4):
+for c in range(3):
     for count_p in range(len(paws)):
         ax[c].plot(bins_fr[:-1], pca_fit_fr_single_paws[c, count_p, :], color=paw_colors[count_p], linewidth=3)
         ax[c].spines['right'].set_visible(False)

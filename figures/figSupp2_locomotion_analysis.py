@@ -143,7 +143,7 @@ for s in range(len(session_data)):
             plt.savefig(path_save + 'param_intralimb' + '_' + animal + '_' + str(session), dpi=loco.my_dpi)
 
         # plot phase in reference to FR
-        print('Stance phasing for ' + animal + ' session '  + str(session))
+        print('Stance phasing for ' + animal + ' session ' + str(session))
         from scipy.stats import circmean
 
         fig = plt.figure()
@@ -278,8 +278,8 @@ for s in range(len(session_data)):
                 ax.plot(param_bins_y_mean[b_count, :], param_bins_x_mean[b_count, :],
                            linewidth=speed_bins[b_count] / 2, color='black')
                 ax.set_title('base of support')
-                ax.set_ylabel('swing x rel')
-                ax.set_xlabel('swing y rel')
+                ax.set_ylabel('Swing x rel')
+                ax.set_xlabel('Swing y rel')
                 ax.spines['right'].set_visible(False)
                 ax.spines['top'].set_visible(False)
             swing_x_rel[p, :, :] = param_bins_x_mean
@@ -315,7 +315,7 @@ for count_p, g in enumerate(param_tied):
         param_tied_control_mean = param_tied_control_df.groupby(['speed'])['values'].mean()
         param_tied_control_speed[count_p, count_a, :] = param_tied_control_mean.index
         param_tied_control_values[count_p, count_a, :] = param_tied_control_mean.values
-ylabel = ['stance duration (ms)', 'swing duration (ms)', 'cadence ($\mathregular{ms^{-1}}$)', 'swing length (mm)']
+ylabel = ['Stance duration (ms)', 'Swing duration (ms)', 'Cadence ($\mathregular{ms^{-1}}$)', 'Swing length (mm)']
 for count_p, g in enumerate(param_tied):
     fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
     df_intralimb_plot = df_intralimb.loc[df_intralimb['parameter'] == g]
@@ -334,7 +334,7 @@ for count_p, g in enumerate(param_tied):
     ax.fill_between(df_intralimb_plot_animal_mean_speed[0, :],
                      np.nanmean(df_intralimb_plot_animal_mean_values, axis=0)-np.nanstd(df_intralimb_plot_animal_mean_values, axis=0),
     np.nanmean(df_intralimb_plot_animal_mean_values, axis=0)+np.nanstd(df_intralimb_plot_animal_mean_values, axis=0), color='darkviolet', alpha=0.3)
-    ax.set_xlabel('speed (m/s)', fontsize=20)
+    ax.set_xlabel('Speed (m/s)', fontsize=20)
     # ax.set_title(g.replace('_', ' ') + ' FR paw', fontsize=20)
     ax.set_ylabel(ylabel[count_p], fontsize=20)
     ax.tick_params(axis='both', which='major', labelsize=20)
@@ -395,7 +395,7 @@ ax.fill_between(np.linspace(0, 100, 100),
                  np.nanmean(swing_inst_vel_all_mat, axis=0)-np.nanstd(swing_inst_vel_all_mat, axis=0),
 np.nanmean(swing_inst_vel_all_mat, axis=0)+np.nanstd(swing_inst_vel_all_mat, axis=0), color='darkviolet', alpha=0.3)
 ax.set_xlabel('% swing (norm)', fontsize=20)
-ax.set_ylabel('swing instantaneous\nvelocity (m/s)', fontsize=20)
+ax.set_ylabel('Swing instantaneous\nvelocity (m/s)', fontsize=20)
 ax.tick_params(axis='both', which='major', labelsize=20)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
@@ -417,6 +417,23 @@ ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_swing_z', dpi=256)
 plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_swing_z.svg', dpi=256)
+# quantification of maximum z amplitude
+swing_z_max_control = np.nanmax(swing_z_control_mat, axis=1)
+swing_z_max_miniscope = np.nanmax(swing_z_all_mat, axis=1)
+swing_z_max_df = pd.DataFrame({'max': np.concatenate((swing_z_max_control, swing_z_max_miniscope)),
+'group': np.concatenate((np.repeat(0, len(swing_z_max_control)), np.repeat(1, len(swing_z_max_miniscope))))})
+fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
+sns.boxplot(x='group', y='max', data=swing_z_max_df,
+            medianprops=dict(color='black'), palette={0: 'darkgrey', 1: 'darkviolet'}, showfliers=False)
+ax.set_xticklabels(['Without\nminiscopes', 'With\nminiscopes'])
+ax.set_xlabel('')
+ax.set_ylabel('Peak swing\namplitude', fontsize=20)
+ax.tick_params(axis='both', which='major', labelsize=20)
+ax.set_ylim([3, 4.5])
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_swing_z_max', dpi=256)
+plt.savefig('J:\\Thesis\\figuresChapter2\\loco_analysis_swing_z_max.svg', dpi=256)
 fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
 for p in range(4):
     ax.plot(np.nanmean(swing_y_rel_control_mat[:, p, :], axis=0), np.nanmean(swing_x_rel_control_mat[:, p, :], axis=0), color='black', linewidth=2)
@@ -429,8 +446,8 @@ for p in range(4):
                        np.nanmean(swing_x_rel_all_mat[:, p, :], axis=0) - np.nanstd(swing_x_rel_all_mat[:, p, :], axis=0),
                        np.nanmean(swing_x_rel_all_mat[:, p, :], axis=0) + np.nanstd(swing_x_rel_all_mat[:, p, :], axis=0), color='darkviolet',
                        alpha=0.3)
-    ax.set_xlabel('y relative to bodycenter (mm)', fontsize=20)
-    ax.set_ylabel('x relative to bodycenter (mm)', fontsize=20)
+    ax.set_xlabel('Y relative to bodycenter (mm)', fontsize=20)
+    ax.set_ylabel('X relative to bodycenter (mm)', fontsize=20)
     ax.tick_params(axis='both', which='major', labelsize=20)
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)

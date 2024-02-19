@@ -5,24 +5,24 @@ import pandas as pd
 import seaborn as sns
 
 # Input data
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\tied baseline S1\\'
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split ipsi fast S1\\'
 save_path = 'J:\\Thesis\\for figures\\fig pca\\'
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_tied_S1.xlsx'))
-protocol = 'tied baseline'
+session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
+protocol = 'split ipsi fast'
 align_event = 'st'
 align_dimension = 'phase'
 if align_dimension == 'phase':
-    bins = np.arange(0, 1.01, 0.05)  # 5 deg
+    bins = np.arange(0, 1.01, 0.1)  # 5 deg
     align_event = 'st' #is always stance
     bins_fr = bins
 if align_dimension == 'time':
-    bins = np.arange(-0.125, 0.126, 0.0125) # 12.5 ms
+    bins = np.arange(-0.125, 0.126, 0.025) # 12.5 ms
     bins_fr = bins*1000
 paw_colors = ['#e52c27', '#ad4397', '#3854a4', '#6fccdf']
 paws = ['FR', 'HR', 'FL', 'HL']
 
-animal = 'MC9194'
+animal = 'MC9513'
 firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_ro'
                                                                               'is.npy'))
 # firing_rate_mean_trials_paw = np.nanmean(firing_rate_animal[:, p, :, :], axis=1)
@@ -49,14 +49,14 @@ session = loco.get_session_id()
     trials, protocol.split(' ')[0], animal, session)
 
 roi_list = mscope.get_roi_list(df_events_extract_rawtrace)
-count_roi = roi_list.index('ROI12')
+count_roi = roi_list.index('ROI64')
 fig, ax = plt.subplots(1, 4, figsize=(25, 7), tight_layout=True)
 for count_p, paw in enumerate(paws):
     sns.heatmap(firing_rate_animal[count_roi, count_p, :, :], cmap='viridis', cbar=None,
     vmin=np.nanmin(firing_rate_animal[count_roi, :, :, :]), vmax=np.nanmax(firing_rate_animal[count_roi, :, :, :]), ax=ax[count_p])
     ax[count_p].set_yticks(np.arange(0, len(trials)))
     ax[count_p].invert_yaxis()
-    ax[count_p].set_xticks([0, 10, 20])
+    ax[count_p].set_xticks([0, 5, 10])
     ax[count_p].set_xticklabels(['0', '50', '100'], rotation=45)
     ax[count_p].set_yticklabels(list(map(str, trials)), rotation=0)
     ax[count_p].axvline(x=np.int64(len(bins[::-1])/2), color='white')
@@ -74,7 +74,7 @@ for count_p, paw in enumerate(paws):
     hm.figure.axes[-1].tick_params(labelsize=16)
     ax[count_p].set_yticks(np.arange(0, len(trials)))
     ax[count_p].invert_yaxis()
-    ax[count_p].set_xticks([0, 10, 20])
+    ax[count_p].set_xticks([0, 5, 10])
     ax[count_p].set_xticklabels(['0', '50', '100'], rotation=45)
     ax[count_p].set_yticklabels(list(map(str, trials)), rotation=0)
     ax[count_p].axvline(x=np.int64(len(bins[::-1])/2), color='white')
@@ -93,8 +93,8 @@ for count_p, paw in enumerate(paws):
     if align_dimension == 'time':
         ax[count_p].axvline(x=0, color='black')
         ax[count_p].set_xlabel('Time (ms)', fontsize=20)
-    # ax[count_p].set_ylim([0.8, 3.8])
-    ax[count_p].set_ylim([0.8, 3.1])
+    ax[count_p].set_ylim([1, 3.2])
+    # ax[count_p].set_ylim([1.2, 2.7])
     #ax[count_p].set_ylim([np.nanmin(np.nanmean(firing_rate_animal[count_roi, :, :, :], axis=0)), np.nanmax(np.nanmean(firing_rate_animal[count_roi, :, :, :], axis=0))])
     ax[count_p].spines['right'].set_visible(False)
     ax[count_p].spines['top'].set_visible(False)

@@ -16,12 +16,12 @@ align_event = 'st'
 align_dimension = 'phase'
 if align_dimension == 'phase':
     phase_bool = 1
-    bins = np.arange(0, 105, 5)  # 5 deg
+    bins = np.arange(0, 105, 10)  # 10 deg
     align_event = 'st' #is always stance
     bins_fr = bins
 if align_dimension == 'time':
     phase_bool = 0
-    bins = np.arange(-0.125, 0.126, 0.0125) # 12.5 ms
+    bins = np.arange(-0.125, 0.126, 0.025) # 25 ms
     bins_fr = bins*1000
 paws = ['FR', 'HR', 'FL', 'HL']
 
@@ -44,10 +44,7 @@ def sort_activity(data, phase_bool, plot_data):
     data_zscore = (data - data_mean) / data_std
     pca_fit_fr_paws = pca_fr_paws.fit(data_zscore)
     pca_fit_fr_paws_fit_transform = pca_fit_fr_paws.components_.T
-    if phase_bool:
-        pca_coef = pca_fit_fr_paws_fit_transform[:, [1, 2]]
-    else:
-        pca_coef = pca_fit_fr_paws_fit_transform[:, [0, 1]]
+    pca_coef = pca_fit_fr_paws_fit_transform[:, [0, 1]]
     [rho_bs, theta] = cart2pol(pca_coef)
     theta_sort = np.argsort(theta)
     if plot_data:
@@ -70,20 +67,22 @@ for count_a, animal in enumerate(animals):
 firing_rate_mean_trials_paw_concat_bs = np.vstack(firing_rate_mean_trials_paw_bs)
 
 roi_list = np.arange(1, np.shape(firing_rate_mean_trials_paw_concat_bs)[0] + 1)
-[theta_bs, theta_bs_sort] = sort_activity(firing_rate_mean_trials_paw_concat_bs.T, phase_bool, 0)
-fig, ax = plt.subplots(tight_layout=True, figsize=(6, 5))
+[theta_bs, theta_bs_sort] = sort_activity(firing_rate_mean_trials_paw_concat_bs.T, phase_bool, 1)
+fig, ax = plt.subplots(tight_layout=True, figsize=(9, 7))
 hm = sns.heatmap(firing_rate_mean_trials_paw_concat_bs[theta_bs_sort],
-        ax=ax, cmap='viridis')
+        ax=ax, cmap='viridis', vmin=np.nanpercentile(firing_rate_mean_trials_paw_concat_bs[theta_bs_sort], 1),
+        vmax=np.nanpercentile(firing_rate_mean_trials_paw_concat_bs[theta_bs_sort], 99))
 cbar = hm.collections[0].colorbar
-cbar.ax.tick_params(labelsize=18)
-ax.set_xticks(np.linspace(0, 20, 10))
-ax.set_xticklabels(np.round(np.linspace(0, bins[-1], 10), 1))
+cbar.ax.tick_params(labelsize=24)
+ax.set_xticks(np.linspace(0, 10, 10))
+ax.set_xticklabels(np.int64(np.linspace(0, bins[-1], 10)))
 ax.set_yticks(np.linspace(0, np.shape(firing_rate_mean_trials_paw_concat_bs)[0], 20))
 ax.set_yticklabels(list(map(str, roi_list[theta_bs_sort][::20])))
 if align_dimension == 'time':
     ax.set_xticklabels(np.round(np.linspace(bins[0], bins[-1], 10), 2))
-ax.set_ylabel('ROI #', fontsize=20)
-ax.set_xlabel('Phase (%)', fontsize=20)
+ax.set_ylabel('ROI #', fontsize=24)
+ax.set_xlabel('Stride phase (%)', fontsize=24)
+ax.tick_params(axis='both', which='major', labelsize=18)
 plt.savefig(os.path.join(save_path, 'firing_rate_baseline_' + align_event + '_' + align_dimension), dpi=256)
 plt.savefig(os.path.join(save_path, 'firing_rate_baseline_' + align_event + '_' + align_dimension + '.svg'), dpi=256)
 

@@ -75,25 +75,21 @@ for count_t, trial in enumerate(trials):
             trial_id_cumulative.append(trial)
 stride_idx_cumulative_arr = np.array(stride_idx_cumulative)
 trial_id_cumulative_arr = np.array(trial_id_cumulative)
-stride_idx_cumulative_window = stride_idx_cumulative_arr[np.where(trial_id_cumulative_arr>4)[0][0]:np.where(trial_id_cumulative_arr<7)[0][-1]]
-trial_id_cumulative_window = trial_id_cumulative_arr[np.where(trial_id_cumulative_arr>4)[0][0]:np.where(trial_id_cumulative_arr<7)[0][-1]]
+stride_idx_cumulative_window = stride_idx_cumulative_arr[np.where(trial_id_cumulative_arr>5)[0][0]:np.where(trial_id_cumulative_arr<9)[0][-1]]
+trial_id_cumulative_window = trial_id_cumulative_arr[np.where(trial_id_cumulative_arr>5)[0][0]:np.where(trial_id_cumulative_arr<9)[0][-1]]
+stride_transition = np.where(trial_id_cumulative_window==7)[0][0]
 
 events_phase_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_events_stride_trial_rois.npy'), allow_pickle=True)
 stride_id_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_cumulative_idx_rois.npy'), allow_pickle=True)
 trial_id_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_trial_id_rois.npy'), allow_pickle=True)
 nr_rois = len(events_phase_animal)
 events_mat = np.zeros((nr_rois, 600, len(bins)))
+stride_idx_sum_cs = np.zeros(len(stride_idx_cumulative_arr)+1)
 for roi in range(nr_rois):
-    data_trial = trial_id_animal[roi][paw][np.where(trial_id_animal[roi][paw]>4)[0][0]:np.where(trial_id_animal[roi][paw]<7)[0][-1]]
-    data_stride = stride_id_animal[roi][paw][np.where(trial_id_animal[roi][paw]>4)[0][0]:np.where(trial_id_animal[roi][paw]<7)[0][-1]]
-    data_stride_reset = data_stride-data_stride[0]
-    data_stride_reset_nonan = data_stride_reset[~np.isnan(data_stride_reset)]
-    data_cs = events_phase_animal[roi][paw][np.where(trial_id_animal[roi][paw]>4)[0][0]:np.where(trial_id_animal[roi][paw]<7)[0][-1]]
-    data_cs_bin = np.digitize(data_cs, bins)-1
-    events_mat[roi, data_stride_reset_nonan, data_cs_bin] = 1
-events_mat_reshape = np.reshape(events_mat, ((nr_rois, events_mat.shape[1]*events_mat.shape[2])))
+    data_cs_notnan_idx = np.where(~np.isnan(events_phase_animal[roi][paw]))[0]
+    strides_with_cs = stride_id_animal[roi][paw][data_cs_notnan_idx]
+    stride_idx_sum_cs[strides_with_cs] += 1
 
 fig, ax = plt.subplots(tight_layout=True)
-sns.heatmap(events_mat_reshape)
-ax.axvline(np.where(trial_id_cumulative_window==6)[0][0]*len(bins-1))
-
+plt.scatter(stride_idx_cumulative_window, stride_idx_sum_cs[stride_idx_cumulative_window[0]:stride_idx_cumulative_window[-1]+1])
+plt.axvline(stride_transition+stride_idx_cumulative_window[0])

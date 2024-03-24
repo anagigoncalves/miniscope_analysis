@@ -154,10 +154,10 @@ for s in range(len(session_data)):
         plt.imshow(ref_image, cmap='gray',
                    extent=[0, np.shape(ref_image)[1] / mscope.pixel_to_um, np.shape(ref_image)[0] / mscope.pixel_to_um,
                            0])
-        plt.xlabel('FOV in micrometers', fontsize=mscope.fsize - 4)
-        plt.ylabel('FOV in micrometers', fontsize=mscope.fsize - 4)
-        plt.xticks(fontsize=mscope.fsize - 4)
-        plt.yticks(fontsize=mscope.fsize - 4)
+        plt.xlabel('FOV in micrometers', fontsize=24)
+        plt.ylabel('FOV in micrometers', fontsize=24)
+        plt.xticks(fontsize=24)
+        plt.yticks(fontsize=24)
         plt.savefig('J:\\Thesis\\figuresChapter2\\fig7 - cluster example\\MC8855_rois_cluster', dpi=256)
         plt.savefig('J:\\Thesis\\figuresChapter2\\fig7 - cluster example\\MC8855_rois_cluster.svg', dpi=256)
 

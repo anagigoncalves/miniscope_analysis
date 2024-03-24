@@ -183,7 +183,7 @@ for count_v, var in enumerate(var_names):
     ax.axvline(x=np.where(xaxis==0)[0][0]-xaxis_start, color='white', linewidth=2)
     yticks_plot = np.arange(0, np.shape(sta_zoom_all_concat_vars[count_v])[0], 50)
     ax.set_yticks(yticks_plot)
-    ax.set_xlabel('Time around event (s)', fontsize=20)
+    ax.set_xlabel('Time around putative\nCpsk (s)', fontsize=20)
     ax.tick_params(axis='both', which='major', labelsize=16)
     if sort_type == 'ML':
         sta_ml_sorted = np.round(np.sort(sta_ml), 2)

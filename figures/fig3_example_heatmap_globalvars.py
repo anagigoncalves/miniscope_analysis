@@ -77,12 +77,38 @@ for count_trial, f in enumerate(filelist):
 trial = 1
 beg = 20
 end = 45
-fig, axs = plt.subplots(4, 1, figsize=(25, 15), tight_layout=True)
+fig, axs = plt.subplots(2, 1, figsize=(30, 10), tight_layout=True)
 df_trial = df_sorted.loc[(df_sorted['trial'] == trial)&(df_sorted['time']>beg)&(df_sorted['time']<end)].iloc[:, 2:]  # Get df/f for the desired trial and interval
-hm = sns.heatmap(df_trial.T, cmap='plasma', ax=axs[0], cbar=None)
+hm = sns.heatmap(df_trial.T, cmap='viridis', ax=axs[0], cbar=None)
 axs[0].set_xticks([])
 axs[0].set(xticklabels=[])
-axs[0].set_ylabel('ROIs', fontsize=20)
+axs[0].tick_params(axis='both', which='major', labelsize=16)
+axs[0].set_ylabel('ROIs', fontsize=40)
+axs[0].spines['right'].set_visible(False)
+axs[0].spines['top'].set_visible(False)
+axs[0].spines['bottom'].set_visible(False)
+for c in cluster_transition_idx:  # Lines to mark clusters in the heatmap
+    axs[0].hlines(c + 1, *axs[0].get_xlim(), color='white', linestyle='dashed', linewidth=1)
+# Behavior
+t = np.linspace(beg, end, (end-beg)*loco.sr)  # Create x-axis time values
+sns.lineplot(x=t, y=bodycenter[trial-1][beg*loco.sr:end*loco.sr], ax=axs[1], color='black', linewidth=2)
+axs[1].set_xlim([t[0], t[-1]])
+axs[1].set_ylabel('Body\nCenter (mm)', fontsize=40)
+axs[1].tick_params(axis='both', which='major', labelsize=40)
+axs[1].spines['right'].set_visible(False)
+axs[1].spines['top'].set_visible(False)
+axs[1].tick_params(left=False, bottom=False)
+plt.savefig(os.path.join('J:\\Thesis\\for figures\\fig sta\\', 'example_bodyvars_MC8855_splitipsifast_S1_crop'), dpi=128)
+
+trial = 1
+beg = 20
+end = 45
+fig, axs = plt.subplots(4, 1, figsize=(25, 15), tight_layout=True)
+df_trial = df_sorted.loc[(df_sorted['trial'] == trial)&(df_sorted['time']>beg)&(df_sorted['time']<end)].iloc[:, 2:]  # Get df/f for the desired trial and interval
+hm = sns.heatmap(df_trial.T, cmap='viridis', ax=axs[0], cbar=None)
+axs[0].set_xticks([])
+axs[0].set(xticklabels=[])
+axs[0].set_ylabel('ROIs', fontsize=24)
 axs[0].spines['right'].set_visible(False)
 axs[0].spines['top'].set_visible(False)
 axs[0].spines['bottom'].set_visible(False)
@@ -93,23 +119,23 @@ t = np.linspace(beg, end, (end-beg)*loco.sr)  # Create x-axis time values
 sns.lineplot(x=t, y=bodycenter[trial-1][beg*loco.sr:end*loco.sr], ax=axs[1], color='black', linewidth=2)
 axs[1].set(xticklabels=[])
 axs[1].set_xlim([t[0], t[-1]])
-axs[1].set_ylabel('Body\nCenter (mm)', fontsize=20)
-axs[1].tick_params(axis='both', which='major', labelsize=18)
+axs[1].set_ylabel('Body\nCenter (mm)', fontsize=26)
+axs[1].tick_params(axis='both', which='major', labelsize=24)
 axs[1].spines['right'].set_visible(False)
 axs[1].spines['top'].set_visible(False)
 axs[1].tick_params(left=False, bottom=False)
 sns.lineplot(x=t, y=bodyspeed[trial-1][beg*loco.sr:end*loco.sr], ax=axs[2], color='black', linewidth=2)
 axs[2].set(xticklabels=[])
 axs[2].set_xlim([t[0], t[-1]])
-axs[2].set_ylabel('Body\nSpeed (mm/s)', fontsize=20)
-axs[2].tick_params(axis='both', which='major', labelsize=18)
+axs[2].set_ylabel('Body\nSpeed (mm/s)', fontsize=26)
+axs[2].tick_params(axis='both', which='major', labelsize=24)
 axs[2].spines['right'].set_visible(False)
 axs[2].spines['top'].set_visible(False)
 sns.lineplot(x=t, y=bodyacc[trial-1][beg*loco.sr:end*loco.sr], ax=axs[3], color='black', linewidth=2)
 axs[3].set_xlim([t[0], t[-1]])
-axs[3].set_ylabel('Body\nAcceleration\n(mm/s\u00b2)', fontsize=20)
-axs[3].set_xlabel('Time (s)', fontsize=20)
-axs[3].tick_params(axis='both', which='major', labelsize=18)
+axs[3].set_ylabel('Body\nAcceleration\n(mm/s\u00b2)', fontsize=26)
+axs[3].set_xlabel('Time (s)', fontsize=26)
+axs[3].tick_params(axis='both', which='major', labelsize=24)
 axs[3].spines['right'].set_visible(False)
 axs[3].spines['top'].set_visible(False)
 # sns.lineplot(x=t, y=bodyjerk[trial-1][beg*loco.sr:end*loco.sr], ax=axs[4], color='black', linewidth=2)
@@ -124,7 +150,7 @@ plt.savefig(os.path.join('J:\\Thesis\\for figures\\fig sta\\', 'example_bodyvars
 
 fig, axs = plt.subplots(5, 1, figsize=(25, 15), tight_layout=True)
 df_trial = df_sorted.loc[(df_sorted['trial'] == trial)&(df_sorted['time']>beg)&(df_sorted['time']<end)].iloc[:, 2:]  # Get df/f for the desired trial and interval
-hm = sns.heatmap(df_trial.T, cmap='plasma', ax=axs[0])
+hm = sns.heatmap(df_trial.T, cmap='viridis', ax=axs[0])
 cbar = hm.collections[0].colorbar
 cbar.ax.set_label('\u0394F/F')
 cbar.ax.tick_params(labelsize=16)

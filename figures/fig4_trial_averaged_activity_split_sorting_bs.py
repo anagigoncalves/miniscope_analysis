@@ -139,8 +139,7 @@ roi_list = np.arange(1, np.shape(firing_rate_mean_trials_paw_concat_bs)[0] + 1)
 [theta_bs, theta_bs_sort] = sort_activity(firing_rate_mean_trials_paw_concat_bs.T, phase_bool, 1)
 fig, ax = plt.subplots(tight_layout=True, figsize=(6, 5))
 hm = sns.heatmap(firing_rate_mean_trials_paw_concat_bs[theta_bs_sort],
-        ax=ax, cmap='viridis', vmin=np.nanpercentile(firing_rate_mean_trials_paw_concat_bs[theta_bs_sort], 1),
-        vmax=np.nanpercentile(firing_rate_mean_trials_paw_concat_bs[theta_bs_sort], 99))
+        ax=ax, cmap='viridis', vmin=0, vmax=3.5)
 cbar = hm.collections[0].colorbar
 cbar.ax.tick_params(labelsize=18)
 ax.set_xticks(np.linspace(0, 10, 10))
@@ -159,8 +158,7 @@ plt.savefig(os.path.join(save_path, 'firing_rate_baseline_' + align_event + '_' 
 
 fig, ax = plt.subplots(tight_layout=True, figsize=(6, 5))
 hm = sns.heatmap(firing_rate_mean_trials_paw_concat_es[theta_bs_sort],
-        ax=ax, cmap='viridis', vmin=np.nanpercentile(firing_rate_mean_trials_paw_concat_es[theta_bs_sort], 1),
-        vmax=np.nanpercentile(firing_rate_mean_trials_paw_concat_es[theta_bs_sort], 99))
+        ax=ax, cmap='viridis', vmin=0, vmax=3.5)
 cbar = hm.collections[0].colorbar
 cbar.ax.tick_params(labelsize=18)
 ax.set_xticks(np.linspace(0, 10, 10))
@@ -181,8 +179,7 @@ plt.savefig(os.path.join(save_path, 'firing_rate_earlysplit_' + align_event + '_
 
 fig, ax = plt.subplots(tight_layout=True, figsize=(6, 5))
 hm = sns.heatmap(firing_rate_mean_trials_paw_concat_ls[theta_bs_sort],
-        ax=ax, cmap='viridis', vmin=np.nanpercentile(firing_rate_mean_trials_paw_concat_ls[theta_bs_sort], 1),
-        vmax=np.nanpercentile(firing_rate_mean_trials_paw_concat_ls[theta_bs_sort], 99))
+        ax=ax, cmap='viridis', vmin=0, vmax=3.5)
 cbar = hm.collections[0].colorbar
 cbar.ax.tick_params(labelsize=18)
 ax.set_xticks(np.linspace(0, 10, 10))
@@ -203,8 +200,7 @@ plt.savefig(os.path.join(save_path, 'firing_rate_latesplit_' + align_event + '_'
 
 fig, ax = plt.subplots(tight_layout=True, figsize=(6, 5))
 hm = sns.heatmap(firing_rate_mean_trials_paw_concat_ae[theta_bs_sort],
-        ax=ax, cmap='viridis', vmin=np.nanpercentile(firing_rate_mean_trials_paw_concat_ae[theta_bs_sort], 1),
-        vmax=np.nanpercentile(firing_rate_mean_trials_paw_concat_ae[theta_bs_sort], 99))
+        ax=ax, cmap='viridis', vmin=0, vmax=3.5)
 cbar = hm.collections[0].colorbar
 cbar.ax.tick_params(labelsize=18)
 ax.set_xticks(np.linspace(0, 10, 10))
@@ -225,8 +221,7 @@ plt.savefig(os.path.join(save_path, 'firing_rate_aftereffect_' + align_event + '
 
 fig, ax = plt.subplots(tight_layout=True, figsize=(6, 5))
 hm = sns.heatmap(firing_rate_mean_trials_paw_concat_lw[theta_bs_sort],
-        ax=ax, cmap='viridis', vmin=np.nanpercentile(firing_rate_mean_trials_paw_concat_lw[theta_bs_sort], 1),
-        vmax=np.nanpercentile(firing_rate_mean_trials_paw_concat_lw[theta_bs_sort], 99))
+        ax=ax, cmap='viridis', vmin=0, vmax=3.5)
 cbar = hm.collections[0].colorbar
 cbar.ax.tick_params(labelsize=18)
 ax.set_xticks(np.linspace(0, 10, 10))

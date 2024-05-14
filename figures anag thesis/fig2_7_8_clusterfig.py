@@ -2,6 +2,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mp
 import pandas as pd
 import seaborn as sns
 import warnings
@@ -36,6 +37,7 @@ roi_coordinates = []
 cluster_id_rois = []
 cluster_id_cumsum = 0
 cluster_id_rois_split = []
+cluster_id_rois_split_animal = []
 cluster_id_cumsum_split = 0
 sim_trials = np.zeros((len(session_data), 26))
 upper_ci_trials = np.zeros((len(session_data), 26))
@@ -79,17 +81,13 @@ for s in range(len(session_data)):
     fov_corner = np.array([fov_coord[1] - 0.5, fov_coord[0] - 0.5]) #ML is the centroid[:, 0] and AP the centroid[:, 1]
     centroid_dist_corner = (np.array(centroid_ext_swap) * 0.001) + fov_corner
     roi_coordinates.extend(centroid_dist_corner)
-    #separate numbers idx_roi_cluster better for easier viz in scatter
-    idx_roi_cluster_viz = []
-    idx_unique = np.unique(idx_roi_cluster_ordered)
-    for i in idx_roi_cluster_ordered:
-        if i == idx_unique[0]:
-            idx_roi_cluster_viz.append(i)
-        if i > idx_unique[0]:
-            idx_roi_cluster_viz.append(i*3)
-    if s > 0:
-        cluster_id_cumsum += np.max(idx_roi_cluster_ordered)+(len(idx_unique)*3)
-    cluster_id_rois.extend(np.array(idx_roi_cluster_viz)+cluster_id_cumsum)
+    if s == 0:
+        max_prev_animal = 0
+    else:
+        max_prev_animal = np.max(cluster_id)
+    cluster_id = idx_roi_cluster_ordered+max_prev_animal
+    cluster_id_rois.extend(cluster_id)
+    cluster_id_rois_split_animal.extend(np.repeat(animal, len(cluster_id)))
 
     #Clusters split
     colormap_cluster = 'hsv'
@@ -98,17 +96,6 @@ for s in range(len(session_data)):
                                                                       colormap_cluster, 0, 0)
     [clusters_rois_split, idx_roi_cluster_ordered_split] = mscope.get_rois_clusters_mediolateral(df_extract_rawtrace_detrended,
                                                                                      idx_roi_cluster_split, centroid_ext)
-    #separate numbers idx_roi_cluster better for easier viz in scatter
-    idx_roi_cluster_viz_split = []
-    idx_unique_split = np.unique(idx_roi_cluster_ordered_split)
-    for i in idx_roi_cluster_ordered_split:
-        if i == idx_unique_split[0]:
-            idx_roi_cluster_viz_split.append(i)
-        if i > idx_unique_split[0]:
-            idx_roi_cluster_viz_split.append(i*3)
-    if s > 0:
-        cluster_id_cumsum_split += np.max(idx_roi_cluster_ordered_split)+(len(idx_unique_split)*3)
-    cluster_id_rois_split.extend(np.array(idx_roi_cluster_viz_split)+cluster_id_cumsum_split)
 
     if animal == 'MC8855': #for split ipsi S1 3-10-10
         trials_idx = np.array([3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25])
@@ -214,8 +201,8 @@ for s in range(len(session_data)):
         ax.set_xlim([10, 45])
         plt.xticks(fontsize=mscope.fsize - 2)
         plt.yticks(fontsize=mscope.fsize - 2)
-        plt.setp(ax.get_yticklabels(), visible=False)
-        ax.tick_params(axis='y', which='y', length=0)
+        #plt.setp(ax.get_yticklabels(), visible=False)
+        #ax.tick_params(axis='y', which='y', length=0)
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         ax.spines['left'].set_visible(False)
@@ -233,7 +220,6 @@ for s in range(len(session_data)):
     corr_data_all.append(corr_data)
 roi_coordinates_arr = np.array(roi_coordinates)
 cluster_id_arr = np.array(cluster_id_rois)
-cluster_id_arr_split = np.array(cluster_id_rois_split)
 
 cmap = plt.get_cmap('magma')
 color_animals = [cmap(i) for i in np.linspace(0, 1, 6)]
@@ -242,9 +228,10 @@ color_animals = [cmap(i) for i in np.linspace(0, 1, 6)]
 fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True, sharey=True)
 for a in range(len(color_animals)-1):
     plt.scatter(corr_data_all[a][:, 0], corr_data_all[a][:, 1], s=15, color=color_animals[a])
-    z = np.polyfit(corr_data_all[a][:, 0], corr_data_all[a][:, 1], 1)
-    p = np.poly1d(z)
-    plt.plot(corr_data_all[a][:, 0], p(corr_data_all[a][:, 0]), linewidth=3, color=color_animals[a])
+    #TODO regression can be exponential
+    #z = np.polyfit(corr_data_all[a][:, 0], corr_data_all[a][:, 1], 1)
+    #p = np.poly1d(z)
+    #plt.plot(corr_data_all[a][:, 0], p(corr_data_all[a][:, 0]), linewidth=3, color=color_animals[a])
 ax.set_xlabel('Mediolateral distance (\u03BCm)', fontsize=20)
 ax.set_ylabel('Correlation between ROIs', fontsize=20)
 # ax.legend(['MC8855', 'MC9194', 'MC10221', 'MC9513', 'MC9226'], fontsize=mscope.fsize - 4, frameon=False)
@@ -270,13 +257,19 @@ ax.tick_params(axis='both', which='major', labelsize=20)
 plt.savefig('J:\\Thesis\\figuresChapter2\\fig8 - cluster tied vs split\\corr_matrix_similarity', dpi=mscope.my_dpi)
 plt.savefig('J:\\Thesis\\figuresChapter2\\fig8 - cluster tied vs split\\corr_matrix_similarity.svg', dpi=mscope.my_dpi)
 
-fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
-sc = ax.scatter(roi_coordinates_arr[:, 0], roi_coordinates_arr[:, 1], c=cluster_id_arr_split, s=15, cmap='gist_rainbow')
+cmap = mp.cm.jet
+bounds = np.unique(cluster_id_arr)
+norm = mp.colors.BoundaryNorm(bounds, cmap.N)
+fig, ax = plt.subplots(figsize=(13, 10))
+sc = ax.scatter(roi_coordinates_arr[:, 0], roi_coordinates_arr[:, 1], c=cluster_id_arr, s=15, cmap=cmap, norm=norm)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 plt.gca().invert_yaxis()
+ax2 = fig.add_axes([0.9, 0.1, 0.05, 0.8])
+cb = plt.colorbar(mp.cm.ScalarMappable(norm=norm, cmap=cmap),
+             cax=ax2, orientation='vertical', ticks=bounds, boundaries=bounds, format='%1i')
 ax.tick_params(axis='both', which='major', labelsize=20)
 ax.set_ylabel('AP coordinate (mm)', fontsize=20)
 ax.set_xlabel('ML coordinate (mm)', fontsize=20)
-plt.savefig('J:\\Thesis\\figuresChapter2\\fig7 - cluster tied vs split\\cluster_map_all_animals_split', dpi=mscope.my_dpi)
-plt.savefig('J:\\Thesis\\figuresChapter2\\fig7 - cluster tied vs split\\cluster_map_all_animals_split.svg', dpi=mscope.my_dpi)
+plt.savefig('J:\\Thesis\\figuresChapter2\\fig8 - cluster tied vs split\\cluster_map_all_animals_split', dpi=mscope.my_dpi)
+plt.savefig('J:\\Thesis\\figuresChapter2\\fig8 - cluster tied vs split\\cluster_map_all_animals_split.svg', dpi=mscope.my_dpi)

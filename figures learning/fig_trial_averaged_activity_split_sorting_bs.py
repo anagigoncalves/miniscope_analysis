@@ -7,7 +7,7 @@ from sklearn.decomposition import PCA
 
 # Input data
 load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split contra fast S1\\'
-save_path = 'J:\\Thesis\\for figures\\fig pca\\Front right baseline activity sorted\\'
+save_path = 'J:\\LocoCF\\miniscopes learning\\'
 path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S2.xlsx'))
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']

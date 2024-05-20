@@ -19,7 +19,7 @@ from scipy.signal import resample
 import nptdms as tdms
 
 #to call class
-#os.chdir('/Users/anagoncalves/Documents/PhD/Code/Miniscope pipeline/')
+#os.chdir(path)
 #import locomotion_class
 #loco = locomotion_class.loco_class(path)
 #and then loco.(function name)
@@ -32,19 +32,21 @@ import nptdms as tdms
 
 class loco_class:
     
-    def __init__(self,path):
+    def __init__(self, path):
+        #Possible pixel to mm values
+        #self.pixel_to_mm = 1/1.955 #dana's setup
+        #self.pixel_to_mm = 1/1.98 #jovin setup
+        #self.pixel_to_mm = 1 /3.3  #real-time setup
         self.trial_time = 60 #seconds
         self.path = path
         self.delim = self.path[-1]
         path_split = self.path.split(self.delim)
         self.experiment = path_split[-3]
         self.pixel_to_mm = 1/1.955 #dana's setup
-        #self.pixel_to_mm = 1/1.98 #jovin setup
         self.sr = 330 #sampling rate of behavior camera for treadmill
         self.sr_F = 30
         self.my_dpi = 96 #resolution for plotting
-        #self.floor = 152*self.pixel_to_mm #Dana's setup
-        self.floor = 152*self.pixel_to_mm #Jovin's setup
+        self.floor = 152*self.pixel_to_mm
 
     @staticmethod
     def inpaint_nans(A):

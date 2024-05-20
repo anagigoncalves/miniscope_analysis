@@ -6,12 +6,12 @@ import seaborn as sns
 from sklearn.decomposition import PCA
 
 # Input data
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split ipsi fast S1\\'
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split contra fast S1\\'
 save_path = 'J:\\LocoCF\\miniscopes learning\\'
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
+session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S2.xlsx'))
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
-protocol = 'split ipsi fast'
+protocol = 'split contra fast'
 bins = np.arange(0, 105, 10)  # 10 deg
 align_event = 'st'
 align_dimension = 'phase'
@@ -113,8 +113,8 @@ ax.set_ylabel('Early split vs baseline ratio', fontsize=20)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=20)
-plt.savefig(os.path.join(save_path, 'mi_stride_phases_baseline_earlysplit_' + align_event + '_' + align_dimension), dpi=256)
-plt.savefig(os.path.join(save_path, 'mi_stride_phases_baseline_earlysplit_' + align_event + '_' + align_dimension + '.svg'), dpi=256)
+plt.savefig(os.path.join(save_path, 'mi_stride_phases_baseline_earlysplit_' + protocol.replace(' ', '_') + '_' + align_event + '_' + align_dimension), dpi=256)
+plt.savefig(os.path.join(save_path, 'mi_stride_phases_baseline_earlysplit_' + protocol.replace(' ', '_') + '_' + align_event + '_' + align_dimension + '.svg'), dpi=256)
 
 fig, ax = plt.subplots(tight_layout=True, figsize=(10, 5))
 bs_ls_data_sw = mi_index(np.nanmean(firing_rate_mean_trials_paw_concat_ls[:, bin_transition:], axis=1), np.nanmean(firing_rate_mean_trials_paw_concat_bs[:, bin_transition:], axis=1))
@@ -127,8 +127,8 @@ ax.set_ylabel('Late split vs baseline ratio', fontsize=20)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=20)
-plt.savefig(os.path.join(save_path, 'mi_stride_phases_baseline_latesplit_' + align_event + '_' + align_dimension), dpi=256)
-plt.savefig(os.path.join(save_path, 'mi_stride_phases_baseline_latesplit_' + align_event + '_' + align_dimension + '.svg'), dpi=256)
+plt.savefig(os.path.join(save_path, 'mi_stride_phases_baseline_latesplit_' + protocol.replace(' ', '_') + '_' + align_event + '_' + align_dimension), dpi=256)
+plt.savefig(os.path.join(save_path, 'mi_stride_phases_baseline_latesplit_' + protocol.replace(' ', '_') + '_' + align_event + '_' + align_dimension + '.svg'), dpi=256)
 
 fig, ax = plt.subplots(tight_layout=True, figsize=(10, 5))
 bs_ae_data_sw = mi_index(np.nanmean(firing_rate_mean_trials_paw_concat_ae[:, bin_transition:], axis=1), np.nanmean(firing_rate_mean_trials_paw_concat_bs[:, bin_transition:], axis=1))
@@ -141,5 +141,5 @@ ax.set_ylabel('Late split vs baseline ratio', fontsize=20)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=20)
-plt.savefig(os.path.join(save_path, 'mi_stride_phases_baseline_aftereffect_' + align_event + '_' + align_dimension), dpi=256)
-plt.savefig(os.path.join(save_path, 'mi_stride_phases_baseline_aftereffect_' + align_event + '_' + align_dimension + '.svg'), dpi=256)
+plt.savefig(os.path.join(save_path, 'mi_stride_phases_baseline_aftereffect_' + protocol.replace(' ', '_') + '_' + align_event + '_' + align_dimension), dpi=256)
+plt.savefig(os.path.join(save_path, 'mi_stride_phases_baseline_aftereffect_' + protocol.replace(' ', '_') + '_' + align_event + '_' + align_dimension + '.svg'), dpi=256)

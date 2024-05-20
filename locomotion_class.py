@@ -19,7 +19,7 @@ from scipy.signal import resample
 import nptdms as tdms
 
 #to call class
-#os.chdir('/Users/anagoncalves/Documents/PhD/Code/Miniscope pipeline/')
+#os.chdir(path)
 #import locomotion_class
 #loco = locomotion_class.loco_class(path)
 #and then loco.(function name)
@@ -32,19 +32,21 @@ import nptdms as tdms
 
 class loco_class:
     
-    def __init__(self,path):
+    def __init__(self, path):
+        #Possible pixel to mm values
+        #self.pixel_to_mm = 1/1.955 #dana's setup
+        #self.pixel_to_mm = 1/1.98 #jovin setup
+        #self.pixel_to_mm = 1 /3.3  #real-time setup
         self.trial_time = 60 #seconds
         self.path = path
         self.delim = self.path[-1]
         path_split = self.path.split(self.delim)
         self.experiment = path_split[-3]
         self.pixel_to_mm = 1/1.955 #dana's setup
-        # self.pixel_to_mm = 1/1.98 #jovin setup
         self.sr = 330 #sampling rate of behavior camera for treadmill
         self.sr_F = 30
         self.my_dpi = 96 #resolution for plotting
-        self.floor = 152*self.pixel_to_mm #Dana's setup
-        # self.floor = 152*self.pixel_to_mm #Jovin's setup
+        self.floor = 152*self.pixel_to_mm
 
     @staticmethod
     def inpaint_nans(A):
@@ -1200,8 +1202,8 @@ class loco_class:
                 for s in range(np.shape(st_strides_mat[p])[0]):
                     perc_50 = 0.5*len(np.arange(sw_pts_mat[p][s,0,4],st_strides_mat[p][s,1,4]))
                     if sw_pts_mat[p][s,0,4]-perc_50>0 and st_strides_mat[p][s,1,4]+perc_50<np.shape(Z)[1]:
-                        Z_excursion = np.median(Z[p,int(st_strides_mat[p][s,0,4]):int(sw_pts_mat[p][s,0,4])])
-                        Z_excursion_perc = Z[p,int(sw_pts_mat[p][s,0,4]-perc_50):int(st_strides_mat[p][s,1,4]+perc_50)] 
+                        Z_excursion = np.median(Z[p,int(st_strides_mat[p][s,0,4]):int(sw_pts_mat[p][s,0,4])])-self.floor
+                        Z_excursion_perc = Z[p,int(sw_pts_mat[p][s,0,4]-perc_50):int(st_strides_mat[p][s,1,4]+perc_50)]-self.floor
                         sw_z.append(Z_excursion-Z_excursion_perc)
                 sw_z_norm = np.zeros((len(sw_z),len(stride_points)))
                 for s in range(len(sw_z)): 

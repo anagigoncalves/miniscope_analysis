@@ -13,18 +13,20 @@ import miniscope_session_class
 import locomotion_class
 path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S2.xlsx')
-save_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split contra fast S1\\'
+save_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters sw time\\split contra fast S1\\'
 paws = ['FR', 'HR', 'FL', 'HL']
 paw_colors = ['red', 'magenta', 'blue', 'cyan']
-align_event = 'st'
-align_dimension = 'phase'
+align_event = 'sw'
+align_dimension = 'time'
 if align_dimension == 'phase':
-    bins = np.arange(0, 1.01, 0.05)  # 5 deg
+    bins = np.arange(0, 1.01, 0.1)  # 10 deg
+    #bins = np.arange(0, 1.01, 0.05)  # 5 deg
     align_event = 'st' #is always stance
     phase_paws = 'st-sw-st' #can be also 'st-st', need to write code for sw-sw
     bins_fr = bins
 if align_dimension == 'time':
-    bins = np.arange(-0.125, 0.126, 0.0125) # 12.5 ms
+    #bins = np.arange(-0.125, 0.126, 0.0125) # 12.5 ms
+    bins = np.arange(-0.125, 0.126, 0.025) # 25 ms
     phase_paws = 'st-sw-st'  # can be also 'st-st', need to write code for sw-sw
     bins_fr = bins*1000
 
@@ -225,6 +227,5 @@ for s in range(len(session_data)):
             ax[2, count_p].set_ylabel('Aligned to ' + str(align_event), fontsize=mscope.fsize - 8)
         plt.savefig(os.path.join(save_path, animal + ' ' + ses_info[0], 'raster_mean_fr_' + align_dimension + '_' +
                                  align_event + '_' + roi), dpi=mscope.my_dpi)
-
         plt.close('all')
 

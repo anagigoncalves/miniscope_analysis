@@ -2,21 +2,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import pandas as pd
-import seaborn as sns
-from sklearn.decomposition import PCA
 
 # Input data
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split contra fast S1\\'
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split ipsi fast S1\\'
+load_pc_path = 'J:\\LocoCF\\miniscopes learning\\PCA validation and clusters\\'
 save_path = 'J:\\LocoCF\\miniscopes learning\\'
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S2.xlsx'))
+session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
-protocol = 'split contra fast'
+protocol = 'split ipsi fast'
 bins = np.arange(0, 105, 10)  # 10 deg
 align_event = 'st'
 align_dimension = 'phase'
 
-os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
+os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Projects\\Dev\\miniscope_analysis\\')
+
+# Load PC coefficients data
+pc_coeff = pd.read_csv(os.path.join(load_pc_path, 'pc_coeff_df_clusters_' + '_'.join(protocol.split(' ')) + '.csv'))
 
 def mi_index(a, b):
     return (a-b)/(a+b)
@@ -101,13 +103,24 @@ for count_a, animal in enumerate(animals):
 firing_rate_mean_trials_paw_concat_lw = np.vstack(firing_rate_mean_trials_paw_lw)
 
 bin_transition = np.where(bins >= 50)[0][0]
+# Order clusters ID and get count for each id and each color
+idx_order = np.argsort(pc_coeff['cluster_pca'])
+clusters_ordered = pc_coeff['cluster_pca'][idx_order]
+clusters, counts_clusters = np.unique(clusters_ordered, return_counts=True)
+cmap_cluster = plt.get_cmap('jet')
+colors_cluster  = [cmap_cluster(i) for i in np.linspace(0, 1, len(clusters))]
 
 fig, ax = plt.subplots(tight_layout=True, figsize=(10, 5))
+init_val = 0
+for c in clusters:
+    rectangle = plt.Rectangle((init_val, -0.5), counts_clusters[c], 1, fc=colors_cluster[c], alpha=0.1)
+    plt.gca().add_patch(rectangle)
+    init_val += counts_clusters[c]
 bs_es_data_sw = mi_index(np.nanmean(firing_rate_mean_trials_paw_concat_es[:, bin_transition:], axis=1), np.nanmean(firing_rate_mean_trials_paw_concat_bs[:, bin_transition:], axis=1))
 bs_es_data_st = mi_index(np.nanmean(firing_rate_mean_trials_paw_concat_es[:, :5], axis=1), np.nanmean(firing_rate_mean_trials_paw_concat_bs[:, :bin_transition], axis=1))
-ax.scatter(np.arange(0, len(bs_es_data_st)), bs_es_data_st, color='orange', s=10)
-ax.scatter(np.arange(0, len(bs_es_data_st)), bs_es_data_sw, color='green', s=10)
-plt.vlines(np.arange(0, len(bs_es_data_st)), ymin=bs_es_data_sw, ymax=bs_es_data_st, linewidth=0.4, color='darkgrey')
+ax.scatter(np.arange(0, len(bs_es_data_st)), bs_es_data_st[idx_order], color='orange', s=10)
+ax.scatter(np.arange(0, len(bs_es_data_st)), bs_es_data_sw[idx_order], color='green', s=10)
+plt.vlines(np.arange(0, len(bs_es_data_st)), ymin=bs_es_data_sw[idx_order], ymax=bs_es_data_st[idx_order], linewidth=0.4, color='darkgrey')
 ax.set_xlabel('ROI ID', fontsize=20)
 ax.set_ylabel('Early split vs baseline ratio', fontsize=20)
 ax.spines['right'].set_visible(False)
@@ -117,11 +130,16 @@ plt.savefig(os.path.join(save_path, 'mi_stride_phases_baseline_earlysplit_' + pr
 plt.savefig(os.path.join(save_path, 'mi_stride_phases_baseline_earlysplit_' + protocol.replace(' ', '_') + '_' + align_event + '_' + align_dimension + '.svg'), dpi=256)
 
 fig, ax = plt.subplots(tight_layout=True, figsize=(10, 5))
+init_val = 0
+for c in clusters:
+    rectangle = plt.Rectangle((init_val, -0.5), counts_clusters[c], 1, fc=colors_cluster[c], alpha=0.1)
+    plt.gca().add_patch(rectangle)
+    init_val += counts_clusters[c]
 bs_ls_data_sw = mi_index(np.nanmean(firing_rate_mean_trials_paw_concat_ls[:, bin_transition:], axis=1), np.nanmean(firing_rate_mean_trials_paw_concat_bs[:, bin_transition:], axis=1))
 bs_ls_data_st = mi_index(np.nanmean(firing_rate_mean_trials_paw_concat_ls[:, :5], axis=1), np.nanmean(firing_rate_mean_trials_paw_concat_bs[:, :bin_transition], axis=1))
-ax.scatter(np.arange(0, len(bs_ls_data_st)), bs_ls_data_st, color='orange', s=10)
-ax.scatter(np.arange(0, len(bs_ls_data_st)), bs_ls_data_sw, color='green', s=10)
-plt.vlines(np.arange(0, len(bs_ls_data_st)), ymin=bs_ls_data_sw, ymax=bs_ls_data_st, linewidth=0.4, color='darkgrey')
+ax.scatter(np.arange(0, len(bs_ls_data_st)), bs_ls_data_st[idx_order], color='orange', s=10)
+ax.scatter(np.arange(0, len(bs_ls_data_st)), bs_ls_data_sw[idx_order], color='green', s=10)
+plt.vlines(np.arange(0, len(bs_ls_data_st)), ymin=bs_ls_data_sw[idx_order], ymax=bs_ls_data_st[idx_order], linewidth=0.4, color='darkgrey')
 ax.set_xlabel('ROI ID', fontsize=20)
 ax.set_ylabel('Late split vs baseline ratio', fontsize=20)
 ax.spines['right'].set_visible(False)
@@ -131,13 +149,18 @@ plt.savefig(os.path.join(save_path, 'mi_stride_phases_baseline_latesplit_' + pro
 plt.savefig(os.path.join(save_path, 'mi_stride_phases_baseline_latesplit_' + protocol.replace(' ', '_') + '_' + align_event + '_' + align_dimension + '.svg'), dpi=256)
 
 fig, ax = plt.subplots(tight_layout=True, figsize=(10, 5))
+init_val = 0
+for c in clusters:
+    rectangle = plt.Rectangle((init_val, -0.5), counts_clusters[c], 1, fc=colors_cluster[c], alpha=0.1)
+    plt.gca().add_patch(rectangle)
+    init_val += counts_clusters[c]
 bs_ae_data_sw = mi_index(np.nanmean(firing_rate_mean_trials_paw_concat_ae[:, bin_transition:], axis=1), np.nanmean(firing_rate_mean_trials_paw_concat_bs[:, bin_transition:], axis=1))
 bs_ae_data_st = mi_index(np.nanmean(firing_rate_mean_trials_paw_concat_ae[:, :5], axis=1), np.nanmean(firing_rate_mean_trials_paw_concat_bs[:, :bin_transition], axis=1))
-ax.scatter(np.arange(0, len(bs_ae_data_st)), bs_ae_data_st, color='orange', s=10)
-ax.scatter(np.arange(0, len(bs_ae_data_st)), bs_ae_data_sw, color='green', s=10)
-plt.vlines(np.arange(0, len(bs_ae_data_st)), ymin=bs_ae_data_sw, ymax=bs_ae_data_st, linewidth=0.4, color='darkgrey')
+ax.scatter(np.arange(0, len(bs_ae_data_st)), bs_ae_data_st[idx_order], color='orange', s=10)
+ax.scatter(np.arange(0, len(bs_ae_data_st)), bs_ae_data_sw[idx_order], color='green', s=10)
+plt.vlines(np.arange(0, len(bs_ae_data_st)), ymin=bs_ae_data_sw[idx_order], ymax=bs_ae_data_st[idx_order], linewidth=0.4, color='darkgrey')
 ax.set_xlabel('ROI ID', fontsize=20)
-ax.set_ylabel('Late split vs baseline ratio', fontsize=20)
+ax.set_ylabel('After-effect vs baseline ratio', fontsize=20)
 ax.spines['right'].set_visible(False)
 ax.spines['top'].set_visible(False)
 ax.tick_params(axis='both', which='major', labelsize=20)

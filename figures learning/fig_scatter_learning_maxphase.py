@@ -1,24 +1,24 @@
-#TODO put cluster info here
-
 import numpy as np
 import matplotlib.pyplot as plt
 import os
 import pandas as pd
-import seaborn as sns
-from sklearn.decomposition import PCA
 
 # Input data
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split ipsi fast S1\\'
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split contra fast S1\\'
+load_pc_path = 'J:\\LocoCF\\miniscopes learning\\PCA validation and clusters (only baseline trials)\\'
 save_path = 'J:\\LocoCF\\miniscopes learning\\'
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
+session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S2.xlsx'))
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
-protocol = 'split ipsi fast'
+protocol = 'split contra fast'
 bins = np.arange(0, 105, 10)  # 10 deg
 align_event = 'st'
 align_dimension = 'phase'
 
 os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
+
+# Load PC coefficients data
+pc_coeff = pd.read_csv(os.path.join(load_pc_path, 'pc_coeff_df_clusters_' + '_'.join(protocol.split(' ')) + '.csv'))
 
 # Loop across animals for trial average - baseline
 firing_rate_mean_trials_paw_bs = []
@@ -100,6 +100,7 @@ for count_a, animal in enumerate(animals):
 firing_rate_mean_trials_paw_concat_lw = np.vstack(firing_rate_mean_trials_paw_lw)
 
 bin_transition = np.where(bins>=50)[0][0]
+
 fig, ax = plt.subplots(1,2, tight_layout=True, figsize=(10, 5))
 ax = ax.ravel()
 ax[0].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, bin_transition:], axis=1), np.nanmax(firing_rate_mean_trials_paw_concat_es[:, bin_transition:], axis=1), color='green', s=10)
@@ -156,3 +157,183 @@ ax[1].spines['top'].set_visible(False)
 ax[1].tick_params(axis='both', which='major', labelsize=20)
 plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_aftereffect_' + align_event + '_' + align_dimension), dpi=256)
 plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_aftereffect_' + align_event + '_' + align_dimension + '.svg'), dpi=256)
+
+if protocol == 'split ipsi fast':
+    # Plot comparisons for cluster 1 (the one that changes the most for split ipsi fast)
+    cluster_idx = np.where(pc_coeff['cluster_pca']==1)[0]
+    fig, ax = plt.subplots(1,2, tight_layout=True, figsize=(10, 5))
+    ax = ax.ravel()
+    ax[0].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, bin_transition:], axis=1)[cluster_idx], np.nanmax(firing_rate_mean_trials_paw_concat_es[:, bin_transition:], axis=1)[cluster_idx], color='green', s=10)
+    ax[1].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, :bin_transition], axis=1)[cluster_idx], np.nanmax(firing_rate_mean_trials_paw_concat_es[:, :5], axis=1)[cluster_idx], color='orange', s=10)
+    ax[0].set_xlabel('Calcium event\nrate baseline trials (Hz)', fontsize=20)
+    ax[0].set_ylabel('Calcium event\nrate early split trials (Hz)', fontsize=20)
+    ax[0].plot([1, 4], [1, 4], color='black')
+    ax[0].spines['right'].set_visible(False)
+    ax[0].spines['top'].set_visible(False)
+    ax[0].tick_params(axis='both', which='major', labelsize=20)
+    ax[1].set_xlabel('Calcium event\nrate baseline trials (Hz)', fontsize=20)
+    ax[1].set_ylabel('Calcium event\nrate early split trials (Hz)', fontsize=20)
+    ax[1].plot([1, 4], [1, 4], color='black')
+    ax[1].spines['right'].set_visible(False)
+    ax[1].spines['top'].set_visible(False)
+    ax[1].tick_params(axis='both', which='major', labelsize=20)
+    plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_earlysplit_' + align_event + '_' + align_dimension + '_cluster1'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_earlysplit_' + align_event + '_' + align_dimension + '_cluster1.svg'), dpi=256)
+
+    fig, ax = plt.subplots(1,2, tight_layout=True, figsize=(10, 5))
+    ax = ax.ravel()
+    ax[0].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, bin_transition:], axis=1)[cluster_idx], np.nanmax(firing_rate_mean_trials_paw_concat_ls[:, bin_transition:], axis=1)[cluster_idx], color='green', s=10)
+    ax[1].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, :bin_transition], axis=1)[cluster_idx], np.nanmax(firing_rate_mean_trials_paw_concat_ls[:, :5], axis=1)[cluster_idx], color='orange', s=10)
+    ax[0].set_xlabel('Calcium event\nrate baseline trials (Hz)', fontsize=20)
+    ax[0].set_ylabel('Calcium event\nrate late split trials (Hz)', fontsize=20)
+    ax[0].plot([1, 4], [1, 4], color='black')
+    ax[0].spines['right'].set_visible(False)
+    ax[0].spines['top'].set_visible(False)
+    ax[0].tick_params(axis='both', which='major', labelsize=20)
+    ax[1].set_xlabel('Calcium event\nrate baseline trials (Hz)', fontsize=20)
+    ax[1].set_ylabel('Calcium event\nrate late split trials (Hz)', fontsize=20)
+    ax[1].plot([1, 4], [1, 4], color='black')
+    ax[1].spines['right'].set_visible(False)
+    ax[1].spines['top'].set_visible(False)
+    ax[1].tick_params(axis='both', which='major', labelsize=20)
+    plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_latesplit_' + align_event + '_' + align_dimension + '_cluster1'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_latesplit_' + align_event + '_' + align_dimension + '_cluster1.svg'), dpi=256)
+
+    fig, ax = plt.subplots(1,2, tight_layout=True, figsize=(10, 5))
+    ax = ax.ravel()
+    ax[0].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, bin_transition:][cluster_idx], axis=1), np.nanmax(firing_rate_mean_trials_paw_concat_ae[:, bin_transition:], axis=1)[cluster_idx], color='green', s=10)
+    ax[1].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, :bin_transition][cluster_idx], axis=1), np.nanmax(firing_rate_mean_trials_paw_concat_ae[:, :5], axis=1)[cluster_idx], color='orange', s=10)
+    ax[0].set_xlabel('Calcium event\nrate baseline trials (Hz)', fontsize=20)
+    ax[0].set_ylabel('Calcium event\nrate after-effect trials (Hz)', fontsize=20)
+    ax[0].plot([1, 4], [1, 4], color='black')
+    ax[0].spines['right'].set_visible(False)
+    ax[0].spines['top'].set_visible(False)
+    ax[0].tick_params(axis='both', which='major', labelsize=20)
+    ax[1].set_xlabel('Calcium event\nrate baseline trials (Hz)', fontsize=20)
+    ax[1].set_ylabel('Calcium event\nrate after-effect trials (Hz)', fontsize=20)
+    ax[1].plot([1, 4], [1, 4], color='black')
+    ax[1].spines['right'].set_visible(False)
+    ax[1].spines['top'].set_visible(False)
+    ax[1].tick_params(axis='both', which='major', labelsize=20)
+    plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_aftereffect_' + align_event + '_' + align_dimension + '_cluster1'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_aftereffect_' + align_event + '_' + align_dimension + '_cluster1.svg'), dpi=256)
+
+if protocol == 'split contra fast':
+    # Plot comparisons for cluster 2 (the one that changes the most for split contra fast)
+    cluster_idx = np.where(pc_coeff['cluster_pca']==2)[0]
+    fig, ax = plt.subplots(1,2, tight_layout=True, figsize=(10, 5))
+    ax = ax.ravel()
+    ax[0].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, bin_transition:], axis=1)[cluster_idx], np.nanmax(firing_rate_mean_trials_paw_concat_es[:, bin_transition:], axis=1)[cluster_idx], color='green', s=10)
+    ax[1].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, :bin_transition], axis=1)[cluster_idx], np.nanmax(firing_rate_mean_trials_paw_concat_es[:, :5], axis=1)[cluster_idx], color='orange', s=10)
+    ax[0].set_xlabel('Calcium event\nrate baseline trials (Hz)', fontsize=20)
+    ax[0].set_ylabel('Calcium event\nrate early split trials (Hz)', fontsize=20)
+    ax[0].plot([1, 4], [1, 4], color='black')
+    ax[0].spines['right'].set_visible(False)
+    ax[0].spines['top'].set_visible(False)
+    ax[0].tick_params(axis='both', which='major', labelsize=20)
+    ax[1].set_xlabel('Calcium event\nrate baseline trials (Hz)', fontsize=20)
+    ax[1].set_ylabel('Calcium event\nrate early split trials (Hz)', fontsize=20)
+    ax[1].plot([1, 4], [1, 4], color='black')
+    ax[1].spines['right'].set_visible(False)
+    ax[1].spines['top'].set_visible(False)
+    ax[1].tick_params(axis='both', which='major', labelsize=20)
+    plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_earlysplit_' + align_event + '_' + align_dimension + '_cluster2'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_earlysplit_' + align_event + '_' + align_dimension + '_cluster2.svg'), dpi=256)
+
+    fig, ax = plt.subplots(1,2, tight_layout=True, figsize=(10, 5))
+    ax = ax.ravel()
+    ax[0].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, bin_transition:], axis=1)[cluster_idx], np.nanmax(firing_rate_mean_trials_paw_concat_ls[:, bin_transition:], axis=1)[cluster_idx], color='green', s=10)
+    ax[1].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, :bin_transition], axis=1)[cluster_idx], np.nanmax(firing_rate_mean_trials_paw_concat_ls[:, :5], axis=1)[cluster_idx], color='orange', s=10)
+    ax[0].set_xlabel('Calcium event\nrate baseline trials (Hz)', fontsize=20)
+    ax[0].set_ylabel('Calcium event\nrate late split trials (Hz)', fontsize=20)
+    ax[0].plot([1, 4], [1, 4], color='black')
+    ax[0].spines['right'].set_visible(False)
+    ax[0].spines['top'].set_visible(False)
+    ax[0].tick_params(axis='both', which='major', labelsize=20)
+    ax[1].set_xlabel('Calcium event\nrate baseline trials (Hz)', fontsize=20)
+    ax[1].set_ylabel('Calcium event\nrate late split trials (Hz)', fontsize=20)
+    ax[1].plot([1, 4], [1, 4], color='black')
+    ax[1].spines['right'].set_visible(False)
+    ax[1].spines['top'].set_visible(False)
+    ax[1].tick_params(axis='both', which='major', labelsize=20)
+    plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_latesplit_' + align_event + '_' + align_dimension + '_cluster2'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_latesplit_' + align_event + '_' + align_dimension + '_cluster2.svg'), dpi=256)
+
+    fig, ax = plt.subplots(1,2, tight_layout=True, figsize=(10, 5))
+    ax = ax.ravel()
+    ax[0].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, bin_transition:][cluster_idx], axis=1), np.nanmax(firing_rate_mean_trials_paw_concat_ae[:, bin_transition:], axis=1)[cluster_idx], color='green', s=10)
+    ax[1].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, :bin_transition][cluster_idx], axis=1), np.nanmax(firing_rate_mean_trials_paw_concat_ae[:, :5], axis=1)[cluster_idx], color='orange', s=10)
+    ax[0].set_xlabel('Calcium event\nrate baseline trials (Hz)', fontsize=20)
+    ax[0].set_ylabel('Calcium event\nrate after-effect trials (Hz)', fontsize=20)
+    ax[0].plot([1, 4], [1, 4], color='black')
+    ax[0].spines['right'].set_visible(False)
+    ax[0].spines['top'].set_visible(False)
+    ax[0].tick_params(axis='both', which='major', labelsize=20)
+    ax[1].set_xlabel('Calcium event\nrate baseline trials (Hz)', fontsize=20)
+    ax[1].set_ylabel('Calcium event\nrate after-effect trials (Hz)', fontsize=20)
+    ax[1].plot([1, 4], [1, 4], color='black')
+    ax[1].spines['right'].set_visible(False)
+    ax[1].spines['top'].set_visible(False)
+    ax[1].tick_params(axis='both', which='major', labelsize=20)
+    plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_aftereffect_' + align_event + '_' + align_dimension + '_cluster2'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_aftereffect_' + align_event + '_' + align_dimension + '_cluster2.svg'), dpi=256)
+
+    # Plot comparisons for cluster 0 (the one that changes the most for split contra fast)
+    cluster_idx = np.where(pc_coeff['cluster_pca']==0)[0]
+    fig, ax = plt.subplots(1,2, tight_layout=True, figsize=(10, 5))
+    ax = ax.ravel()
+    ax[0].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, bin_transition:], axis=1)[cluster_idx], np.nanmax(firing_rate_mean_trials_paw_concat_es[:, bin_transition:], axis=1)[cluster_idx], color='green', s=10)
+    ax[1].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, :bin_transition], axis=1)[cluster_idx], np.nanmax(firing_rate_mean_trials_paw_concat_es[:, :5], axis=1)[cluster_idx], color='orange', s=10)
+    ax[0].set_xlabel('Calcium event\nrate baseline trials (Hz)', fontsize=20)
+    ax[0].set_ylabel('Calcium event\nrate early split trials (Hz)', fontsize=20)
+    ax[0].plot([1, 4], [1, 4], color='black')
+    ax[0].spines['right'].set_visible(False)
+    ax[0].spines['top'].set_visible(False)
+    ax[0].tick_params(axis='both', which='major', labelsize=20)
+    ax[1].set_xlabel('Calcium event\nrate baseline trials (Hz)', fontsize=20)
+    ax[1].set_ylabel('Calcium event\nrate early split trials (Hz)', fontsize=20)
+    ax[1].plot([1, 4], [1, 4], color='black')
+    ax[1].spines['right'].set_visible(False)
+    ax[1].spines['top'].set_visible(False)
+    ax[1].tick_params(axis='both', which='major', labelsize=20)
+    plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_earlysplit_' + align_event + '_' + align_dimension + '_cluster0'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_earlysplit_' + align_event + '_' + align_dimension + '_cluster0.svg'), dpi=256)
+
+    fig, ax = plt.subplots(1,2, tight_layout=True, figsize=(10, 5))
+    ax = ax.ravel()
+    ax[0].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, bin_transition:], axis=1)[cluster_idx], np.nanmax(firing_rate_mean_trials_paw_concat_ls[:, bin_transition:], axis=1)[cluster_idx], color='green', s=10)
+    ax[1].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, :bin_transition], axis=1)[cluster_idx], np.nanmax(firing_rate_mean_trials_paw_concat_ls[:, :5], axis=1)[cluster_idx], color='orange', s=10)
+    ax[0].set_xlabel('Calcium event\nrate baseline trials (Hz)', fontsize=20)
+    ax[0].set_ylabel('Calcium event\nrate late split trials (Hz)', fontsize=20)
+    ax[0].plot([1, 4], [1, 4], color='black')
+    ax[0].spines['right'].set_visible(False)
+    ax[0].spines['top'].set_visible(False)
+    ax[0].tick_params(axis='both', which='major', labelsize=20)
+    ax[1].set_xlabel('Calcium event\nrate baseline trials (Hz)', fontsize=20)
+    ax[1].set_ylabel('Calcium event\nrate late split trials (Hz)', fontsize=20)
+    ax[1].plot([1, 4], [1, 4], color='black')
+    ax[1].spines['right'].set_visible(False)
+    ax[1].spines['top'].set_visible(False)
+    ax[1].tick_params(axis='both', which='major', labelsize=20)
+    plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_latesplit_' + align_event + '_' + align_dimension + '_cluster0'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_latesplit_' + align_event + '_' + align_dimension + '_cluster0.svg'), dpi=256)
+
+    fig, ax = plt.subplots(1,2, tight_layout=True, figsize=(10, 5))
+    ax = ax.ravel()
+    ax[0].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, bin_transition:][cluster_idx], axis=1), np.nanmax(firing_rate_mean_trials_paw_concat_ae[:, bin_transition:], axis=1)[cluster_idx], color='green', s=10)
+    ax[1].scatter(np.nanmax(firing_rate_mean_trials_paw_concat_bs[:, :bin_transition][cluster_idx], axis=1), np.nanmax(firing_rate_mean_trials_paw_concat_ae[:, :5], axis=1)[cluster_idx], color='orange', s=10)
+    ax[0].set_xlabel('Calcium event\nrate baseline trials (Hz)', fontsize=20)
+    ax[0].set_ylabel('Calcium event\nrate after-effect trials (Hz)', fontsize=20)
+    ax[0].plot([1, 4], [1, 4], color='black')
+    ax[0].spines['right'].set_visible(False)
+    ax[0].spines['top'].set_visible(False)
+    ax[0].tick_params(axis='both', which='major', labelsize=20)
+    ax[1].set_xlabel('Calcium event\nrate baseline trials (Hz)', fontsize=20)
+    ax[1].set_ylabel('Calcium event\nrate after-effect trials (Hz)', fontsize=20)
+    ax[1].plot([1, 4], [1, 4], color='black')
+    ax[1].spines['right'].set_visible(False)
+    ax[1].spines['top'].set_visible(False)
+    ax[1].tick_params(axis='both', which='major', labelsize=20)
+    plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_aftereffect_' + align_event + '_' + align_dimension + '_cluster0'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'max_stride_phases_baseline_aftereffect_' + align_event + '_' + align_dimension + '_cluster0.svg'), dpi=256)
+

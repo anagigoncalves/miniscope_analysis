@@ -4,18 +4,18 @@ import os
 import pandas as pd
 
 # Input data
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split ipsi fast S1\\'
-load_pc_path = 'J:\\LocoCF\\miniscopes learning\\PCA validation and clusters\\'
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split contra fast S1\\'
+load_pc_path = 'J:\\LocoCF\\miniscopes learning\\PCA validation and clusters (only baseline trials)\\'
 save_path = 'J:\\LocoCF\\miniscopes learning\\'
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
+session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S2.xlsx'))
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
-protocol = 'split ipsi fast'
+protocol = 'split contra fast'
 bins = np.arange(0, 105, 10)  # 10 deg
 align_event = 'st'
 align_dimension = 'phase'
 
-os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Projects\\Dev\\miniscope_analysis\\')
+os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 
 # Load PC coefficients data
 pc_coeff = pd.read_csv(os.path.join(load_pc_path, 'pc_coeff_df_clusters_' + '_'.join(protocol.split(' ')) + '.csv'))
@@ -108,7 +108,7 @@ idx_order = np.argsort(pc_coeff['cluster_pca'])
 clusters_ordered = pc_coeff['cluster_pca'][idx_order]
 clusters, counts_clusters = np.unique(clusters_ordered, return_counts=True)
 cmap_cluster = plt.get_cmap('jet')
-colors_cluster  = [cmap_cluster(i) for i in np.linspace(0, 1, len(clusters))]
+colors_cluster = [cmap_cluster(i) for i in np.linspace(0, 1, len(clusters))]
 
 fig, ax = plt.subplots(tight_layout=True, figsize=(10, 5))
 init_val = 0

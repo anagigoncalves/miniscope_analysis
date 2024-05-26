@@ -5,15 +5,15 @@ import pandas as pd
 
 # Input data
 load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters sw time\\split ipsi fast S1\\'
-save_path = 'J:\\LocoCF\\miniscopes learning\\DS sorted rasters\\'
+save_path = 'J:\\LocoCF\\miniscopes learning\\Phase diff sorted rasters\\'
 path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
 protocol = 'split ipsi fast'
 paws = ['FR', 'HR', 'FL', 'HL']
-param = 'double_support'
-bins = 20
-plot_raster = 0
+param = 'phase_st'
+bins = 10
+plot_raster = 1
 
 # import classes
 os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
@@ -74,9 +74,18 @@ for animal in animals:
         [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
         st_strides_trials.append(st_strides_mat)
         paws_rel = loco.get_paws_rel(final_tracks, 'X')
-        param_trials.append(loco.compute_gait_param(bodycenter, final_tracks, paws_rel, st_strides_mat, sw_pts_mat,
-                                            param))
-    cumulative_idx_array, param_all_time, param_all = loco.param_continuous_sym(param_trials, st_strides_trials, trials, 'FR', 'FL', sym=1, remove_nan=0)
+        if param == 'phase_st':
+            param_trials.append(loco.compute_gait_param(bodycenter, final_tracks, paws_rel, st_strides_mat, sw_pts_mat,
+                                                        param)[0])
+        else:
+            param_trials.append(loco.compute_gait_param(bodycenter, final_tracks, paws_rel, st_strides_mat, sw_pts_mat,
+                                                        param))
+    if param == 'phase_st':
+        cumulative_idx_array, param_all_time, param_all = loco.param_continuous_sym(param_trials, st_strides_trials,
+                                                                                    trials, 'FR', 'FL', sym=0,
+                                                                                    remove_nan=0)
+    else:
+        cumulative_idx_array, param_all_time, param_all = loco.param_continuous_sym(param_trials, st_strides_trials, trials, 'FR', 'FL', sym=1, remove_nan=0)
 
     # Load raster in time
     cumulative_idx_rois = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_cumulative_idx_rois.npy'), allow_pickle=True)
@@ -107,12 +116,12 @@ for animal in animals:
                            cumulative_idx_rois_corr[idx_nan], bins=bins)
         neg_bins = np.where(xedges < 0)[0][:-1]
         pos_bins = np.where(xedges >= 0)[0]-1
-        param_fr_prob_sum_st.extend(np.nansum(heatmap.T[neg_bins, :], axis=0))
-        param_fr_prob_sum_sw.extend(np.nansum(heatmap.T[pos_bins, :], axis=0))
+        param_fr_prob_sum_st.extend(np.nansum(heatmap[neg_bins, :], axis=0)/np.sum(np.nansum(heatmap[neg_bins, :], axis=0)))
+        param_fr_prob_sum_sw.extend(np.nansum(heatmap[pos_bins, :], axis=0)/np.sum(np.nansum(heatmap[pos_bins, :], axis=0)))
         param_fr_value.extend(param_idx_roi_bins[1][:-1])
-        param_fr_roi_id.extend(np.repeat(roi, len(np.nansum(heatmap.T[neg_bins, :], axis=0))))
+        param_fr_roi_id.extend(np.repeat(roi, len(np.nansum(heatmap[neg_bins, :], axis=0))))
         param_fr_animal_id.extend(
-            np.repeat(animal, len(np.nansum(heatmap.T[neg_bins, :], axis=0))))
+            np.repeat(animal, len(np.nansum(heatmap[neg_bins, :], axis=0))))
 
     # Rasters sorted by param values and get binned values - FL
     for count_roi, roi in enumerate(roi_list):
@@ -132,11 +141,11 @@ for animal in animals:
                            cumulative_idx_rois_corr[idx_nan], bins=bins)
         neg_bins = np.where(xedges < 0)[0][:-1]
         pos_bins = np.where(xedges >= 0)[0]-1
-        param_fl_prob_sum_st.extend(np.nansum(heatmap.T[neg_bins, :], axis=0))
-        param_fl_prob_sum_sw.extend(np.nansum(heatmap.T[pos_bins, :], axis=0))
+        param_fl_prob_sum_st.extend(np.nansum(heatmap[neg_bins, :], axis=0)/np.sum(np.nansum(heatmap[neg_bins, :], axis=0)))
+        param_fl_prob_sum_sw.extend(np.nansum(heatmap[pos_bins, :], axis=0)/np.sum(np.nansum(heatmap[pos_bins, :], axis=0)))
         param_fl_value.extend(param_idx_roi_bins[1][:-1])
-        param_fl_roi_id.extend(np.repeat(roi, len(np.nansum(heatmap.T[neg_bins, :], axis=0))))
-        param_fl_animal_id.extend(np.repeat(animal, len(np.nansum(heatmap.T[neg_bins, :], axis=0))))
+        param_fl_roi_id.extend(np.repeat(roi, len(np.nansum(heatmap[neg_bins, :], axis=0))))
+        param_fl_animal_id.extend(np.repeat(animal, len(np.nansum(heatmap[neg_bins, :], axis=0))))
 
     if plot_raster:
         # Plot raster sorted by param values for all paws
@@ -157,12 +166,13 @@ for animal in animals:
                 heatmap, xedges, yedges = \
                     np.histogram2d(events_stride_trial_rois_corr[param_idx_roi_sorted][idx_nan],
                                    cumulative_idx_rois_corr[idx_nan], bins=bins)
-                neg_bins = np.where(xedges < 0)[0][::-1]
-                pos_bins = np.where(xedges >= 0)[0]-1
                 heatmap_totalcount_xbin = np.nansum(heatmap.T, axis=1)
                 im = ax[count_p].imshow(heatmap.T/heatmap_totalcount_xbin, cmap='viridis', vmin=0, vmax=0.2)
                 ax[count_p].set_yticks(np.arange(0, bins)[::4])
-                ax[count_p].set_yticklabels(np.round(param_idx_roi_bins[1][:-1:4]))
+                if param == 'phase_st':
+                    ax[count_p].set_yticklabels(np.round(param_idx_roi_bins[1][:-1:4], 2))
+                else:
+                    ax[count_p].set_yticklabels(np.round(param_idx_roi_bins[1][:-1:4]))
                 ax[count_p].set_xticks(np.arange(0, bins)[::4])
                 ax[count_p].set_xticklabels(np.round(xedges[:-1:4]), rotation=45)
                 ax[count_p].axvline(x=bins/2, color='white')

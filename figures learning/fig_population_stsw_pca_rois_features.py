@@ -44,7 +44,7 @@ def zscoring(data, axis_value):
     data_zscore = (data - data_mean)/data_std
     return data_zscore
 
-os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Projects\\Dev\\miniscope_analysis\\')
+os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
@@ -161,8 +161,8 @@ ax.set_ylim([0, 100])
 ax.tick_params(axis='both', which='major', labelsize=20)
 ax.set_ylabel('Cumulative explained\nvariance ratio (%)', fontsize=20)
 ax.set_xlabel('Component number', fontsize=20)
-plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_' + align_event + '_' + align_dimension + '_explained_variance_with_shuffle'), dpi=256)
-plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_' + align_event + '_' + align_dimension + '_explained_variance_with_shuffle.svg'), dpi=256)
+plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_explained_variance_with_shuffle'), dpi=256)
+plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_explained_variance_with_shuffle.svg'), dpi=256)
 
 # Put coefficients into dataframe
 pc_coeff_df = pd.DataFrame({'animal': animal_list, 'roi': roi_name_list, 'coord_x': roi_coordinates_arr[:, 0],
@@ -186,8 +186,8 @@ if plot_data:
     ax.tick_params(axis='both', which='major', labelsize=20)
     ax.set_ylabel('Cumulative explained\nvariance ratio (%)', fontsize=20)
     ax.set_xlabel('Component number', fontsize=20)
-    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_' + align_event + '_' + align_dimension + '_explained_variance'), dpi=256)
-    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_' + align_event + '_' + align_dimension + '_explained_variance.svg'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_explained_variance'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_explained_variance.svg'), dpi=256)
 
     # First PCs contribution to each ROI
     for c in range(5):
@@ -203,8 +203,8 @@ if plot_data:
         cbar = plt.colorbar(sc)
         cbar.ax.tick_params(labelsize=20)
         cbar.mappable.set_clim([-0.1, 0.1])
-        plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_roilocation'), dpi=256)
-        plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_roilocation.svg'), dpi=256)
+        plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_roilocation'), dpi=256)
+        plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_roilocation.svg'), dpi=256)
 
     # Trajectories
     sw_idx = np.int64(((len(bins)-1)/2)-1)
@@ -220,8 +220,8 @@ if plot_data:
     ax.tick_params(axis='both', which='major', labelsize=20)
     ax.set_ylabel('PC2', fontsize=20)
     ax.set_xlabel('PC3', fontsize=20)
-    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_trajectories'), dpi=256)
-    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_trajectories.svg'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_trajectories'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_trajectories.svg'), dpi=256)
 
     # Reconstruction of PC
     pca_fr_paws = PCA(n_components=5)
@@ -244,5 +244,5 @@ if plot_data:
             if align_dimension == 'phase':
                 ax[c].set_xlabel('% Phase', fontsize=20)
                 ax[c].axvline(x=50, color='black')
-    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_temporaldimension'), dpi=256)
-    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + align_event + '_' + align_dimension + '_temporaldimension.svg'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_temporaldimension'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_temporaldimension.svg'), dpi=256)

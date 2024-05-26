@@ -10,8 +10,9 @@ import seaborn as sns
 import matplotlib.ticker as tkr
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S2.xlsx'))
-protocol = 'split contra fast'
+session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
+load_pc_path = 'J:\\LocoCF\\miniscopes learning\\PCA validation and clusters (only baseline trials)\\'
+protocol = 'split ipsi fast'
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
 save_path = 'J:\\LocoCF\\miniscopes learning\\power spectrum\\'
 window_size = 256
@@ -38,6 +39,9 @@ def mi_index(a, b):
 os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
+
+# Load PC coefficients data
+pc_coeff = pd.read_csv(os.path.join(load_pc_path, 'pc_coeff_df_clusters_' + '_'.join(protocol.split(' ')) + '.csv'))
 
 roi_animal = np.zeros(len(animals))
 for count_a, animal in enumerate(animals):
@@ -129,3 +133,51 @@ ax.tick_params(axis='both', which='major', labelsize=20)
 plt.ylim([-0.0015, 0.0015])
 plt.savefig(os.path.join(save_path, 'ps_delta_max_' + protocol.replace(' ', '_') + '_rois_bs_es_bs_ae'), dpi=mscope.my_dpi)
 plt.savefig(os.path.join(save_path, 'ps_delta_max_' + protocol.replace(' ', '_')+'_rois_bs_es_bs_ae.svg'), dpi=mscope.my_dpi)
+
+if protocol == 'split ipsi fast':
+    # Plot comparisons for cluster 1 (the one that changes the most for split ipsi fast)
+    cluster_idx = np.where(pc_coeff['cluster_pca'] == 1)[0]
+    ps_mean = np.nanmean(ps_rois_all[:, cluster_idx, :], axis=1)
+    ps_std = np.nanstd(ps_rois_all[:, cluster_idx, :], axis=1)
+    fig, ax = plt.subplots(figsize=(10, 10), tight_layout=True)
+    ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+    ax.yaxis.get_offset_text().set_fontsize(18)
+    for count_t, t in enumerate(trials_ses.flatten()):
+        ax.plot(f, ps_mean[:, count_t], color=colors_session[t], linewidth=2)
+        ax.fill_between(f, ps_mean[:, count_t] - ps_std[:, count_t], ps_mean[:, count_t] + ps_std[:, count_t],
+                        color=colors_session[t], alpha=0.2)
+    ax.set_xlim([0, 10])
+    ax.set_xlabel('Frequency (Hz)', fontsize=20)
+    ax.set_ylabel('Power spectral density (a.u.)', fontsize=20)
+    ax.set_title('Cluster 1 ' + protocol, fontsize=20)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.tick_params(axis='both', which='major', labelsize=18)
+    plt.savefig(os.path.join(save_path, 'ps_cluster1_' + protocol.replace(' ', '_') + '_rois_average'),
+                dpi=mscope.my_dpi)
+    plt.savefig(os.path.join(save_path, 'ps_cluster1_' + protocol.replace(' ', '_') + '_rois_average.svg'),
+                dpi=mscope.my_dpi)
+
+if protocol == 'split contra fast':
+    # Plot comparisons for cluster 2 (the one that changes the most for split contra fast)
+    cluster_idx = np.where(pc_coeff['cluster_pca']==2)[0]
+    ps_mean = np.nanmean(ps_rois_all[:, cluster_idx, :], axis=1)
+    ps_std = np.nanstd(ps_rois_all[:, cluster_idx, :], axis=1)
+    fig, ax = plt.subplots(figsize=(10, 10), tight_layout=True)
+    ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+    ax.yaxis.get_offset_text().set_fontsize(18)
+    for count_t, t in enumerate(trials_ses.flatten()):
+        ax.plot(f, ps_mean[:, count_t], color=colors_session[t], linewidth=2)
+        ax.fill_between(f, ps_mean[:, count_t] - ps_std[:, count_t], ps_mean[:, count_t] + ps_std[:, count_t],
+                        color=colors_session[t], alpha=0.2)
+    ax.set_xlim([0, 10])
+    ax.set_xlabel('Frequency (Hz)', fontsize=20)
+    ax.set_ylabel('Power spectral density (a.u.)', fontsize=20)
+    ax.set_title('Cluster 2 ' + protocol, fontsize=20)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.tick_params(axis='both', which='major', labelsize=18)
+    plt.savefig(os.path.join(save_path, 'ps_cluster2_' + protocol.replace(' ', '_') + '_rois_average'),
+                dpi=mscope.my_dpi)
+    plt.savefig(os.path.join(save_path, 'ps_cluster2_' + protocol.replace(' ', '_') + '_rois_average.svg'),
+                dpi=mscope.my_dpi)

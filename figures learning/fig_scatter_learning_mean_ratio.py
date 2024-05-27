@@ -15,7 +15,7 @@ bins = np.arange(0, 105, 10)  # 10 deg
 align_event = 'st'
 align_dimension = 'phase'
 
-os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
+os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Projects\\Dev\\miniscope_analysis\\')
 
 # Load PC coefficients data
 pc_coeff = pd.read_csv(os.path.join(load_pc_path, 'pc_coeff_df_clusters_' + '_'.join(protocol.split(' ')) + '.csv'))

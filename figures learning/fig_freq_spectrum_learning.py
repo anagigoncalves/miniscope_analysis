@@ -10,9 +10,9 @@ import seaborn as sns
 import matplotlib.ticker as tkr
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
+session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S2.xlsx'))
 load_pc_path = 'J:\\LocoCF\\miniscopes learning\\PCA validation and clusters (only baseline trials)\\'
-protocol = 'split ipsi fast'
+protocol = 'split contra fast'
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
 save_path = 'J:\\LocoCF\\miniscopes learning\\power spectrum\\'
 window_size = 256
@@ -36,7 +36,7 @@ def mi_index(a, b):
     return (a-b)/(a+b)
 
 # import classes
-os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
+os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Projects\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
@@ -44,6 +44,7 @@ import locomotion_class
 pc_coeff = pd.read_csv(os.path.join(load_pc_path, 'pc_coeff_df_clusters_' + '_'.join(protocol.split(' ')) + '.csv'))
 
 roi_animal = np.zeros(len(animals))
+ps_rois_all = []
 for count_a, animal in enumerate(animals):
     session_data_idx = np.where(session_data['animal'] == animal)[0][0]
     ses_info = session_data.iloc[session_data_idx, :]

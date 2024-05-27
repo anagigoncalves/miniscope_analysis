@@ -73,7 +73,6 @@ for p in range(len(paws)):
         firing_rate_animal_trials_concat_paws = np.concatenate(
             (firing_rate_animal_trials_concat_paws, firing_rate_mean_trials_paw_concat), axis=0)
     
-
 #Get coordinates for all ROIs
 roi_coordinates = []
 animal_list = []

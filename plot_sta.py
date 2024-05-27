@@ -9,13 +9,13 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # import classes
-os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Dev\\miniscope_analysis\\')
+os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Projects\\Dev\\miniscope_analysis\\')
 import miniscope_session_class
 import locomotion_class
 
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\\STA bodyvars Y\\split ipsi fast S1\\'
+session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_tied_S1.xlsx')
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\\Vestibular vs postural information\\tied baseline S1 2STD threshold\\'
 save_path = 'J:\\LocoCF\\miniscopes sta other axis and vars\\'
 protocol_type = 'tied'
 sort_type = 'none'
@@ -34,8 +34,9 @@ fov_coords = np.array([[6.12, 0.5],
                      [6.48, 1.7],
                      [6.64, 1],
                      [6.48, 1.5]]) #AP, ML
-var_names = ['Body position', 'Body speed', 'Body acceleration', 'Body jerk']
-
+# var_names = ['Body position', 'Body speed', 'Body acceleration']
+var_names = ['Body position in', 'Body speed in', 'Body acceleration in',
+              'Body position out', 'Body speed out', 'Body acceleration out']
 sta_zoom_all_concat_vars = []
 sta_zoom_all_cluster_size = []
 sta_zoom_all_concat_vars_notzscored = []
@@ -48,7 +49,7 @@ for var in var_names:
     sta_cluster_size = []
     sta_ap = []
     sta_ml = []
-    if var == 'Body acceleration':
+    if var == 'Body acceleration in':
         rois_pos_all = []
         rois_neg_all = []
         rois_neutral_all = []
@@ -110,7 +111,7 @@ for var in var_names:
         sta_cluster_size.append(np.shape(sta_zs_zoom)[0])
         sta_ap.extend(centroid_dist_corner[:, 0])
         sta_ml.extend(centroid_dist_corner[:, 1])
-        if var == 'Body acceleration':
+        if var == 'Body acceleration in':
             roi_coordinates.extend(centroid_dist_corner)
             # Get average values in 250ms before CS to then quantify peaks and throughs
             sta_zs_zoom_250mswindow = sta_zs_zoom[:, xaxis_new_minus_250ms:xaxis_new_0 - xaxis_start]
@@ -162,9 +163,10 @@ for var in var_names:
             sta_zoom_all_sort.append(sta_zoom_all_concat_notzscored[i])
             sta_shuffled_zoom_all_sort.append(sta_zoom_all_concat_shuffled[i])
     if sort_type == 'none':
-        sta_zs_zoom_all_sort = sta_zoom_all
+        sta_zs_zoom_all_sort = []
         sta_zoom_all_sort = []
         for i in range(len(sta_zoom_all_concat_notzscored)):
+            sta_zs_zoom_all_sort.append(sta_zoom_all_concat[i])
             sta_zoom_all_sort.append(sta_zoom_all_concat_notzscored[i])
         sta_shuffled_zoom_all_sort = sta_zoom_all_shuffled
     sta_zoom_all_concat_vars.append(sta_zs_zoom_all_sort)
@@ -199,6 +201,32 @@ for count_v, var in enumerate(var_names):
     # ax.set_title(var, fontsize=16)
     plt.savefig(os.path.join(save_path,
                              'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_notzscored_sort_'+sort_type+'_'+var), dpi=mscope.my_dpi)
+
+for count_v, var in enumerate(var_names):
+    fig, ax = plt.subplots(figsize=(5, 10), tight_layout='True')
+    hm = sns.heatmap(sta_zoom_all_concat_vars[count_v], vmax=np.nanpercentile(sta_zoom_all_concat_vars[count_v], 99.5),
+                vmin=np.nanpercentile(sta_zoom_all_concat_vars[count_v], 0.5), cmap='coolwarm')
+    ax.set_xticks(np.array([0, np.where(xaxis == 0)[0][0]-xaxis_start, np.shape(sta_zoom_all_concat_vars[count_v])[1]]))
+    ax.set_xticklabels([str(np.round(xaxis[xaxis_start], 2)), '0', str(np.round(xaxis[xaxis_end], 2))], fontsize=20)
+    ax.axvline(x=np.where(xaxis==0)[0][0]-xaxis_start, color='white', linewidth=2)
+    yticks_plot = np.arange(0, np.shape(sta_zoom_all_concat_vars[count_v])[0], 50)
+    ax.set_yticks(yticks_plot)
+    ax.set_xlabel('Time around putative\nCpsk (s)', fontsize=20)
+    ax.tick_params(axis='both', which='major', labelsize=16)
+    if sort_type == 'ML':
+        sta_ml_sorted = np.round(np.sort(sta_ml), 2)
+        sta_ml_plot = np.linspace(sta_ml_sorted[0], sta_ml_sorted[-1], num=len(yticks_plot))
+        ax.set_yticklabels(list(map(str, np.round(sta_ml_plot, 2))), fontsize=12, rotation=45)
+    if sort_type == 'AP':
+        ax.set_yticklabels(list(map(str, np.round(np.sort(sta_ap), 2))), fontsize=12, rotation=45)
+    if sort_type == 'none':
+        # ax.set_ylabel('   '.join(sta_animal_id[::-1]), fontsize=12)
+        ax.set_ylabel('ROI', fontsize=20)
+    cbar = hm.collections[0].colorbar
+    cbar.ax.tick_params(labelsize=16)
+    # ax.set_title(var, fontsize=16)
+    plt.savefig(os.path.join(save_path,
+                             'sta_bodyvars_' + load_path.split('\\')[-2].replace(' ','_') + '_animal_summary_zscored_sort_'+sort_type+'_'+var), dpi=mscope.my_dpi)
 
 #ROIS SUMMARY PEAKS AND THROUGHS PIE CHART + SPATIAL MAP OF ROIS AND SIG INCREASES
 labels = ['Significant\nincreases\n>2 STD', '\nSignificant\ndecreases\n<2 STD', '']

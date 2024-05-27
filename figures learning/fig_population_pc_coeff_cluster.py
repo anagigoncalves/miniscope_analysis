@@ -6,9 +6,9 @@ from sklearn.cluster import KMeans as kmean
 from sklearn.metrics import silhouette_score
 
 # Input data
-load_path = 'J:\\LocoCF\\miniscopes learning\\PCA validation and clusters\\'
-save_path = 'J:\\LocoCF\\miniscopes learning\\PCA validation and clusters\\'
-protocol = 'split ipsi fast'
+load_path = 'J:\\LocoCF\\miniscopes learning\\PCA validation and clusters (only baseline trials)\\'
+save_path = 'J:\\LocoCF\\miniscopes learning\\PCA validation and clusters (only baseline trials)\\'
+protocol = 'split contra fast'
 
 # Load PC coefficients data
 pc_coeff = pd.read_csv(os.path.join(load_path, 'pc_coeff_df_' + '_'.join(protocol.split(' ')) + '.csv'))
@@ -31,7 +31,7 @@ plt.savefig(os.path.join(save_path, protocol.replace(' ', '_') + '_kmeans_silhou
 plt.savefig(os.path.join(save_path, protocol.replace(' ', '_') + '_kmeans_silhouette_score_avg.svg'), dpi=256)
     
 ### Optimal number of clusters is 4
-clusters_PCA = kmean(n_clusters=4, init='k-means++', n_init=1000, max_iter=300, random_state=10).fit(pc_coeff[['PC1', 'PC2', 'PC3']])
+clusters_PCA = kmean(n_clusters=3, init='k-means++', n_init=1000, max_iter=300, random_state=10).fit(pc_coeff[['PC1', 'PC2', 'PC3']])
 
 ### Cluster output on PC space (first 2 components)
 fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))

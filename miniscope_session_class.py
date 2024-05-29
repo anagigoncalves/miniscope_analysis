@@ -247,24 +247,9 @@ class miniscope_session:
         ax[2].plot(head_angles['yaw'], color='black')
         ax[2].set_title('Yaw')
         plt.suptitle('Before corrections')
-        pitch_amp = np.max(head_angles['pitch']) - np.mean(head_angles['pitch'])
-        roll_amp = np.max(head_angles['roll']) - np.mean(head_angles['roll'])
-        yaw_amp = np.max(head_angles['yaw']) - np.mean(head_angles['yaw'])
-        if pitch_amp > 2:
-            idx_up = np.where(head_angles['pitch'] > 2)[0]
-            idx_down = np.where(head_angles['pitch'] < -2)[0]
-            head_angles.iloc[idx_up, 2] = head_angles.iloc[idx_up, 2] - 2*np.pi
-            head_angles.iloc[idx_down, 2] = head_angles.iloc[idx_down, 2] + 2*np.pi
-        if roll_amp > 2:
-            idx_up = np.where(head_angles['roll'] > 2)[0]
-            idx_down = np.where(head_angles['roll'] < -2)[0]
-            head_angles.iloc[idx_up, 2] = head_angles.iloc[idx_up, 2] - 2*np.pi
-            head_angles.iloc[idx_down, 2] = head_angles.iloc[idx_down, 2] + 2*np.pi
-        if yaw_amp > 2:
-            idx_up = np.where(head_angles['yaw'] > -1)[0]
-            idx_down = np.where(head_angles['yaw'] < -4.5)[0]
-            head_angles.iloc[idx_up, 2] = head_angles.iloc[idx_up, 2] - 2*np.pi
-            head_angles.iloc[idx_down, 2] = head_angles.iloc[idx_down, 2] + 2*np.pi
+        head_angles.iloc[:, 1] = np.unwrap(head_angles.iloc[:, 1])
+        head_angles.iloc[:, 0] = np.unwrap(head_angles.iloc[:, 0])
+        head_angles.iloc[:, 2] = np.unwrap(head_angles.iloc[:, 2])
         fig, ax = plt.subplots(1, 3, figsize=(10, 10), tight_layout=True)
         ax = ax.ravel()
         ax[0].plot(head_angles['pitch'], color='black')
@@ -1443,16 +1428,6 @@ class miniscope_session:
         pca = PCA(n_components=3)
         principalComponents_3CP = pca.fit_transform(headangles_array_clean)
         if plot_data:
-            # Number of components and variance
-            fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
-            plt.plot(np.arange(1, 4), np.cumsum(pca.explained_variance_ratio_), color='black')
-            plt.scatter(3, np.cumsum(pca.explained_variance_ratio_)[2], color='red')
-            ax.set_xlabel('PCA components', fontsize=14)
-            ax.set_ylabel('Explained variance', fontsize=14)
-            plt.xticks(fontsize=13)
-            plt.yticks(fontsize=13)
-            ax.spines['right'].set_visible(False)
-            ax.spines['top'].set_visible(False)
             # Plot 2d
             cmap = plt.get_cmap('viridis', len(trials))
             fig, ax = plt.subplots(1, 1, figsize=(10, 10), tight_layout=True)

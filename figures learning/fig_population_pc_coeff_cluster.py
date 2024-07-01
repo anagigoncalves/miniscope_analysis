@@ -6,9 +6,9 @@ from sklearn.cluster import KMeans as kmean
 from sklearn.metrics import silhouette_score
 
 # Input data
-load_path = 'J:\\LocoCF\\miniscopes learning\\PCA validation and clusters (only baseline trials)\\'
-save_path = 'J:\\LocoCF\\miniscopes learning\\PCA validation and clusters (only baseline trials)\\'
-protocol = 'split contra fast'
+protocol = 'tied baseline'
+load_path = 'J:\\LocoCF\\Miniscopes cluster cells in PC space (tied baseline session)\\' + protocol + ' S1\\'
+save_path = 'J:\\LocoCF\\Miniscopes cluster cells in PC space (tied baseline session)\\cluster pc space\\' + protocol + ' S1\\'
 
 # Load PC coefficients data
 pc_coeff = pd.read_csv(os.path.join(load_path, 'pc_coeff_df_' + '_'.join(protocol.split(' ')) + '.csv'))
@@ -16,9 +16,24 @@ pc_coeff = pd.read_csv(os.path.join(load_path, 'pc_coeff_df_' + '_'.join(protoco
 #### Get optimal number of clusters based on silhouette score
 range_n_clusters = np.arange(2, 21)
 silhouette_avg = np.zeros(len(range_n_clusters))
+sse = np.zeros(len(range_n_clusters))
 for idx, n_clusters in enumerate(range_n_clusters):
-    cluster_obj = kmean(n_clusters=n_clusters, init='k-means++', n_init=1000, max_iter=300, random_state=10).fit(pc_coeff[['PC1', 'PC2', 'PC3']])
-    silhouette_avg[idx] = silhouette_score(pc_coeff[['PC1', 'PC2', 'PC3']], cluster_obj.labels_)
+    cluster_obj = kmean(n_clusters=n_clusters, init='k-means++', n_init=1000, max_iter=300,
+                        random_state=10).fit(pc_coeff[['PC1', 'PC2', 'PC3', 'PC4', 'PC5']])
+    silhouette_avg[idx] = silhouette_score(pc_coeff[['PC1', 'PC2', 'PC3', 'PC4', 'PC5']], cluster_obj.labels_)
+    sse[idx] = cluster_obj.inertia_
+
+#Plot sum squared error (SSE)
+fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
+plt.plot(range_n_clusters, sse, marker='o', color='black', linewidth=2)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.tick_params(axis='both', which='major', labelsize=20)
+ax.set_ylabel('SSE', fontsize=20)
+ax.set_xlabel('Number of clusters', fontsize=20)
+plt.savefig(os.path.join(save_path, protocol.replace(' ', '_') + '_kmeans_sse'), dpi=256)
+plt.savefig(os.path.join(save_path, protocol.replace(' ', '_') + '_kmeans_sse.svg'), dpi=256)
+
 #Plot silhouette score
 fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))
 plt.plot(range_n_clusters, silhouette_avg, marker='o', color='black', linewidth=2)
@@ -30,8 +45,9 @@ ax.set_xlabel('Number of clusters', fontsize=20)
 plt.savefig(os.path.join(save_path, protocol.replace(' ', '_') + '_kmeans_silhouette_score_avg'), dpi=256)
 plt.savefig(os.path.join(save_path, protocol.replace(' ', '_') + '_kmeans_silhouette_score_avg.svg'), dpi=256)
     
-### Optimal number of clusters is 4
-clusters_PCA = kmean(n_clusters=3, init='k-means++', n_init=1000, max_iter=300, random_state=10).fit(pc_coeff[['PC1', 'PC2', 'PC3']])
+### Optimal number of clusters is maximum of silhouette score
+clusters_PCA = kmean(n_clusters=np.argmax(silhouette_avg)+2, init='k-means++', n_init=1000, max_iter=300,
+        random_state=10).fit(pc_coeff[['PC1', 'PC2', 'PC3', 'PC4', 'PC5']])
 
 ### Cluster output on PC space (first 2 components)
 fig, ax = plt.subplots(tight_layout=True, figsize=(5, 5))

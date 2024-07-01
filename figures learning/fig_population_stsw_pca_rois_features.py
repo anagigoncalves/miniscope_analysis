@@ -7,12 +7,13 @@ from sklearn.utils import shuffle as shuffle
 
 # Input data
 plot_data = 1
-load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\split ipsi fast S1\\'
-save_path = 'J:\\LocoCF\\miniscopes learning\\PCA validation and clusters\\'
+protocol = 'tied baseline'
+protocol_id = 'tied_S1'
+load_path = 'J:\\Miniscope processed files\\Analysis on population data\\Rasters st-sw-st\\' + protocol + ' S1\\'
+save_path = 'J:\\LocoCF\\Miniscopes cluster cells in PC space (tied baseline session)\\' + protocol + ' S1\\'
 path_session_data = 'J:\\Miniscope processed files'
-session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_split_S1.xlsx'))
+session_data = pd.read_excel(os.path.join(path_session_data, 'session_data_tied_S1.xlsx'))
 animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
-protocol = 'split ipsi fast'
 align_event = 'st'
 align_dimension = 'phase'
 if align_dimension == 'phase':
@@ -31,8 +32,6 @@ fov_coords = np.array([[6.12, 0.5],
                      [6.64, 1],
                      [6.48, 1.5],
                      [6.48, 1.7]]) #AP, ML
-
-tied_idx = [[0, 1, 2], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5], [0, 1, 2, 3, 4, 5]]
 
 def zscoring(data, axis_value):
     if axis_value == 1:
@@ -57,11 +56,8 @@ for p in range(len(paws)):
     for count_a, animal in enumerate(animals):
         firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
         roi_nr.append(np.shape(firing_rate_animal)[0])
-        if protocol.split(' ')[0] == 'split':
-            firing_rate_mean_trials_paw.append(zscoring(np.nanmean(firing_rate_animal[:, p, tied_idx[count_a], :], axis=1).T, 0))
-        if protocol.split(' ')[0] == 'tied':
-            firing_rate_mean_trials_paw.append(
-                zscoring(np.nanmean(firing_rate_animal[:, p, :, :], axis=1).T, 0))
+        firing_rate_mean_trials_paw.append(
+            zscoring(np.nanmean(firing_rate_animal[:, p, :, :], axis=1).T, 0))
         firing_rate_mean_trials_paw_animalid.append(np.repeat(count_a, np.shape(firing_rate_animal)[1]))
     firing_rate_mean_trials_paw_concat = np.hstack(firing_rate_mean_trials_paw)
     # list of array of FR x time for each paw
@@ -109,12 +105,12 @@ for count_a, animal in enumerate(animals):
     roi_coordinates.extend(centroid_dist_corner)
 roi_coordinates_arr = np.array(roi_coordinates)
 
-### Population activity cluster around sw or st - mean activity across trials
 # PCA on concatenated space FR x (time x paws)
 comp = 20
 pca_fr_paws = PCA(n_components=comp)
 pca_fit_fr_paws = pca_fr_paws.fit(firing_rate_animal_trials_concat_paws)
 pca_fit_fr_paws_fit_transform = pca_fr_paws.fit_transform(firing_rate_animal_trials_concat_paws)
+np.save(os.path.join(save_path, 'pca_input_data_tied_baseline.npy'), firing_rate_animal_trials_concat_paws, allow_pickle=True)
 
 # Shuffle data in time 1000 times to get shuffled distribution
 iter_nr = 1000
@@ -125,10 +121,7 @@ for i in range(iter_nr):
         firing_rate_mean_trials_paw_list_shuffle = []
         for count_a, animal in enumerate(animals):
             firing_rate_animal = np.load(os.path.join(load_path, animal + ' ' + protocol, 'raster_firing_rate_rois.npy'))
-            if protocol.split(' ')[0] == 'split':
-                firing_rate_mean_trials_paw = np.nanmean(firing_rate_animal[:, p, tied_idx[count_a], :], axis=1).T
-            if protocol.split(' ')[0] == 'tied':
-                firing_rate_mean_trials_paw = np.nanmean(firing_rate_animal[:, p, :, :], axis=1).T 
+            firing_rate_mean_trials_paw = np.nanmean(firing_rate_animal[:, p, :, :], axis=1).T
             firing_rate_mean_trials_paw_shuffle = np.zeros(np.shape(firing_rate_mean_trials_paw))
             for r in range(np.shape(firing_rate_mean_trials_paw)[1]):
                 firing_rate_mean_trials_paw_shuffle[:, r] = shuffle(firing_rate_mean_trials_paw[:, r])
@@ -160,14 +153,14 @@ ax.set_ylim([0, 100])
 ax.tick_params(axis='both', which='major', labelsize=20)
 ax.set_ylabel('Cumulative explained\nvariance ratio (%)', fontsize=20)
 ax.set_xlabel('Component number', fontsize=20)
-plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_explained_variance_with_shuffle'), dpi=256)
-plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_explained_variance_with_shuffle.svg'), dpi=256)
+plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_' + protocol.replace(' ', '_') + '_' + align_event + '_' + align_dimension + '_explained_variance_with_shuffle'), dpi=256)
+plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_' + protocol.replace(' ', '_') + '_' + align_event + '_' + align_dimension + '_explained_variance_with_shuffle.svg'), dpi=256)
 
 # Put coefficients into dataframe
 pc_coeff_df = pd.DataFrame({'animal': animal_list, 'roi': roi_name_list, 'coord_x': roi_coordinates_arr[:, 0],
             'coord_y': roi_coordinates_arr[:, 1]})
 for pc in range(5):
-    pc_coeff_df['PC'+str(pc+1)] =  pca_fit_fr_paws.components_[pc, :]
+    pc_coeff_df['PC'+str(pc+1)] = pca_fit_fr_paws.components_[pc, :]
 # Save dataframe as csv
 pc_coeff_df.to_csv(
     os.path.join(save_path, 'pc_coeff_df_' + protocol.replace(' ','_') + '.csv'), sep=',', index=False)
@@ -185,8 +178,8 @@ if plot_data:
     ax.tick_params(axis='both', which='major', labelsize=20)
     ax.set_ylabel('Cumulative explained\nvariance ratio (%)', fontsize=20)
     ax.set_xlabel('Component number', fontsize=20)
-    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_explained_variance'), dpi=256)
-    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_explained_variance.svg'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_' + protocol.replace(' ', '_') + '_' + align_event + '_' + align_dimension + '_explained_variance'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_aligned_' + protocol.replace(' ', '_') + '_' + align_event + '_' + align_dimension + '_explained_variance.svg'), dpi=256)
 
     # First PCs contribution to each ROI
     for c in range(5):
@@ -202,8 +195,8 @@ if plot_data:
         cbar = plt.colorbar(sc)
         cbar.ax.tick_params(labelsize=20)
         cbar.mappable.set_clim([-0.1, 0.1])
-        plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_roilocation'), dpi=256)
-        plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_roilocation.svg'), dpi=256)
+        plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + protocol.replace(' ', '_') + '_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_roilocation'), dpi=256)
+        plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + protocol.replace(' ', '_') + '_' + align_event + '_' + align_dimension + '_pc' + str(c+1) + '_roilocation.svg'), dpi=256)
 
     # Trajectories
     sw_idx = np.int64(((len(bins)-1)/2)-1)
@@ -219,8 +212,8 @@ if plot_data:
     ax.tick_params(axis='both', which='major', labelsize=20)
     ax.set_ylabel('PC2', fontsize=20)
     ax.set_xlabel('PC3', fontsize=20)
-    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_trajectories'), dpi=256)
-    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_trajectories.svg'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + protocol.replace(' ', '_') + '_' + align_event + '_' + align_dimension + '_trajectories'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + protocol.replace(' ', '_') + '_' + align_event + '_' + align_dimension + '_trajectories.svg'), dpi=256)
 
     # Reconstruction of PC
     pca_fr_paws = PCA(n_components=5)
@@ -243,5 +236,5 @@ if plot_data:
             if align_dimension == 'phase':
                 ax[c].set_xlabel('% Phase', fontsize=20)
                 ax[c].axvline(x=50, color='black')
-    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_temporaldimension'), dpi=256)
-    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + protocol.replace(' ', '_') + align_event + '_' + align_dimension + '_temporaldimension.svg'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + protocol.replace(' ', '_') + '_' + align_event + '_' + align_dimension + '_temporaldimension'), dpi=256)
+    plt.savefig(os.path.join(save_path, 'pca_mean_firingrate_' + protocol.replace(' ', '_') + '_' + align_event + '_' + align_dimension + '_temporaldimension.svg'), dpi=256)

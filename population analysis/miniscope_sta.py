@@ -39,6 +39,11 @@ for s in range(len(session_data)):
     [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
 
+    # Get head data
+    head_angles = pd.read_csv(os.path.join(mscope.path, 'processed files', 'head_angles_time_adjusted.csv'))
+    head_angles_corr = mscope.correct_gimbal_lock(head_angles)
+    head_angles_arr = np.array(head_angles_corr.iloc[:, :3])
+
     # Load behavioral data and get acceleration
     filelist = loco.get_track_files(animal, session)
     final_tracks_trials = []

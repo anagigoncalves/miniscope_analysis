@@ -12,8 +12,8 @@ animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
 protocol = 'split contra fast'
 paw = 'FR'
 phase_to_plot = 'full' #options: full, transition
-bs_trial = 'whole_baseline' #options: first_trial, whole_baseline
-trials_plot = 'blocks' #options: trials, blocks
+bs_trial = 'first_trial' #options: first_trial, baseline_block
+trials_plot = 'trials' #options: trials, blocks
 paw_colors = ['#e52c27', '#ad4397', '#3854a4', '#6fccdf']
 paws = ['FR', 'HR', 'FL', 'HL']
 
@@ -45,13 +45,17 @@ def calcium_rate_modulation_baseline(firing_rate_animal, paw, phase_plot, bs_tri
         phase_idx = np.array([5, 6, 7, 8, 9])
     if phase_plot == 'st_transition': #80% to 20% phase
         phase_idx = np.array([0, 1, 8, 9])
-    if phase_plot == 'sw_transition': #30% to 60% phase
-        phase_idx = np.array([3, 4, 5])
+    if phase_plot == 'sw_transition': #30% to 70% phase
+        phase_idx = np.array([3, 4, 5, 6])
     if bs_trial == 'first_trial':
         firing_rate_bs = np.nanmean(firing_rate_animal[:, p, 0, phase_idx], axis=-1)
-    if bs_trial == 'whole_baseline':
+    if bs_trial == 'baseline_block':
         firing_rate_1 = np.nanmean(firing_rate_animal[:, p, :, phase_idx], axis=0)
-        firing_rate_bs = np.nanmean(firing_rate_1[:, trials_baseline - 1], axis=-1)
+        trials_selected_bs = np.array([trials_baseline[-2], trials_baseline[-1]])
+        trials_idx_selected_bs = np.zeros(len(trials_selected_bs))
+        for count_t, t in enumerate(trials_selected_bs):
+            trials_idx_selected_bs[count_t] = np.where(t == trials)[0][0]
+        firing_rate_bs = np.nanmean(firing_rate_1[:, np.int64(trials_idx_selected_bs)], axis=-1)
     firing_rate = np.nanmean(firing_rate_animal[:, p, :, phase_idx], axis=0)
     firing_rate_bs_rep = np.swapaxes(np.tile(firing_rate_bs, (np.shape(firing_rate)[1], 1)), 0, 1)
     firing_rate_mod_all = (firing_rate-firing_rate_bs_rep)*100
@@ -63,22 +67,23 @@ def calcium_rate_modulation_baseline(firing_rate_animal, paw, phase_plot, bs_tri
             trials_idx_selected[count_t] = np.where(t==trials)[0][0]
         firing_rate_mod = firing_rate_mod_all[:, np.int64(trials_idx_selected)]
     if trials_plot == "blocks":
-        trials_idx_selected_bs = np.zeros(len(trials_baseline))
-        for count_t, t in enumerate(trials_baseline):
-            trials_idx_selected_bs[count_t] = np.where(t==trials)[0][0]
-        trials_selected_early_split = np.array([trials_split[0], trials_split[1], trials_split[2]])
+        trials_selected_bs = np.array([trials_baseline[-2], trials_baseline[-1]])
+        trials_idx_selected_bs = np.zeros(len(trials_selected_bs))
+        for count_t, t in enumerate(trials_selected_bs):
+            trials_idx_selected_bs[count_t] = np.where(t == trials)[0][0]
+        trials_selected_early_split = np.array([trials_split[0], trials_split[1]])
         trials_idx_selected_es = np.zeros(len(trials_selected_early_split))
         for count_t, t in enumerate(trials_selected_early_split):
             trials_idx_selected_es[count_t] = np.where(t==trials)[0][0]
-        trials_selected_late_split = np.array([trials_split[-3], trials_split[-2], trials_split[-1]])
+        trials_selected_late_split = np.array([trials_split[-2], trials_split[-1]])
         trials_idx_selected_ls = np.zeros(len(trials_selected_late_split))
         for count_t, t in enumerate(trials_selected_late_split):
             trials_idx_selected_ls[count_t] = np.where(t==trials)[0][0]
-        trials_selected_early_washout = np.array([trials_washout[0], trials_washout[1], trials_washout[2]])
+        trials_selected_early_washout = np.array([trials_washout[0], trials_washout[1]])
         trials_idx_selected_ew = np.zeros(len(trials_selected_early_washout))
         for count_t, t in enumerate(trials_selected_early_washout):
             trials_idx_selected_ew[count_t] = np.where(t==trials)[0][0]
-        trials_selected_late_washout = np.array([trials_washout[-3], trials_washout[-2], trials_washout[-1]])
+        trials_selected_late_washout = np.array([trials_washout[-2], trials_washout[-1]])
         trials_idx_selected_lw = np.zeros(len(trials_selected_late_washout))
         for count_t, t in enumerate(trials_selected_late_washout):
             trials_idx_selected_lw[count_t] = np.where(t==trials)[0][0]

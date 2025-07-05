@@ -12,8 +12,8 @@ animals = ['MC8855', 'MC9194', 'MC9226', 'MC9513', 'MC10221']
 protocol = 'split contra fast'
 paw = 'FR'
 phase_to_plot = 'full' #options: full, transition
-bs_trial = 'first_trial' #options: first_trial, baseline_block
-trials_plot = 'trials' #options: trials, blocks
+bs_trial = 'baseline_block' #options: first_trial, baseline_block
+trials_plot = 'blocks' #options: trials, blocks
 paw_colors = ['#e52c27', '#ad4397', '#3854a4', '#6fccdf']
 paws = ['FR', 'HR', 'FL', 'HL']
 
@@ -129,6 +129,7 @@ for animal in animals:
         firing_rate_FR_st_mod = calcium_rate_modulation_baseline(firing_rate_animal, paw, 'st_transition', bs_trial, trials_plot, trials_baseline, trials_split, trials_washout)
         firing_rate_FR_sw_mod = calcium_rate_modulation_baseline(firing_rate_animal, paw, 'sw_transition', bs_trial, trials_plot, trials_baseline, trials_split, trials_washout)
 
+    # Modulation
     fig, ax = plt.subplots(figsize=(7, 7), tight_layout=True)
     for r in range(np.shape(firing_rate_FR_st_mod)[0]):
         ax.plot(firing_rate_FR_st_mod[r, :], color='orange', linewidth=0.5, alpha=0.2)
@@ -145,6 +146,23 @@ for animal in animals:
     ax.tick_params(axis='both', which='major', labelsize=16)
     plt.savefig(os.path.join(save_path, 'calcium_modulation_' + animal + '_' + phase_to_plot + '_' + trials_plot), dpi=mscope.my_dpi)
     plt.savefig(os.path.join(save_path, 'calcium_modulation_' + animal + '_' + phase_to_plot + '_' + trials_plot + '.svg'), dpi=mscope.my_dpi)
+
+    #Depth of modulation
+    fig, ax = plt.subplots(figsize=(7, 7), tight_layout=True)
+    for r in range(np.shape(firing_rate_FR_st_mod)[0]):
+        ax.plot(firing_rate_FR_st_mod[r, :]-firing_rate_FR_sw_mod[r, :], color='darkgray', linewidth=0.5, alpha=0.8)
+    ax.plot(np.nanmean(firing_rate_FR_st_mod-firing_rate_FR_sw_mod, axis=0), color='black', linewidth=2, marker='o')
+    ax.set_title(animal, fontsize=20)
+    ax.axhline(y=0, linestyle='dashed', color='darkgray')
+    ax.set_xticks(np.arange(np.shape(firing_rate_FR_st_mod)[1]))
+    ax.set_xticklabels(['baseline', 'early split', 'late split', 'early washout', 'late washout'], rotation=45)
+    ax.set_ylabel('Calcium rate change (%)', fontsize=16)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.tick_params(axis='both', which='major', labelsize=16)
+    plt.savefig(os.path.join(save_path, 'calcium_modulation_depth_' + animal + '_' + phase_to_plot + '_' + trials_plot), dpi=mscope.my_dpi)
+    plt.savefig(os.path.join(save_path, 'calcium_modulation_depth_' + animal + '_' + phase_to_plot + '_' + trials_plot + '.svg'), dpi=mscope.my_dpi)
+
     #Append to list, to later concatenate animals
     firing_rate_FR_st_mod_list_all.append(firing_rate_FR_st_mod)
     firing_rate_FR_sw_mod_list_all.append(firing_rate_FR_sw_mod)
@@ -170,4 +188,21 @@ ax.tick_params(axis='both', which='major', labelsize=16)
 plt.savefig(os.path.join(save_path, 'calcium_modulation_allanimals_' + phase_to_plot + '_' + trials_plot),
             dpi=mscope.my_dpi)
 plt.savefig(os.path.join(save_path, 'calcium_modulation_allanimals_' + phase_to_plot + '_' + trials_plot + '.svg'),
+            dpi=mscope.my_dpi)
+
+fig, ax = plt.subplots(figsize=(7, 7), tight_layout=True)
+for r in range(np.shape(firing_rate_FR_st_mod)[0]):
+    ax.plot(firing_rate_FR_st_mod_all[r, :]-firing_rate_FR_sw_mod_all[r, :], color='darkgray', linewidth=0.5, alpha=0.8)
+ax.plot(np.nanmean(firing_rate_FR_st_mod_all-firing_rate_FR_sw_mod_all, axis=0), color='black', linewidth=2, marker='o')
+ax.set_title('All animals', fontsize=20)
+ax.axhline(y=0, linestyle='dashed', color='darkgray')
+ax.set_xticks(np.arange(np.shape(firing_rate_FR_st_mod)[1]))
+ax.set_xticklabels(['baseline', 'early split', 'late split', 'early washout', 'late washout'], rotation=45)
+ax.set_ylabel('Calcium rate change (%)', fontsize=16)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.tick_params(axis='both', which='major', labelsize=16)
+plt.savefig(os.path.join(save_path, 'calcium_modulation_allanimals_depth_' + phase_to_plot + '_' + trials_plot),
+            dpi=mscope.my_dpi)
+plt.savefig(os.path.join(save_path, 'calcium_modulation_allanimals_depth_' + phase_to_plot + '_' + trials_plot + '.svg'),
             dpi=mscope.my_dpi)

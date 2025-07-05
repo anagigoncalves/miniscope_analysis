@@ -14,6 +14,8 @@ protocol = 'split contra fast'
 paw = 'FR'
 paw_colors = ['#e52c27', '#ad4397', '#3854a4', '#6fccdf']
 paws = ['FR', 'HR', 'FL', 'HL']
+vmin_all = 0
+vmax_all = 3
 align_dimension = 'phase'
 if align_dimension == 'phase':
     bins = np.arange(0, 105, 10)  # 10 deg
@@ -60,8 +62,8 @@ for animal in animals:
     firing_rate_animal = np.nanmean(firing_rate_animal[:, p, :, :], axis=0)
 
     fig, ax = plt.subplots(figsize=(7, 10), tight_layout=True)
-    sns.heatmap(firing_rate_animal, cmap='viridis', cbar=None,
-        vmin=np.nanmin(firing_rate_animal), vmax=np.nanmax(firing_rate_animal))
+    sns.heatmap(firing_rate_animal, cmap='viridis',
+        vmin=vmin_all, vmax=vmax_all)
     ax.set_yticks(np.arange(0, len(trials)))
     ax.invert_yaxis()
     ax.set_xticks([0, 5, 10])

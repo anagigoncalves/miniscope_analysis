@@ -232,8 +232,7 @@ class miniscope_session:
         roll = x_angles
         return roll, pitch, yaw  # in radians
 
-    @staticmethod
-    def correct_gimbal_lock(head_angles):
+    def correct_gimbal_lock(self, head_angles):
         """Funtion to deal with ambiguous conversion from quartenion to euler angles
         that occurs from time to time. Different quartenions can give the same euler angle.
         Correct the circularity of those values.
@@ -248,45 +247,9 @@ class miniscope_session:
         ax[2].plot(head_angles['yaw'], color='black')
         ax[2].set_title('Yaw')
         plt.suptitle('Before corrections')
-        pitch_amp = np.max(head_angles['pitch']) - np.mean(head_angles['pitch'])
-        roll_amp = np.max(head_angles['roll']) - np.mean(head_angles['roll'])
-        yaw_amp = np.max(head_angles['yaw']) - np.mean(head_angles['yaw'])
-        if pitch_amp > 2:
-            plt.figure(figsize=(15, 7), tight_layout=True)
-            plt.plot(head_angles['pitch'], color='black')
-            plt.title('First high threshold then low')
-            coord = plt.ginput(n=2, timeout=0, show_clicks=True)
-            pitch_th = np.array([coord[1][1], coord[0][1]])
-            idx_nan_down_p = np.where(head_angles['pitch'] < pitch_th[0])[0]
-            idx_nan_up_p = np.where(head_angles['pitch'] > pitch_th[1])[0]
-            head_angles.iloc[idx_nan_up_p, 1] = head_angles.iloc[idx_nan_up_p, 1] - 2 * np.pi
-            head_angles.iloc[idx_nan_down_p, 1] = head_angles.iloc[idx_nan_down_p, 1] + 2 * np.pi
-        else:
-            pitch_th = np.array([np.min(head_angles['pitch']) - 1, np.max(head_angles['pitch']) + 1])
-        if roll_amp > 2:
-            plt.figure(figsize=(15, 7), tight_layout=True)
-            plt.plot(head_angles['roll'], color='black')
-            plt.title('First high threshold then low')
-            coord = plt.ginput(n=2, timeout=0, show_clicks=True)
-            roll_th = np.array([coord[1][1], coord[0][1]])
-            idx_nan_down_r = np.where(head_angles['roll'] < roll_th[0])[0]
-            idx_nan_up_r = np.where(head_angles['roll'] > roll_th[1])[0]
-            head_angles.iloc[idx_nan_up_r, 0] = head_angles.iloc[idx_nan_up_r, 0] - np.pi
-            head_angles.iloc[idx_nan_down_r, 0] = head_angles.iloc[idx_nan_down_r, 0] + np.pi
-        else:
-            roll_th = np.array([np.min(head_angles['roll']) - 1, np.max(head_angles['roll']) + 1])
-        if yaw_amp > 2:
-            plt.figure(figsize=(15, 7), tight_layout=True)
-            plt.plot(head_angles['yaw'], color='black')
-            plt.title('First high threshold then low')
-            coord = plt.ginput(n=2, timeout=0, show_clicks=True)
-            yaw_th = np.array([coord[1][1], coord[0][1]])
-            idx_nan_down_y = np.where(head_angles['yaw'] < yaw_th[0])[0]
-            idx_nan_up_y = np.where(head_angles['yaw'] > yaw_th[1])[0]
-            head_angles.iloc[idx_nan_up_y, 2] = head_angles.iloc[idx_nan_up_y, 2] - 2 * np.pi
-            head_angles.iloc[idx_nan_down_y, 2] = head_angles.iloc[idx_nan_down_y, 2] + 2 * np.pi
-        else:
-            yaw_th = np.array([np.min(head_angles['yaw']) - 1, np.max(head_angles['yaw']) + 1])
+        head_angles.iloc[:, 1] = np.unwrap(head_angles.iloc[:, 1])
+        head_angles.iloc[:, 0] = np.unwrap(head_angles.iloc[:, 0])
+        head_angles.iloc[:, 2] = np.unwrap(head_angles.iloc[:, 2])
         fig, ax = plt.subplots(1, 3, figsize=(10, 10), tight_layout=True)
         ax = ax.ravel()
         ax[0].plot(head_angles['pitch'], color='black')
@@ -296,40 +259,8 @@ class miniscope_session:
         ax[2].plot(head_angles['yaw'], color='black')
         ax[2].set_title('Yaw')
         plt.suptitle('After corrections')
+        head_angles.to_csv(os.path.join(self.path, 'processed files', 'head_angles_corr.csv'), sep=',', index=False)
         return head_angles
-
-    @staticmethod
-    def pca_centroids(principalComponents_3CP, trial_clean, trials, plot_data):
-        """Function to compute the centroids of the PCA space for each trial
-        Inputs:
-            principalComponents_3CP: array of PCA output
-            trial_clean: array of trial id for PCA output
-            trials: arrays with trials in session
-            plot_data: boolean"""
-        greys = mp.cm.get_cmap('Greys', 12)
-        reds = mp.cm.get_cmap('Reds', 23)
-        blues = mp.cm.get_cmap('Blues', 23)
-        colors_session = [greys(5), greys(7), greys(12), reds(5), reds(7), reds(9), reds(11), reds(13), reds(15),
-                          reds(17), reds(19), reds(21), reds(23), blues(5), blues(7), blues(9), blues(11), blues(13),
-                          blues(15), blues(17), blues(19), blues(21), blues(23)]
-        centroid_trials = []  # CHANGE NO MAXMIN NORM, CENTROID POINTS SHOULD
-        for t in trials:
-            idx_trial = np.where(trial_clean == t)
-            x_norm = (principalComponents_3CP[idx_trial, 0] - np.min(principalComponents_3CP[idx_trial, 0])) / (
-                    np.max(principalComponents_3CP[idx_trial, 0]) - np.min(principalComponents_3CP[idx_trial, 0]))
-            y_norm = (principalComponents_3CP[idx_trial, 1] - np.min(principalComponents_3CP[idx_trial, 1])) / (
-                    np.max(principalComponents_3CP[idx_trial, 1]) - np.min(principalComponents_3CP[idx_trial, 1]))
-            centroid_trials.append(np.array([np.nanmean(x_norm), np.nanmean(y_norm)]))
-        if plot_data:
-            fig, ax = plt.subplots(figsize=(10, 10), tight_layout=True)
-            for t in range(len(trials)):
-                plt.scatter(centroid_trials[t][0], centroid_trials[t][1], s=100, color=colors_session[t])
-            plt.xticks(fontsize=16)
-            plt.yticks(fontsize=16)
-            ax.spines['right'].set_visible(False)
-            ax.spines['top'].set_visible(False)
-            plt.legend(trials, frameon=False)
-        return centroid_trials
 
     @staticmethod
     def distance_neurons(centroid_cell, plot_data):
@@ -1451,6 +1382,7 @@ class miniscope_session:
             trial_list.extend(np.ones((len(roll_x))) * (t + 1))
         dict_ori = {'roll': roll_list, 'pitch': pitch_list, 'yaw': yaw_list, 'time': time_list, 'trial': trial_list}
         head_orientation = pd.DataFrame(dict_ori)  # create dataframe with dFF, roi id and trial id
+        head_orientation.to_csv(os.path.join(self.path, 'processed files', 'head_angles.csv'), sep=',', index=False)
         return head_orientation
 
     def compute_head_angles_quartenions(self, trials):
@@ -1466,7 +1398,7 @@ class miniscope_session:
         trial_list = []
         for t in range(len(trials)):
             df = pd.read_table(
-                os.path.join(self.path, 'T', str(trials[t]), "Miniscope", "headOrientation.csv"),
+                os.path.join(self.path, 'T' + str(trials[t]), "Miniscope", "headOrientation.csv"),
                 sep=",", usecols=columns_to_keep)
             timestamps = np.array(df['Time Stamp (ms)'])
             [roll_x, pitch_y, yaw_z] = miniscope_session.euler_from_quaternion(np.array(df['qx']), np.array(df['qy']),
@@ -1478,6 +1410,7 @@ class miniscope_session:
             trial_list.extend(np.ones((len(roll_x))) * (t + 1))
         dict_ori = {'roll': roll_list, 'pitch': pitch_list, 'yaw': yaw_list, 'time': time_list, 'trial': trial_list}
         head_orientation = pd.DataFrame(dict_ori)  # create dataframe with dFF, roi id and trial id
+        head_orientation.to_csv(os.path.join(self.path, 'processed files', 'head_quartenions.csv'), sep=',', index=False)
         return head_orientation
 
     def pca_head_angles(self, head_angles, trials, plot_data):
@@ -1495,16 +1428,6 @@ class miniscope_session:
         pca = PCA(n_components=3)
         principalComponents_3CP = pca.fit_transform(headangles_array_clean)
         if plot_data:
-            # Number of components and variance
-            fig, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
-            plt.plot(np.arange(1, 4), np.cumsum(pca.explained_variance_ratio_), color='black')
-            plt.scatter(3, np.cumsum(pca.explained_variance_ratio_)[2], color='red')
-            ax.set_xlabel('PCA components', fontsize=14)
-            ax.set_ylabel('Explained variance', fontsize=14)
-            plt.xticks(fontsize=13)
-            plt.yticks(fontsize=13)
-            ax.spines['right'].set_visible(False)
-            ax.spines['top'].set_visible(False)
             # Plot 2d
             cmap = plt.get_cmap('viridis', len(trials))
             fig, ax = plt.subplots(1, 1, figsize=(10, 10), tight_layout=True)

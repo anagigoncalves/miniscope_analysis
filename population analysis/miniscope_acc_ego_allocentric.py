@@ -1,11 +1,12 @@
+# -*- coding: utf-8 -*-
+
 # %% Inputs
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.signal as sp
 import pandas as pd
-import warnings
-warnings.filterwarnings('ignore')
+from scipy.stats import norm
 
 # import classes
 os.chdir('C:\\Users\\Ana\\Documents\\PhD\\Projects\\Dev\\miniscope_analysis\\')
@@ -13,10 +14,20 @@ import miniscope_session_class
 import locomotion_class
 path_session_data = 'J:\\Miniscope processed files'
 session_data = pd.read_excel('J:\\Miniscope processed files\\session_data_split_S1.xlsx')
-save_path = 'J:\\Miniscope processed files\\Analysis on population data\\\STA bodyvars Y\\split ipsi fast S1\\'
-sta_type = 'bodyvars'
+save_path = 'J:\\Miniscope processed files\\Analysis on population data\\\Vestibular vs postural information\\split ipsi fast S1 2STD threshold\\'
 window = np.arange(-330, 330 + 1)  # Samples
 iter_n = 100 # Number of iterations of CS timestamps random shuffling
+th = 1
+def subset_bodyvars(arr_speed, std, arr_subset, th):
+    frames_in = np.where((arr_speed<std*th)&(arr_speed>-std*th))[0]
+    frames_out = np.where((arr_speed>=std*th)|(arr_speed<=-std*th))[0]
+    arr_in = np.zeros(len(arr_subset))
+    arr_in[:] = np.nan
+    arr_in[frames_in] = arr_subset[frames_in]
+    arr_out = np.zeros(len(arr_subset))
+    arr_out[:] = np.nan
+    arr_out[frames_out] = arr_subset[frames_out]
+    return arr_in, arr_out
 
 for s in range(len(session_data)):
     ses_info = session_data.iloc[s, :]
@@ -39,78 +50,35 @@ for s in range(len(session_data)):
     [trials_ses, trials_ses_name, cond_plot, trials_baseline, trials_split, trials_washout] = mscope.get_session_data(trials, session_type, animal, session)
     centroid_ext = mscope.get_roi_centroids(coord_ext)
 
-    # Get head data
-    head_angles = pd.read_csv(os.path.join(mscope.path, 'processed files', 'head_angles_time_adjusted.csv'))
-    head_angles_corr = mscope.correct_gimbal_lock(head_angles)
-    head_angles_arr = np.array(head_angles_corr.iloc[:, :3])
-
     # Load behavioral data and get acceleration
     filelist = loco.get_track_files(animal, session)
-    final_tracks_trials = []
-    bodyjerk = []
-    bodyacc = []
-    bodycenter = []
-    bodyspeed = []
-    fr_speed = []
-    fr_acc = []
-    fr_jerk = []
-    FR_X_excursion = []
-    FL_X_excursion = []
-    HR_X_excursion = []
-    HL_X_excursion = []
-    st_strides_trials = []
-    sw_strides_trials = []
+    bodyacc_in = []
+    bodycenter_in = []
+    bodyspeed_in = []
+    bodyacc_out = []
+    bodycenter_out = []
+    bodyspeed_out = []
     for count_trial, f in enumerate(filelist):
         [final_tracks, tracks_tail, joints_wrist, joints_elbow, ear, bodycenter_DLC] = loco.read_h5(f, 0.9, int(
             frames_loco[count_trial]))
-        [st_strides_mat, sw_pts_mat] = loco.get_sw_st_matrices(final_tracks, 1)
-        bodycenter_trial = sp.medfilt(loco.compute_bodycenter(final_tracks, 'Y'), 25) #filter for tracking errors
+        bodycenter_trial = sp.medfilt(loco.compute_bodycenter(final_tracks, 'X'), 25) #filter for tracking errors
         bodyspeed_trial = loco.compute_bodyspeed(bodycenter_trial)
         bodyacc_trial = loco.compute_bodyacc(bodycenter_trial)
-        bodyjerk_trial = loco.compute_bodyjerk(bodycenter_trial)
-        final_tracks_trials.append(final_tracks)
-        st_strides_trials.append(st_strides_mat)
-        sw_strides_trials.append(sw_pts_mat)
-        bodyjerk.append(bodyjerk_trial)
-        bodyacc.append(bodyacc_trial)
-        bodycenter.append(bodycenter_trial)
-        bodyspeed.append(bodyspeed_trial)
-        fr_speed.append(loco.compute_bodyspeed(final_tracks[0, 0, :]))
-        fr_acc.append(loco.compute_bodyacc(final_tracks[0, 0, :]))
-        fr_jerk.append(loco.compute_bodyjerk(final_tracks[0, 0, :]))
-        FR_X_excursion.append((final_tracks[0, 0, :]*loco.pixel_to_mm)-(np.nanmean(final_tracks[0, :4, :], axis=0)*loco.pixel_to_mm))
-        HR_X_excursion.append((final_tracks[0, 1, :]*loco.pixel_to_mm)-(np.nanmean(final_tracks[0, :4, :], axis=0)*loco.pixel_to_mm))
-        FL_X_excursion.append((final_tracks[0, 2, :]*loco.pixel_to_mm)-(np.nanmean(final_tracks[0, :4, :], axis=0)*loco.pixel_to_mm))
-        HL_X_excursion.append((final_tracks[0, 3, :]*loco.pixel_to_mm)-(np.nanmean(final_tracks[0, :4, :], axis=0)*loco.pixel_to_mm))
-    final_tracks_phase = loco.final_tracks_phase(final_tracks_trials, trials, st_strides_trials, sw_strides_trials, 'st-sw-st')
-
-    if sta_type == 'pawspeed':
-        ind_vars = {'FR speed': fr_speed, 'FR acceleration': fr_acc, 'FR jerk': fr_jerk}
-        keys = list(ind_vars.keys())
-    if sta_type == 'bodyvars':
-        # Dictionary of all the independent variables on which computing the STA
-        ind_vars = {'Body position': bodycenter, 'Body speed': bodyspeed, 'Body acceleration': bodyacc, 'Body jerk': bodyjerk}
-        keys=list(ind_vars.keys())
-    if sta_type == 'paw_diff':
-        # Get phase and displacement difference
-        displ_diff_diag = mscope.paw_diff(final_tracks_trials, 0, 3)
-        displ_diff_homo = mscope.paw_diff(final_tracks_trials, 0, 1)
-        displ_diff_front = mscope.paw_diff(final_tracks_trials, 0, 2)
-        ind_vars = {'FR-HL': displ_diff_diag, 'FR-HR': displ_diff_homo, 'FR-FL': displ_diff_front}
-        keys=list(ind_vars.keys())
-    if sta_type == 'paws':
-        ind_vars = {'FR': FR_X_excursion, 'FL': FL_X_excursion, 'HR': HR_X_excursion, 'HL': HL_X_excursion}
-        keys=list(ind_vars.keys())
-    if sta_type == 'phase_diff':
-        paw_diff_fr_hl = loco.phase_diff(final_tracks_phase, 'FR', 'HL', 'X')
-        paw_diff_fl_hl = loco.phase_diff(final_tracks_phase, 'FL', 'HL', 'X')
-        paw_diff_hr_hl = loco.phase_diff(final_tracks_phase, 'HR', 'HL', 'X')
-        paw_diff_fl_fr = loco.phase_diff(final_tracks_phase, 'FL', 'FR', 'X')
-        paw_diff_hr_fr = loco.phase_diff(final_tracks_phase, 'HR', 'FR', 'X')
-        paw_diff_hl_fr = loco.phase_diff(final_tracks_phase, 'HL', 'FR', 'X')
-        ind_vars = {'FL-FR-phase': paw_diff_fl_fr, 'HR-FR-phase': paw_diff_hr_fr, 'HL-FR-phase': paw_diff_hl_fr,
-                    'FR-HL-phase': paw_diff_fr_hl, 'FL-HL-phase': paw_diff_fl_hl, 'HR-HL-phase': paw_diff_hr_hl}
-        keys=list(ind_vars.keys())
+        mu, std = norm.fit(bodyspeed_trial) #get mean and std of bodyspeed
+        [bodycenter_trial_in, bodycenter_trial_out] = subset_bodyvars(bodyspeed_trial, std, bodycenter_trial, th)
+        [bodyspeed_trial_in, bodyspeed_trial_out] = subset_bodyvars(bodyspeed_trial, std, bodyspeed_trial, th)
+        [bodyacc_trial_in, bodyacc_trial_out] = subset_bodyvars(bodyspeed_trial, std, bodyacc_trial, th)
+        bodycenter_in.append(bodycenter_trial_in)
+        bodyspeed_in.append(bodyspeed_trial_in)
+        bodyacc_in.append(bodyacc_trial_in)
+        bodycenter_out.append(bodycenter_trial_out)
+        bodyspeed_out.append(bodyspeed_trial_out)
+        bodyacc_out.append(bodyacc_trial_out)
+        
+    # Dictionary of all the independent variables on which computing the STA
+    ind_vars = {'Body position in': bodycenter_in, 'Body speed in': bodyspeed_in, 'Body acceleration in': bodyacc_in,
+                'Body position out': bodycenter_out, 'Body speed out': bodyspeed_out, 'Body acceleration out': bodyacc_out}
+    keys=list(ind_vars.keys())
 
     # Loop through independent variables to compute and plot STAs of each one
     for var in range(len(ind_vars)):
@@ -146,3 +114,16 @@ for s in range(len(session_data)):
             'sta_bodyvars_' + var_name.replace(' ', '_') + '_trials_ses.npy'), trials_ses)
         np.save(os.path.join(save_path, animal + ' ' + ses_info[0],
             'sta_bodyvars_' + var_name.replace(' ', '_') + '_trials_ses_name.npy'), trials_ses_name)
+
+
+
+
+
+
+
+
+
+
+
+
+

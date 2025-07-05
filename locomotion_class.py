@@ -327,6 +327,27 @@ class loco_class:
         return final_tracks_trials_phase
 
     @staticmethod
+    def check_usable_tracks(final_tracks, st_strides_mat):
+        paw_colors = ['#e52c27', '#ad4397', '#3854a4', '#6fccdf']
+        final_tracks_good = np.zeros(np.shape(final_tracks[0, :4, :]))
+        final_tracks_good[:] = np.nan
+        for p in range(4):
+            for i in range(np.shape(st_strides_mat[p])[0]):
+                index_start = np.int64(st_strides_mat[p][i, 0, -1])
+                index_end = np.int64(st_strides_mat[p][i, -1, -1])
+                final_tracks_good[p, index_start:index_end] = final_tracks[0, p, index_start:index_end]
+
+        fig, ax = plt.subplots(figsize=(10, 5), tight_layout=True)
+        for p in range(4):
+            ax.plot(np.arange(len(final_tracks[0, p, :])), final_tracks[0, p, :], color=paw_colors[p], linewidth=2)
+            ax.plot(np.arange(len(final_tracks_good[p, :])), final_tracks_good[p, :], color='black', linewidth=2)
+            ax.spines['right'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            plt.xticks(fontsize=14)
+            plt.yticks(fontsize=14)
+            ax.set_title('In black is the parts used for gait parameters - zoom-in for more info')
+
+    @staticmethod
     def phase_unwrap(data):
         """Uses numpy unwrap to unwrap phases only in continuous portions of the 1-d data array"""
         data_notnan = [data[s] for s in np.ma.clump_unmasked(np.ma.masked_invalid(data))]
